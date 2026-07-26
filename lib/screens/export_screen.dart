@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:provider/provider.dart';
 import 'dart:io';
 import '../theme/app_theme.dart';
 import '../models/transaction.dart';
 import '../services/database_service.dart';
 import '../services/export_service.dart';
+import '../providers/currency_provider.dart';
 
 class ExportScreen extends StatefulWidget {
   const ExportScreen({super.key});
@@ -634,7 +636,8 @@ class _ExportScreenState extends State<ExportScreen> {
       final dateFormat = DateFormat('yyyyMMdd');
 
       if (_exportType == 'csv') {
-        content = ExportService.exportToCsv(_filteredTransactions, _startDate, _endDate);
+        final currency = Provider.of<CurrencyProvider>(context, listen: false).code;
+        content = ExportService.exportToCsv(_filteredTransactions, _startDate, _endDate, currency: currency);
         fileName = 'jitu_export_${dateFormat.format(DateTime.now())}.csv';
       } else {
         content = ExportService.exportToText(_filteredTransactions, _startDate, _endDate);

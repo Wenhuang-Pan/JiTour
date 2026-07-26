@@ -2,28 +2,74 @@ import 'package:hive_flutter/hive_flutter.dart';
 import '../models/transaction.dart';
 import '../models/budget.dart';
 import '../models/category.dart';
+import '../models/account.dart';
+import '../models/tag.dart';
+import '../models/savings_goal.dart';
 import 'category_service.dart';
+import 'account_service.dart';
+import 'tag_service.dart';
+import 'savings_goal_service.dart';
 
 class DatabaseService {
   static const String _transactionBoxName = 'transactions';
   static const String _budgetBoxName = 'budgets';
+  static const String _accountBoxName = 'accounts';
+  static const String _tagBoxName = 'tags';
+  static const String _savingsGoalBoxName = 'savings_goals';
+  static const String _categoryBoxName = 'categories';
   static late Box<Transaction> _transactionBox;
   static late Box<Budget> _budgetBox;
+  static late Box<Account> _accountBox;
+  static late Box<Tag> _tagBox;
+  static late Box<SavingsGoal> _savingsGoalBox;
+  static late Box<Category> _categoryBox;
 
   static Future<void> init() async {
-    Hive.registerAdapter(TransactionAdapter());
-    Hive.registerAdapter(BudgetAdapter());
-    Hive.registerAdapter(CategoryAdapter());
-    
+    if (!Hive.isAdapterRegistered(0)) {
+      Hive.registerAdapter(TransactionAdapter());
+    }
+    if (!Hive.isAdapterRegistered(1)) {
+      Hive.registerAdapter(BudgetAdapter());
+    }
+    if (!Hive.isAdapterRegistered(2)) {
+      Hive.registerAdapter(CategoryAdapter());
+    }
+    if (!Hive.isAdapterRegistered(3)) {
+      Hive.registerAdapter(AccountAdapter());
+    }
+    if (!Hive.isAdapterRegistered(4)) {
+      Hive.registerAdapter(TagAdapter());
+    }
+    if (!Hive.isAdapterRegistered(5)) {
+      Hive.registerAdapter(SavingsGoalAdapter());
+    }
+
     _transactionBox = await Hive.openBox<Transaction>(_transactionBoxName);
     _budgetBox = await Hive.openBox<Budget>(_budgetBoxName);
-    
+    _accountBox = await Hive.openBox<Account>(_accountBoxName);
+    _tagBox = await Hive.openBox<Tag>(_tagBoxName);
+    _savingsGoalBox = await Hive.openBox<SavingsGoal>(_savingsGoalBoxName);
+    _categoryBox = await Hive.openBox<Category>(_categoryBoxName);
+
     // 初始化分类服务
     await CategoryService.init();
+
+    // 初始化账户服务
+    await AccountService.init();
+
+    // 初始化标签服务
+    await TagService.init();
+
+    // 初始化储蓄目标服务
+    await SavingsGoalService.init();
   }
 
   static Box<Transaction> get transactions => _transactionBox;
   static Box<Budget> get budgets => _budgetBox;
+  static Box<Account> get accounts => _accountBox;
+  static Box<Tag> get tags => _tagBox;
+  static Box<SavingsGoal> get savingsGoals => _savingsGoalBox;
+  static Box<Category> get categories => _categoryBox;
 
   static Future<void> addTransaction(Transaction transaction) async {
     await _transactionBox.put(transaction.id, transaction);
@@ -34,7 +80,18 @@ class DatabaseService {
   }
 
   static List<Transaction> getAllTransactions() {
-    return _transactionBox.values.toList()
+    return _transactionBox.values.where((t) => !t.isDeleted).toList()
+      ..sort((a, b) => b.date.compareTo(a.date));
+  }
+
+  static List<Transaction> getTransactionsInRange(
+      DateTime startDate, DateTime endDate) {
+    return _transactionBox.values
+        .where((t) =>
+            !t.isDeleted &&
+            t.date.isAfter(startDate.subtract(const Duration(days: 1))) &&
+            t.date.isBefore(endDate.add(const Duration(days: 1))))
+        .toList()
       ..sort((a, b) => b.date.compareTo(a.date));
   }
 
@@ -57,15 +114,12 @@ class DatabaseService {
   }
 
   static Budget? getBudgetForCategory(String category, int year, int month) {
-    return _budgetBox.values.firstWhere(
-      (b) => b.category == category && b.year == year && b.month == month,
-      orElse: () => Budget(
-        id: '',
-        category: category,
-        amount: 0,
-        year: year,
-        month: month,
-      ),
-    );
+    try {
+      return _budgetBox.values.firstWhere(
+        (b) => b.category == category && b.year == year && b.month == month,
+      );
+    } catch (e) {
+      return null;
+    }
   }
 }

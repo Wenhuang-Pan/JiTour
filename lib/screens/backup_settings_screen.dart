@@ -192,7 +192,7 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
     return Container(
       padding: const EdgeInsets.all(AppTheme.spaceMedium),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.getCardColor(context),
         borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
         boxShadow: AppTheme.cardShadow,
       ),
@@ -203,15 +203,15 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
             height: 48,
             decoration: BoxDecoration(
               color: _autoBackupEnabled 
-                  ? AppTheme.successColor.withOpacity(0.1)
-                  : AppTheme.neutral100,
+                  ? AppTheme.successColor.withOpacity(0.10)
+                  : AppTheme.getSecondaryBackground(context),
               borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
             ),
             child: Icon(
               Icons.schedule_rounded,
               color: _autoBackupEnabled 
                   ? AppTheme.successColor
-                  : AppTheme.neutral400,
+                  : Theme.of(context).colorScheme.onSurfaceVariant,
               size: 24,
             ),
           ),
@@ -232,7 +232,7 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
                       ? '已开启 · ${_getFrequencyText(_backupFrequency)}'
                       : '已关闭',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppTheme.neutral500,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ),
               ],
@@ -283,13 +283,13 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
           padding: const EdgeInsets.all(AppTheme.spaceMedium),
           decoration: BoxDecoration(
             color: isSelected 
-                ? AppTheme.primaryColor.withOpacity(0.1)
-                : Colors.white,
+                ? AppTheme.primaryColor.withOpacity(0.10)
+                : AppTheme.getCardColor(context),
             borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
             border: Border.all(
               color: isSelected 
                   ? AppTheme.primaryColor
-                  : AppTheme.neutral200,
+                  : AppTheme.getDividerColor(context),
               width: isSelected ? 2 : 1,
             ),
           ),
@@ -299,7 +299,7 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
                 isSelected ? Icons.check_circle : Icons.circle_outlined,
                 color: isSelected 
                     ? AppTheme.primaryColor
-                    : AppTheme.neutral400,
+                    : Theme.of(context).colorScheme.onSurfaceVariant,
                 size: 20,
               ),
               const SizedBox(height: AppTheme.spaceXSmall),
@@ -310,7 +310,7 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                   color: isSelected 
                       ? AppTheme.primaryColor
-                      : AppTheme.neutral600,
+                      : Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
             ],
@@ -345,10 +345,10 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
     return Container(
       padding: const EdgeInsets.all(AppTheme.spaceMedium),
       decoration: BoxDecoration(
-        color: AppTheme.successColor.withOpacity(0.1),
+        color: AppTheme.successColor.withOpacity(0.10),
         borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
         border: Border.all(
-          color: AppTheme.successColor.withOpacity(0.3),
+          color: AppTheme.successColor.withOpacity(0.30),
         ),
       ),
       child: Row(
@@ -366,7 +366,7 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
                 Text(
                   '上次备份时间',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppTheme.neutral600,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ),
                 Text(
@@ -399,7 +399,7 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
         const SizedBox(height: AppTheme.spaceSmall),
         Container(
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppTheme.getCardColor(context),
             borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
             boxShadow: AppTheme.cardShadow,
           ),
@@ -410,7 +410,7 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
               final stat = file.statSync();
               
               return ListTile(
-                leading: const Icon(
+                leading: Icon(
                   Icons.file_present_rounded,
                   color: AppTheme.primaryColor,
                 ),
@@ -422,7 +422,7 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
                   '${dateFormat.format(stat.modified)} · ${(stat.size / 1024).toStringAsFixed(1)} KB',
                   style: TextStyle(
                     fontSize: 11,
-                    color: AppTheme.neutral500,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ),
                 trailing: IconButton(
@@ -443,10 +443,10 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
     return Container(
       padding: const EdgeInsets.all(AppTheme.spaceMedium),
       decoration: BoxDecoration(
-        color: AppTheme.warningColor.withOpacity(0.1),
+        color: AppTheme.warningColor.withOpacity(0.10),
         borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
         border: Border.all(
-          color: AppTheme.warningColor.withOpacity(0.3),
+          color: AppTheme.warningColor.withOpacity(0.30),
         ),
       ),
       child: Column(
@@ -470,7 +470,7 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
             ],
           ),
           const SizedBox(height: AppTheme.spaceSmall),
-          const Text(
+          Text(
             '备份文件位置：手机存储/SimpleLedger_Backups/\n\n'
             '推荐做法：\n'
             '1. 安装 Google Drive、OneDrive 或 Dropbox\n'
@@ -479,7 +479,7 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
             '4. 数据将自动同步到云端，安全可靠',
             style: TextStyle(
               fontSize: 13,
-              color: AppTheme.neutral700,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
         ],

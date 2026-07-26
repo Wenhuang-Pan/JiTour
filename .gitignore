@@ -11,6 +11,14 @@
 .svn/
 .swiftpm/
 migrate_working_dir/
+analyze_log.txt
+analyze_output.txt
+build_err.txt
+build_log.txt
+build_output.txt
+build_runner_err.txt
+build_runner_log.txt
+debug-terminal-command-failure.md
 
 # IntelliJ related
 *.iml
@@ -18,10 +26,8 @@ migrate_working_dir/
 *.iws
 .idea/
 
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
-#.vscode/
+# VS Code
+.vscode/
 
 # Flutter/Dart/Pub related
 **/doc/api/
@@ -43,3 +49,8 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Hive database
+/hive/
+*.hive
+*.lock

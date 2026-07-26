@@ -1,26 +1,15 @@
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:uuid/uuid.dart';
 import '../models/category.dart';
-import '../models/transaction.dart';
 import 'database_service.dart';
 
 class CategoryService {
   static const _uuid = Uuid();
-  static const String _boxName = 'categories';
 
-  static Box<Category> get _box => Hive.box<Category>(_boxName);
+  static Box<Category> get _box => DatabaseService.categories;
 
   // 初始化分类服务
   static Future<void> init() async {
-    try {
-      if (!Hive.isBoxOpen(_boxName)) {
-        await Hive.openBox<Category>(_boxName);
-      }
-    } catch (e) {
-      // 如果box不存在，创建它
-      await Hive.openBox<Category>(_boxName);
-    }
-    
     // 如果是第一次使用，创建默认分类
     if (_box.isEmpty) {
       await _createDefaultCategories();
@@ -65,12 +54,13 @@ class CategoryService {
 
     // 创建收入分类
     for (final name in defaultIncomeCategories) {
+      final id = _uuid.v4();
       await _box.put(
-        _uuid.v4(),
+        id,
         Category.createIncome(
-          id: _uuid.v4(),
+          id: id,
           name: name,
-          iconName: name, // 使用分类名称作为图标标识
+          iconName: name,
           color: '#10B981',
         ),
       );
@@ -83,54 +73,55 @@ class CategoryService {
       switch (name) {
         case '餐饮':
         case '外卖':
-          color = '#F59E0B'; // 橙色 - 餐饮
+          color = '#F59E0B';
           break;
         case '交通':
         case '加油':
-          color = '#3B82F6'; // 蓝色 - 交通
+          color = '#3B82F6';
           break;
         case '购物':
         case '日用品':
-          color = '#8B5CF6'; // 紫色 - 购物
+          color = '#8B5CF6';
           break;
         case '娱乐':
         case '游戏':
-          color = '#EC4899'; // 粉色 - 娱乐
+          color = '#EC4899';
           break;
         case '住房':
         case '水电':
-          color = '#78350F'; // 棕色 - 住房
+          color = '#78350F';
           break;
         case '医疗':
         case '药品':
-          color = '#EF4444'; // 红色 - 医疗
+          color = '#EF4444';
           break;
         case '教育':
-          color = '#3B82F6'; // 蓝色 - 教育
+          color = '#3B82F6';
           break;
         case '通讯':
-          color = '#06B6D4'; // 青色 - 通讯
+          color = '#06B6D4';
           break;
         case '旅行':
         case '停车':
         case '打车':
-          color = '#14B8A6'; // 深青色 - 旅行
+          color = '#14B8A6';
           break;
         case '洗衣':
         case '健身':
         case '美容':
-          color = '#10B981'; // 绿色 - 生活
+          color = '#10B981';
           break;
         default:
-          color = '#6B7280'; // 灰色 - 其他
+          color = '#6B7280';
       }
 
+      final id = _uuid.v4();
       await _box.put(
-        _uuid.v4(),
+        id,
         Category.createExpense(
-          id: _uuid.v4(),
+          id: id,
           name: name,
-          iconName: name, // 使用分类名称作为图标标识
+          iconName: name,
           color: color,
         ),
       );
@@ -162,9 +153,10 @@ class CategoryService {
   static Category? getCategoryByName(String name, bool isIncome) {
     try {
       return _box.values.firstWhere(
-        (category) => category.name == name && 
-                      category.isIncome == isIncome && 
-                      !category.isDeleted,
+        (category) =>
+            category.name == name &&
+            category.isIncome == isIncome &&
+            !category.isDeleted,
       );
     } catch (e) {
       return null;
@@ -206,9 +198,7 @@ class CategoryService {
 
   // 获取已删除的分类
   static List<Category> getDeletedCategories() {
-    return _box.values
-        .where((category) => category.isDeleted)
-        .toList()
+    return _box.values.where((category) => category.isDeleted).toList()
       ..sort((a, b) => (b.deletedAt ?? DateTime.now())
           .compareTo(a.deletedAt ?? DateTime.now()));
   }
@@ -220,35 +210,38 @@ class CategoryService {
 
   // 获取分类使用次数
   static int getCategoryUsageCount(String categoryId) {
+    final category = _box.get(categoryId);
+    if (category == null) return 0;
     return DatabaseService.transactions.values
-        .where((transaction) => 
-            transaction.category == categoryId && 
-            !transaction.isDeleted)
+        .where((transaction) =>
+            transaction.category == category.name && !transaction.isDeleted)
         .length;
   }
 
   // 检查分类名称是否已存在
-  static bool isCategoryNameExists(String name, bool isIncome, {String? excludeId}) {
+  static bool isCategoryNameExists(String name, bool isIncome,
+      {String? excludeId}) {
     return _box.values.any((category) =>
         category.name == name &&
         category.isIncome == isIncome &&
         !category.isDeleted &&
-        (excludeId == null || category.id != excludeId)
-    );
+        (excludeId == null || category.id != excludeId));
   }
 
   // 获取热门分类（使用次数最多的）
   static List<Category> getPopularCategories({int limit = 5, bool? isIncome}) {
     final categories = isIncome == null
         ? _box.values.where((c) => !c.isDeleted).toList()
-        : _box.values.where((c) => c.isIncome == isIncome && !c.isDeleted).toList();
+        : _box.values
+            .where((c) => c.isIncome == isIncome && !c.isDeleted)
+            .toList();
 
     final categoryUsage = <String, int>{};
     for (final category in categories) {
       categoryUsage[category.id] = getCategoryUsageCount(category.id);
     }
 
-    categories.sort((a, b) => 
+    categories.sort((a, b) =>
         (categoryUsage[b.id] ?? 0).compareTo(categoryUsage[a.id] ?? 0));
 
     return categories.take(limit).toList();
@@ -282,7 +275,7 @@ class CategoryService {
   static Map<String, dynamic> getCategoryStatistics() {
     final incomeCategories = getIncomeCategories();
     final expenseCategories = getExpenseCategories();
-    
+
     return {
       'totalIncomeCategories': incomeCategories.length,
       'totalExpenseCategories': expenseCategories.length,

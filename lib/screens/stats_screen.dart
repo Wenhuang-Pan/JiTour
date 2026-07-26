@@ -1,60 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:intl/intl.dart';
 import '../theme/app_theme.dart';
 import '../models/transaction.dart';
+import '../models/account.dart';
 import '../services/database_service.dart';
+import '../services/account_service.dart';
+import '../services/tag_service.dart';
+import '../services/stats_service.dart';
 import '../utils/icon_library.dart';
-import '../services/category_service.dart';
 
 class StatsScreen extends StatelessWidget {
   const StatsScreen({super.key});
-
-  List<Transaction> _getMonthTransactions(List<Transaction> allTransactions) {
-    final now = DateTime.now();
-    final startOfMonth = DateTime(now.year, now.month, 1);
-    return allTransactions.where((t) => t.date.isAfter(startOfMonth)).toList();
-  }
-
-  double _calculateTotal(List<Transaction> transactions, bool isIncome) {
-    return transactions
-        .where((t) => t.isIncome == isIncome)
-        .fold(0.0, (sum, t) => sum + t.amount);
-  }
-
-  Map<String, double> _calculateCategoryStats(List<Transaction> transactions, bool isIncome) {
-    final filtered = transactions.where((t) => t.isIncome == isIncome).toList();
-    final stats = <String, double>{};
-    for (final t in filtered) {
-      stats[t.category] = (stats[t.category] ?? 0) + t.amount;
-    }
-    return stats;
-  }
-
-  Map<String, Map<String, double>> _calculateTrendData(List<Transaction> allTransactions) {
-    final trend = <String, Map<String, double>>{};
-    final now = DateTime.now();
-
-    for (int i = 5; i >= 0; i--) {
-      final month = DateTime(now.year, now.month - i, 1);
-      final monthKey = DateFormat('yyyy-MM').format(month);
-
-      final monthTransactions = allTransactions.where((t) =>
-          t.date.year == month.year && t.date.month == month.month).toList();
-
-      trend[monthKey] = {
-        'income': monthTransactions
-            .where((t) => t.isIncome)
-            .fold(0.0, (sum, t) => sum + t.amount),
-        'expense': monthTransactions
-            .where((t) => !t.isIncome)
-            .fold(0.0, (sum, t) => sum + t.amount),
-      };
-    }
-
-    return trend;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -68,13 +25,18 @@ class StatsScreen extends StatelessWidget {
         builder: (context, Box<Transaction> box, _) {
           final allTransactions = box.values.toList()
             ..sort((a, b) => a.date.compareTo(b.date));
-          final monthTransactions = _getMonthTransactions(allTransactions);
-          final totalIncome = _calculateTotal(monthTransactions, true);
-          final totalExpense = _calculateTotal(monthTransactions, false);
+          final monthTransactions =
+              StatsService.getMonthTransactions(allTransactions);
+          final totalIncome =
+              StatsService.calculateTotal(monthTransactions, true);
+          final totalExpense =
+              StatsService.calculateTotal(monthTransactions, false);
           final balance = totalIncome - totalExpense;
-          final expenseStats = _calculateCategoryStats(monthTransactions, false);
-          final incomeStats = _calculateCategoryStats(monthTransactions, true);
-          final trendData = _calculateTrendData(allTransactions);
+          final expenseStats =
+              StatsService.calculateCategoryStats(monthTransactions, false);
+          final incomeStats =
+              StatsService.calculateCategoryStats(monthTransactions, true);
+          final trendData = StatsService.calculateTrendData(allTransactions);
 
           if (allTransactions.isEmpty) {
             return Center(
@@ -98,9 +60,10 @@ class StatsScreen extends StatelessWidget {
                     const SizedBox(height: AppTheme.spaceLarge),
                     Text(
                       '暂无统计数据',
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                            color: AppTheme.neutral700,
-                          ),
+                      style:
+                          Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                color: AppTheme.neutral700,
+                              ),
                     ),
                     const SizedBox(height: AppTheme.spaceSmall),
                     Text(
@@ -132,6 +95,10 @@ class StatsScreen extends StatelessWidget {
                   const SizedBox(height: AppTheme.spaceXLarge),
                 ],
 
+                // 账户分布
+                _buildAccountDistribution(context),
+                const SizedBox(height: AppTheme.spaceXLarge),
+
                 // 支出分类
                 if (expenseStats.isNotEmpty) ...[
                   _buildSectionTitle(context, '支出分类', '本月支出构成'),
@@ -143,7 +110,8 @@ class StatsScreen extends StatelessWidget {
                     AppTheme.errorColor,
                   ),
                   const SizedBox(height: AppTheme.spaceLarge),
-                  _buildCategoryList(context, expenseStats, AppTheme.errorColor),
+                  _buildCategoryList(
+                      context, expenseStats, AppTheme.errorColor),
                   const SizedBox(height: AppTheme.spaceXLarge),
                 ],
 
@@ -158,9 +126,14 @@ class StatsScreen extends StatelessWidget {
                     AppTheme.successColor,
                   ),
                   const SizedBox(height: AppTheme.spaceLarge),
-                  _buildCategoryList(context, incomeStats, AppTheme.successColor),
+                  _buildCategoryList(
+                      context, incomeStats, AppTheme.successColor),
                   const SizedBox(height: AppTheme.spaceXLarge),
                 ],
+
+                // 标签统计
+                _buildTagStats(context, monthTransactions),
+                const SizedBox(height: AppTheme.spaceXLarge),
 
                 const SizedBox(height: AppTheme.spaceXXXLarge),
               ],
@@ -171,7 +144,8 @@ class StatsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildKpiSection(BuildContext context, double income, double expense, double balance) {
+  Widget _buildKpiSection(
+      BuildContext context, double income, double expense, double balance) {
     return Container(
       padding: const EdgeInsets.all(AppTheme.spaceLarge),
       decoration: BoxDecoration(
@@ -300,7 +274,8 @@ class StatsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSectionTitle(BuildContext context, String title, String subtitle) {
+  Widget _buildSectionTitle(
+      BuildContext context, String title, String subtitle) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -321,11 +296,12 @@ class StatsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildTrendChart(BuildContext context, Map<String, Map<String, double>> trendData) {
+  Widget _buildTrendChart(
+      BuildContext context, Map<String, Map<String, double>> trendData) {
     return Container(
       padding: const EdgeInsets.all(AppTheme.spaceMedium),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.getCardColor(context),
         borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
         boxShadow: AppTheme.cardShadow,
       ),
@@ -338,10 +314,10 @@ class StatsScreen extends StatelessWidget {
                 gridData: FlGridData(
                   show: true,
                   drawVerticalLine: false,
-                  horizontalInterval: _calculateMaxY(trendData) / 4,
+                  horizontalInterval: StatsService.calculateMaxY(trendData) / 4,
                   getDrawingHorizontalLine: (value) {
                     return FlLine(
-                      color: AppTheme.neutral200,
+                      color: AppTheme.getDividerColor(context),
                       strokeWidth: 1,
                     );
                   },
@@ -353,7 +329,7 @@ class StatsScreen extends StatelessWidget {
                       reservedSize: 48,
                       getTitlesWidget: (value, meta) {
                         return Text(
-                          _formatAxisValue(value),
+                          StatsService.formatAxisValue(value),
                           style: TextStyle(
                             fontSize: 10,
                             color: AppTheme.neutral500,
@@ -374,7 +350,7 @@ class StatsScreen extends StatelessWidget {
                             padding: const EdgeInsets.only(top: 8),
                             child: Text(
                               '${month}月',
-                              style: TextStyle(
+                              style: const TextStyle(
                                 fontSize: 10,
                                 color: AppTheme.neutral500,
                               ),
@@ -385,13 +361,15 @@ class StatsScreen extends StatelessWidget {
                       },
                     ),
                   ),
-                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  rightTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false)),
+                  topTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false)),
                 ),
                 borderData: FlBorderData(show: false),
                 lineBarsData: [
-                  _buildIncomeLine(trendData),
-                  _buildExpenseLine(trendData),
+                  _buildIncomeLine(trendData, context),
+                  _buildExpenseLine(trendData, context),
                 ],
                 lineTouchData: LineTouchData(
                   touchTooltipData: LineTouchTooltipData(
@@ -401,7 +379,9 @@ class StatsScreen extends StatelessWidget {
                         return LineTooltipItem(
                           '${isIncome ? "收入" : "支出"}: ¥${spot.y.toStringAsFixed(0)}',
                           TextStyle(
-                            color: isIncome ? AppTheme.successColor : AppTheme.errorColor,
+                            color: isIncome
+                                ? AppTheme.successColor
+                                : AppTheme.errorColor,
                             fontWeight: FontWeight.w600,
                             fontSize: 12,
                           ),
@@ -427,24 +407,8 @@ class StatsScreen extends StatelessWidget {
     );
   }
 
-  double _calculateMaxY(Map<String, Map<String, double>> trendData) {
-    double maxValue = 0;
-    for (final data in trendData.values) {
-      for (final value in data.values) {
-        if (value > maxValue) maxValue = value;
-      }
-    }
-    return maxValue > 0 ? maxValue * 1.2 : 1000;
-  }
-
-  String _formatAxisValue(double value) {
-    if (value >= 1000) {
-      return '¥${(value / 1000).toStringAsFixed(0)}k';
-    }
-    return '¥${value.toStringAsFixed(0)}';
-  }
-
-  LineChartBarData _buildIncomeLine(Map<String, Map<String, double>> trendData) {
+  LineChartBarData _buildIncomeLine(
+      Map<String, Map<String, double>> trendData, BuildContext context) {
     return LineChartBarData(
       spots: trendData.entries.toList().asMap().entries.map((e) {
         return FlSpot(e.key.toDouble(), e.value.value['income'] ?? 0);
@@ -460,7 +424,7 @@ class StatsScreen extends StatelessWidget {
             radius: 4,
             color: AppTheme.successColor,
             strokeWidth: 2,
-            strokeColor: Colors.white,
+            strokeColor: AppTheme.getCardColor(context),
           );
         },
       ),
@@ -478,7 +442,8 @@ class StatsScreen extends StatelessWidget {
     );
   }
 
-  LineChartBarData _buildExpenseLine(Map<String, Map<String, double>> trendData) {
+  LineChartBarData _buildExpenseLine(
+      Map<String, Map<String, double>> trendData, BuildContext context) {
     return LineChartBarData(
       spots: trendData.entries.toList().asMap().entries.map((e) {
         return FlSpot(e.key.toDouble(), e.value.value['expense'] ?? 0);
@@ -494,7 +459,7 @@ class StatsScreen extends StatelessWidget {
             radius: 4,
             color: AppTheme.warningColor,
             strokeWidth: 2,
-            strokeColor: Colors.white,
+            strokeColor: AppTheme.getCardColor(context),
           );
         },
       ),
@@ -521,12 +486,12 @@ class StatsScreen extends StatelessWidget {
     final sortedEntries = categoryStats.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
 
-    final colors = _getCategoryColors(sortedEntries.length);
+    final colors = StatsService.getCategoryColors(sortedEntries.length);
 
     return Container(
       padding: const EdgeInsets.all(AppTheme.spaceLarge),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.getCardColor(context),
         borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
         boxShadow: AppTheme.cardShadow,
       ),
@@ -543,7 +508,6 @@ class StatsScreen extends StatelessWidget {
                     sections: sortedEntries.asMap().entries.map((entry) {
                       final index = entry.key;
                       final data = entry.value;
-                      final percentage = (data.value / total) * 100;
                       return PieChartSectionData(
                         value: data.value,
                         color: colors[index],
@@ -559,7 +523,7 @@ class StatsScreen extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      '¥${_formatAmount(total)}',
+                      '¥${StatsService.formatAmount(total)}',
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.w700,
                             color: primaryColor,
@@ -580,7 +544,8 @@ class StatsScreen extends StatelessWidget {
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: sortedEntries.take(5).toList().asMap().entries.map((entry) {
+              children:
+                  sortedEntries.take(5).toList().asMap().entries.map((entry) {
                 final index = entry.key;
                 final data = entry.value;
                 final percentage = (data.value / total) * 100;
@@ -600,9 +565,10 @@ class StatsScreen extends StatelessWidget {
                       Expanded(
                         child: Text(
                           data.key,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                fontWeight: FontWeight.w500,
-                              ),
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    fontWeight: FontWeight.w500,
+                                  ),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -623,34 +589,16 @@ class StatsScreen extends StatelessWidget {
     );
   }
 
-  List<Color> _getCategoryColors(int count) {
-    final baseColors = [
-      AppTheme.primaryColor,
-      AppTheme.successColor,
-      AppTheme.warningColor,
-      AppTheme.errorColor,
-      AppTheme.primaryLight,
-      AppTheme.neutral600,
-    ];
-    return List.generate(count, (index) => baseColors[index % baseColors.length]);
-  }
-
-  String _formatAmount(double amount) {
-    if (amount >= 10000) {
-      return '${(amount / 10000).toStringAsFixed(1)}万';
-    }
-    return amount.toStringAsFixed(0);
-  }
-
-  Widget _buildCategoryList(BuildContext context, Map<String, double> categoryStats, Color primaryColor) {
+  Widget _buildCategoryList(BuildContext context,
+      Map<String, double> categoryStats, Color primaryColor) {
     final sortedEntries = categoryStats.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
     final total = categoryStats.values.fold(0.0, (sum, val) => sum + val);
-    final colors = _getCategoryColors(sortedEntries.length);
+    final colors = StatsService.getCategoryColors(sortedEntries.length);
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.getCardColor(context),
         borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
         boxShadow: AppTheme.cardShadow,
       ),
@@ -668,7 +616,7 @@ class StatsScreen extends StatelessWidget {
                   ? null
                   : Border(
                       bottom: BorderSide(
-                        color: AppTheme.neutral200,
+                        color: AppTheme.getDividerColor(context),
                         width: 1,
                       ),
                     ),
@@ -679,7 +627,7 @@ class StatsScreen extends StatelessWidget {
                   width: 36,
                   height: 36,
                   decoration: BoxDecoration(
-                    color: colors[index].withOpacity(0.1),
+                    color: colors[index].withOpacity(0.12),
                     borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                   ),
                   child: Center(
@@ -698,7 +646,7 @@ class StatsScreen extends StatelessWidget {
                       Text(
                         data.key,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.w500,
+                              fontWeight: FontWeight.w600,
                             ),
                       ),
                       const SizedBox(height: 4),
@@ -706,8 +654,10 @@ class StatsScreen extends StatelessWidget {
                         borderRadius: BorderRadius.circular(2),
                         child: LinearProgressIndicator(
                           value: percentage / 100,
-                          backgroundColor: AppTheme.neutral200,
-                          valueColor: AlwaysStoppedAnimation<Color>(colors[index]),
+                          backgroundColor:
+                              AppTheme.getSecondaryBackground(context),
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(colors[index]),
                           minHeight: 4,
                         ),
                       ),
@@ -756,10 +706,288 @@ class StatsScreen extends StatelessWidget {
         const SizedBox(width: 6),
         Text(
           label,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: 12,
             color: AppTheme.neutral600,
             fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // 账户分布饼图
+  Widget _buildAccountDistribution(BuildContext context) {
+    final accounts = AccountService.getActiveAccounts();
+    if (accounts.isEmpty) return const SizedBox.shrink();
+
+    // 按账户余额排序
+    final sortedAccounts = accounts.toList()
+      ..sort((a, b) => b.currentBalance.compareTo(a.currentBalance));
+
+    final totalBalance = AccountService.getTotalBalance();
+    if (totalBalance <= 0) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle(context, '账户分布', '各账户资产占比'),
+        const SizedBox(height: AppTheme.spaceMedium),
+        Container(
+          padding: const EdgeInsets.all(AppTheme.spaceLarge),
+          decoration: BoxDecoration(
+            color: AppTheme.getCardColor(context),
+            borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+            boxShadow: AppTheme.cardShadow,
+          ),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 120,
+                height: 120,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    PieChart(
+                      PieChartData(
+                        sections: sortedAccounts.asMap().entries.map((entry) {
+                          final account = entry.value;
+                          return PieChartSectionData(
+                            value: account.currentBalance,
+                            color: Color(account.colorValue),
+                            radius: 20,
+                            showTitle: false,
+                          );
+                        }).toList(),
+                        centerSpaceRadius: 36,
+                        sectionsSpace: 2,
+                      ),
+                    ),
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '¥${StatsService.formatAmount(totalBalance)}',
+                          style:
+                              Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                        ),
+                        Text(
+                          '总资产',
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: AppTheme.neutral500,
+                                  ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppTheme.spaceLarge),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: sortedAccounts.take(5).map((account) {
+                    final percentage =
+                        (account.currentBalance / totalBalance) * 100;
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 12,
+                            height: 12,
+                            decoration: BoxDecoration(
+                              color: Color(account.colorValue),
+                              borderRadius: BorderRadius.circular(3),
+                            ),
+                          ),
+                          const SizedBox(width: AppTheme.spaceSmall),
+                          Icon(
+                            IconLibrary.getIconByName(account.iconName),
+                            size: 14,
+                            color: Color(account.colorValue),
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              account.name,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          Text(
+                            '${percentage.toStringAsFixed(0)}%',
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: AppTheme.neutral500,
+                                    ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // 标签统计
+  Widget _buildTagStats(BuildContext context, List<Transaction> transactions) {
+    if (transactions.isEmpty) return const SizedBox.shrink();
+
+    // 统计各标签的交易金额
+    final tagStats = <String, double>{};
+    final tagCounts = <String, int>{};
+
+    for (final t in transactions) {
+      final tagIds = t.tagIds;
+      for (final tagId in tagIds) {
+        tagStats[tagId] = (tagStats[tagId] ?? 0) + t.amount;
+        tagCounts[tagId] = (tagCounts[tagId] ?? 0) + 1;
+      }
+    }
+
+    if (tagStats.isEmpty) return const SizedBox.shrink();
+
+    // 转换为标签名称并排序
+    final sortedTagStats = tagStats.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    final totalAmount = tagStats.values.fold(0.0, (sum, val) => sum + val);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle(context, '标签统计', '交易标签分布'),
+        const SizedBox(height: AppTheme.spaceMedium),
+        Container(
+          padding: const EdgeInsets.all(AppTheme.spaceLarge),
+          decoration: BoxDecoration(
+            color: AppTheme.getCardColor(context),
+            borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+            boxShadow: AppTheme.cardShadow,
+          ),
+          child: Column(
+            children:
+                sortedTagStats.take(6).toList().asMap().entries.map((entry) {
+              final index = entry.key;
+              final tagId = entry.value.key;
+              final amount = entry.value.value;
+              final count = tagCounts[tagId] ?? 0;
+              final tag = TagService.getTagById(tagId);
+              final percentage = (amount / totalAmount) * 100;
+              final isLast = index == sortedTagStats.take(6).length - 1;
+
+              if (tag == null) return const SizedBox.shrink();
+
+              return Container(
+                padding:
+                    const EdgeInsets.symmetric(vertical: AppTheme.spaceSmall),
+                decoration: BoxDecoration(
+                  border: isLast
+                      ? null
+                      : Border(
+                          bottom: BorderSide(
+                            color: AppTheme.neutral100,
+                            width: 1,
+                          ),
+                        ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: Color(tag.colorValue).withOpacity(0.1),
+                        borderRadius:
+                            BorderRadius.circular(AppTheme.radiusSmall),
+                      ),
+                      child: Icon(
+                        IconLibrary.getIconByName(tag.iconName),
+                        size: 18,
+                        color: Color(tag.colorValue),
+                      ),
+                    ),
+                    const SizedBox(width: AppTheme.spaceMedium),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                tag.name,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodyMedium
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${count}笔',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(
+                                      color: AppTheme.neutral500,
+                                    ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(2),
+                            child: LinearProgressIndicator(
+                              value: percentage / 100,
+                              backgroundColor: AppTheme.neutral200,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Color(tag.colorValue),
+                              ),
+                              minHeight: 4,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: AppTheme.spaceMedium),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          '¥${amount.toStringAsFixed(2)}',
+                          style:
+                              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                        ),
+                        Text(
+                          '${percentage.toStringAsFixed(1)}%',
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: AppTheme.neutral500,
+                                  ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
           ),
         ),
       ],

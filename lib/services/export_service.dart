@@ -2,27 +2,31 @@ import 'package:intl/intl.dart';
 import '../models/transaction.dart';
 
 class ExportService {
-  static String exportToCsv(List<Transaction> transactions, DateTime startDate, DateTime endDate) {
+  static String exportToCsv(
+    List<Transaction> transactions, 
+    DateTime startDate, 
+    DateTime endDate, {
+    String currency = 'CNY',
+  }) {
     final buffer = StringBuffer();
     
-    // CSV表头
-    buffer.writeln('日期,时间,类型,分类,账户,金额,备注');
+    buffer.writeln('时间,分类,二级分类,类型,金额,币种,账户1,账户2,备注,已报销,手续费,优惠券');
     
-    // 格式化器
-    final dateFormat = DateFormat('yyyy-MM-dd');
-    final timeFormat = DateFormat('HH:mm');
+    final dateFormat = DateFormat('yyyy/M/d HH:mm');
     
-    // 添加数据行
     for (var transaction in transactions) {
-      final date = dateFormat.format(transaction.date);
-      final time = timeFormat.format(transaction.date);
+      final dateTime = dateFormat.format(transaction.date);
       final type = transaction.isIncome ? '收入' : '支出';
-      final category = transaction.category;
-      final account = transaction.account;
       final amount = transaction.amount.toStringAsFixed(2);
       final note = _escapeCsvField(transaction.note ?? '');
+      final subCategory = transaction.subCategory ?? '';
+      final transCurrency = transaction.currency ?? currency;
+      final account2 = transaction.account2 ?? '';
+      final isReimbursed = transaction.isReimbursed ? '是' : '否';
+      final fee = transaction.fee.toStringAsFixed(2);
+      final coupon = transaction.coupon.toStringAsFixed(2);
       
-      buffer.writeln('$date,$time,$type,$category,$account,$amount,$note');
+      buffer.writeln('$dateTime,${transaction.category},$subCategory,$type,$amount,$transCurrency,${transaction.account},$account2,$note,$isReimbursed,$fee,$coupon');
     }
     
     return buffer.toString();

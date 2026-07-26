@@ -1,12 +1,25 @@
 import 'package:flutter/material.dart';
-import 'package:uuid/uuid.dart';
 import 'package:intl/intl.dart';
 import '../theme/app_theme.dart';
 import '../models/transaction.dart';
 import '../models/category.dart';
+import '../models/account.dart';
+import '../models/tag.dart';
 import '../services/database_service.dart';
 import '../services/category_service.dart';
+import '../services/account_service.dart';
+import '../services/tag_service.dart';
 import '../utils/icon_library.dart';
+import '../utils/uuid_util.dart';
+import '../widgets/numpad.dart';
+
+/// 快捷日期选项数据类
+class QuickDateOption {
+  final String label;
+  final DateTime date;
+
+  const QuickDateOption(this.label, this.date);
+}
 
 class AddTransactionScreen extends StatefulWidget {
   const AddTransactionScreen({super.key});
@@ -18,15 +31,39 @@ class AddTransactionScreen extends StatefulWidget {
 class _AddTransactionScreenState extends State<AddTransactionScreen> {
   final _formKey = GlobalKey<FormState>();
   final _noteController = TextEditingController();
-  final _uuid = const Uuid();
 
-  bool _isIncome = false;
+  int _currentTab = 0;
   Category? _selectedCategory;
-  String _selectedAccount = '现金';
-  String _amountText = '0.00';
+  Account? _selectedAccount;
+  List<Tag> _selectedTags = [];
+  String _amountText = '0.0';
   DateTime _selectedDate = DateTime.now();
+  bool _isReimbursed = false;
+  double _couponAmount = 0.0;
+  double _feeAmount = 0.0;
 
-  final List<String> _accounts = ['现金', '银行卡', '支付宝', '微信'];
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final accounts = AccountService.getActiveAccounts();
+      if (accounts.isNotEmpty) {
+        setState(() {
+          _selectedAccount = accounts.first;
+        });
+      }
+      _updateDefaultCategory();
+    });
+  }
+
+  void _updateDefaultCategory() {
+    final categories = _currentTab == 0
+        ? CategoryService.getExpenseCategories()
+        : CategoryService.getIncomeCategories();
+    setState(() {
+      _selectedCategory = categories.firstOrNull;
+    });
+  }
 
   @override
   void dispose() {
@@ -37,341 +74,543 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('记一笔'),
-        elevation: 0,
-      ),
+      appBar: _buildAppBar(),
       body: Column(
         children: [
           Expanded(
-            child: Form(
-              key: _formKey,
-              child: ListView(
-                padding: const EdgeInsets.all(AppTheme.spaceLarge),
-                children: [
-                  _buildTypeSelector(),
-                  const SizedBox(height: AppTheme.spaceXLarge),
-                  _buildAmountDisplay(),
-                  const SizedBox(height: AppTheme.spaceXLarge),
-                  _buildDateSelector(),
-                  const SizedBox(height: AppTheme.spaceLarge),
-                  _buildCategorySelector(),
-                  const SizedBox(height: AppTheme.spaceLarge),
-                  _buildAccountSelector(),
-                  const SizedBox(height: AppTheme.spaceLarge),
-                  _buildNoteField(),
-                ],
-              ),
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                _buildAmountSection(),
+                _buildCategoryGrid(),
+              ],
             ),
           ),
-          _buildNumberPad(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTypeSelector() {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppTheme.neutral100,
-        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: _buildTypeButton(
-              label: '支出',
-              isSelected: !_isIncome,
-              color: AppTheme.errorColor,
-              onTap: () {
-                setState(() {
-                  _isIncome = false;
-                  _selectedCategory = CategoryService.getExpenseCategories().firstOrNull;
-                });
-              },
-            ),
-          ),
-          Expanded(
-            child: _buildTypeButton(
-              label: '收入',
-              isSelected: _isIncome,
-              color: AppTheme.successColor,
-              onTap: () {
-                setState(() {
-                  _isIncome = true;
-                  _selectedCategory = CategoryService.getIncomeCategories().firstOrNull;
-                });
-              },
-            ),
+          Numpad(
+            onNumberPressed: _onNumberPressed,
+            onDeletePressed: _onDeletePressed,
+            onSavePressed: _saveTransaction,
+            onSaveAndAddPressed: _saveAndAddTransaction,
+            canSave: _canSave,
+            noteController: _noteController,
+            selectedAccountName: _selectedAccount?.name,
+            onAccountTap: _showAccountPicker,
+            onDateTap: _selectDate,
+            timeText: _formatDateTimeText(_selectedDate),
+            onReimbursedTap: () =>
+                setState(() => _isReimbursed = !_isReimbursed),
+            isReimbursed: _isReimbursed,
+            onCouponTap: _showCouponDialog,
+            couponText: _couponAmount > 0
+                ? '-¥${_couponAmount.toStringAsFixed(0)}'
+                : null,
+            onTagTap: _showTagPicker,
+            tagText:
+                _selectedTags.isNotEmpty ? '${_selectedTags.length}个' : null,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildTypeButton({
-    required String label,
-    required bool isSelected,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(vertical: AppTheme.spaceMedium),
-        decoration: BoxDecoration(
-          color: isSelected ? color : Colors.transparent,
-          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+  PreferredSizeWidget _buildAppBar() {
+    return AppBar(
+      leading: IconButton(
+        icon: const Icon(Icons.close_rounded),
+        onPressed: () => Navigator.pop(context),
+      ),
+      title: const SizedBox.shrink(),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.add_circle_rounded),
+          onPressed: () {},
+          tooltip: '更多',
         ),
-        child: Text(
-          label,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: isSelected ? Colors.white : AppTheme.neutral600,
-          ),
-        ),
-      ),
+      ],
+      elevation: 0,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      surfaceTintColor: Colors.transparent,
     );
   }
 
-  Widget _buildAmountDisplay() {
+  Widget _buildAmountSection() {
+    final isIncome = _currentTab == 1;
+    final isTransfer = _currentTab == 2;
+    final color = isIncome
+        ? AppTheme.successColor
+        : (isTransfer
+            ? AppTheme.getPrimaryColor(context)
+            : AppTheme.errorColor);
+
     return Container(
-      padding: const EdgeInsets.all(AppTheme.spaceXLarge),
-      decoration: BoxDecoration(
-        gradient: _isIncome ? AppTheme.successGradient : AppTheme.warningGradient,
-        borderRadius: BorderRadius.circular(AppTheme.radiusXLarge),
-        boxShadow: [
-          BoxShadow(
-            color: (_isIncome ? AppTheme.successColor : AppTheme.warningColor).withOpacity(0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceMedium),
       child: Column(
         children: [
           Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(AppTheme.spaceSmall),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
-                ),
-                child: Icon(
-                  _isIncome ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
-                  color: Colors.white,
-                  size: 20,
+              _buildTabButton('支出', 0),
+              _buildTabButton('收入', 1),
+              _buildTabButton('转账', 2),
+            ],
+          ),
+          const SizedBox(height: AppTheme.spaceMedium),
+          Row(
+            children: [
+              Text(
+                '¥',
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w500,
+                  color: color,
                 ),
               ),
-              const SizedBox(width: AppTheme.spaceMedium),
+              const SizedBox(width: 8),
               Text(
-                _isIncome ? '收入金额' : '支出金额',
-                style: const TextStyle(
-                  fontSize: 16,
-                  color: Colors.white70,
-                  fontWeight: FontWeight.w500,
+                _amountText,
+                style: TextStyle(
+                  fontSize: 48,
+                  fontWeight: FontWeight.w700,
+                  color: color,
+                  letterSpacing: -2,
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: AppTheme.spaceLarge),
-          Text(
-            '¥ $_amountText',
-            style: const TextStyle(
-              fontSize: 48,
-              fontWeight: FontWeight.w700,
-              color: Colors.white,
-              letterSpacing: -1,
-            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildDateSelector() {
-    return InkWell(
-      onTap: _selectDate,
-      borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-      child: Container(
-        padding: const EdgeInsets.all(AppTheme.spaceMedium),
-        decoration: BoxDecoration(
-          color: AppTheme.neutral50,
-          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-          border: Border.all(color: AppTheme.neutral200),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              Icons.calendar_today_rounded,
-              color: AppTheme.primaryColor,
-              size: 20,
-            ),
-            const SizedBox(width: AppTheme.spaceMedium),
-            Text(
-              DateFormat('yyyy年M月d日').format(_selectedDate),
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                fontWeight: FontWeight.w500,
+  Widget _buildTabButton(String label, int index) {
+    final isSelected = _currentTab == index;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            _currentTab = index;
+          });
+          _updateDefaultCategory();
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: AppTheme.spaceMedium),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(
+                color: isSelected
+                    ? AppTheme.getPrimaryColor(context)
+                    : Colors.transparent,
+                width: 2,
               ),
             ),
-            const Spacer(),
-            Icon(
-              Icons.chevron_right_rounded,
-              color: AppTheme.neutral400,
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+              color: isSelected
+                  ? AppTheme.getPrimaryColor(context)
+                  : AppTheme.neutral500,
             ),
-          ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildCategorySelector() {
-    return InkWell(
-      onTap: _showCategoryPicker,
-      borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-      child: Container(
-        padding: const EdgeInsets.all(AppTheme.spaceMedium),
-        decoration: BoxDecoration(
-          color: AppTheme.neutral50,
-          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-          border: Border.all(color: AppTheme.neutral200),
+  Widget _buildCategoryGrid() {
+    final categories = _currentTab == 0
+        ? CategoryService.getExpenseCategories()
+        : CategoryService.getIncomeCategories();
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceMedium),
+      margin: const EdgeInsets.only(top: AppTheme.spaceSmall),
+      child: GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 5,
+          mainAxisSpacing: AppTheme.spaceMedium,
+          crossAxisSpacing: AppTheme.spaceSmall,
         ),
-        child: Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: _selectedCategory != null
-                    ? Color(int.parse(_selectedCategory!.color.replaceFirst('#', '0xFF')))
-                        .withOpacity(0.1)
-                    : AppTheme.neutral200,
-                borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
-              ),
-              child: Icon(
-                _selectedCategory != null
-                    ? _getIconData(_selectedCategory!.iconName)
-                    : Icons.category_rounded,
-                color: _selectedCategory != null
-                    ? Color(int.parse(_selectedCategory!.color.replaceFirst('#', '0xFF')))
-                    : AppTheme.neutral400,
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: AppTheme.spaceMedium),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '分类',
-                    style: TextStyle(
-                      color: AppTheme.neutral500,
-                      fontSize: 12,
+        itemCount: categories.length,
+        itemBuilder: (context, index) {
+          final category = categories[index];
+          final isSelected = _selectedCategory?.id == category.id;
+          return InkWell(
+            onTap: () {
+              setState(() => _selectedCategory = category);
+            },
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+            child: Column(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? Color(
+                            int.parse(category.color.replaceFirst('#', '0xFF')))
+                        : Color(int.parse(
+                                category.color.replaceFirst('#', '0xFF')))
+                            .withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                    border: Border.all(
+                      color: isSelected
+                          ? Color(int.parse(
+                              category.color.replaceFirst('#', '0xFF')))
+                          : Colors.transparent,
+                      width: 2,
                     ),
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    _selectedCategory?.name ?? '请选择分类',
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          fontWeight: FontWeight.w500,
-                        ),
+                  child: Icon(
+                    _getIconData(category.iconName),
+                    color: isSelected
+                        ? Colors.white
+                        : Color(int.parse(
+                            category.color.replaceFirst('#', '0xFF'))),
+                    size: 24,
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(height: AppTheme.spaceXSmall),
+                Text(
+                  category.name,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        fontWeight:
+                            isSelected ? FontWeight.w600 : FontWeight.w400,
+                      ),
+                  textAlign: TextAlign.center,
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
+              ],
             ),
-            Icon(
-              Icons.chevron_right_rounded,
-              color: AppTheme.neutral400,
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
 
-  void _showCategoryPicker() {
-    final categories = _isIncome
-        ? CategoryService.getIncomeCategories()
-        : CategoryService.getExpenseCategories();
-
+  void _showAccountPicker() {
+    final accounts = AccountService.getActiveAccounts();
     showModalBottomSheet(
       context: context,
+      backgroundColor: AppTheme.getCardColor(context),
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppTheme.radiusXLarge),
+        ),
       ),
       builder: (context) => Container(
-        padding: const EdgeInsets.all(AppTheme.spaceLarge),
+        padding: const EdgeInsets.all(AppTheme.spaceMedium),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppTheme.neutral300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: AppTheme.spaceLarge),
             Text(
-              _isIncome ? '选择收入分类' : '选择支出分类',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              '选择账户',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
             ),
             const SizedBox(height: AppTheme.spaceLarge),
-            GridView.builder(
+            ListView.builder(
               shrinkWrap: true,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 4,
-                mainAxisSpacing: AppTheme.spaceMedium,
-                crossAxisSpacing: AppTheme.spaceMedium,
-              ),
-              itemCount: categories.length,
+              itemCount: accounts.length,
               itemBuilder: (context, index) {
-                final category = categories[index];
-                final isSelected = _selectedCategory?.id == category.id;
+                final account = accounts[index];
+                final isSelected = _selectedAccount?.id == account.id;
                 return InkWell(
                   onTap: () {
-                    setState(() => _selectedCategory = category);
+                    setState(() => _selectedAccount = account);
                     Navigator.pop(context);
                   },
                   borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                  child: Column(
-                    children: [
-                      Container(
-                        width: 48,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? Color(int.parse(category.color.replaceFirst('#', '0xFF')))
-                              : Color(int.parse(category.color.replaceFirst('#', '0xFF')))
-                                  .withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                          border: Border.all(
-                            color: isSelected
-                                ? Color(int.parse(category.color.replaceFirst('#', '0xFF')))
-                                : Colors.transparent,
-                            width: 2,
+                  child: Container(
+                    padding: const EdgeInsets.all(AppTheme.spaceMedium),
+                    margin: const EdgeInsets.only(bottom: AppTheme.spaceSmall),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? AppTheme.getPrimaryColor(context).withOpacity(0.12)
+                          : Colors.transparent,
+                      borderRadius:
+                          BorderRadius.circular(AppTheme.radiusMedium),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: Color(account.colorValue).withOpacity(0.12),
+                            borderRadius:
+                                BorderRadius.circular(AppTheme.radiusSmall),
+                          ),
+                          child: Icon(
+                            IconLibrary.getIconByName(account.iconName),
+                            color: Color(account.colorValue),
+                            size: 20,
                           ),
                         ),
-                        child: Icon(
-                          _getIconData(category.iconName),
-                          color: isSelected ? Colors.white : Color(int.parse(category.color.replaceFirst('#', '0xFF'))),
-                          size: 24,
-                        ),
-                      ),
-                      const SizedBox(height: AppTheme.spaceSmall),
-                      Text(
-                        category.name,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                        const SizedBox(width: AppTheme.spaceMedium),
+                        Expanded(
+                          child: Text(
+                            account.name,
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: isSelected
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                              color: Theme.of(context).colorScheme.onSurface,
                             ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
+                          ),
+                        ),
+                        Text(
+                          '¥${account.currentBalance.toStringAsFixed(2)}',
+                          style: TextStyle(
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
+                            fontSize: 14,
+                          ),
+                        ),
+                        if (isSelected)
+                          const SizedBox(width: AppTheme.spaceSmall),
+                        if (isSelected)
+                          Icon(
+                            Icons.check_circle_rounded,
+                            color: AppTheme.getPrimaryColor(context),
+                            size: 20,
+                          ),
+                      ],
+                    ),
                   ),
                 );
               },
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showCouponDialog() {
+    final couponController = TextEditingController(
+      text: _couponAmount > 0 ? _couponAmount.toString() : '',
+    );
+    final feeController = TextEditingController(
+      text: _feeAmount > 0 ? _feeAmount.toString() : '',
+    );
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.radiusXLarge),
+        ),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(AppTheme.spaceSmall),
+              decoration: BoxDecoration(
+                color: AppTheme.getPrimaryColor(context).withOpacity(0.12),
+                borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+              ),
+              child: Icon(
+                Icons.percent_rounded,
+                color: AppTheme.getPrimaryColor(context),
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: AppTheme.spaceMedium),
+            const Text('优惠/手续费'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: couponController,
+              keyboardType: TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                labelText: '优惠券金额',
+                prefixText: '-¥',
+              ),
+              onChanged: (value) {
+                setState(() => _couponAmount = double.tryParse(value) ?? 0);
+              },
+            ),
+            const SizedBox(height: AppTheme.spaceMedium),
+            TextField(
+              controller: feeController,
+              keyboardType: TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                labelText: '手续费',
+                prefixText: '+¥',
+              ),
+              onChanged: (value) {
+                setState(() => _feeAmount = double.tryParse(value) ?? 0);
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('确定'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showTagPicker() {
+    final allTags = TagService.getActiveTags();
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.getCardColor(context),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppTheme.radiusXLarge),
+        ),
+      ),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) {
+          return Container(
+            padding: const EdgeInsets.all(AppTheme.spaceLarge),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppTheme.neutral300,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: AppTheme.spaceLarge),
+                Text(
+                  '选择标签',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.3,
+                      ),
+                ),
+                const SizedBox(height: AppTheme.spaceXSmall),
+                Text(
+                  '可多选标签为交易分类',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontSize: AppTheme.textBodySmall,
+                  ),
+                ),
+                const SizedBox(height: AppTheme.spaceLarge),
+                Wrap(
+                  spacing: AppTheme.spaceSmall,
+                  runSpacing: AppTheme.spaceSmall,
+                  children: allTags.map((tag) {
+                    final isSelected = _selectedTags.any((t) => t.id == tag.id);
+                    final tagColor = Color(tag.colorValue);
+                    return InkWell(
+                      onTap: () {
+                        setModalState(() {
+                          if (isSelected) {
+                            _selectedTags.removeWhere((t) => t.id == tag.id);
+                          } else {
+                            _selectedTags.add(tag);
+                          }
+                        });
+                        setState(() {});
+                      },
+                      borderRadius:
+                          BorderRadius.circular(AppTheme.radiusMedium),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppTheme.spaceMedium,
+                          vertical: AppTheme.spaceSmall,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? tagColor
+                              : tagColor.withOpacity(0.12),
+                          borderRadius:
+                              BorderRadius.circular(AppTheme.radiusMedium),
+                          border: Border.all(
+                            color: tagColor,
+                            width: isSelected ? 0 : 1,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              IconLibrary.getIconByName(tag.iconName),
+                              color: isSelected ? Colors.white : tagColor,
+                              size: 16,
+                            ),
+                            const SizedBox(width: AppTheme.spaceSmall),
+                            Text(
+                              tag.name,
+                              style: TextStyle(
+                                color: isSelected ? Colors.white : tagColor,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            if (isSelected) ...[
+                              const SizedBox(width: 4),
+                              const Icon(
+                                Icons.check_rounded,
+                                color: Colors.white,
+                                size: 16,
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: AppTheme.spaceXLarge),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text(
+                      '完成',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
@@ -384,245 +623,22 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     }
   }
 
-  Widget _buildAccountSelector() {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppTheme.neutral50,
-        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-        border: Border.all(color: AppTheme.neutral200),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButtonFormField<String>(
-          value: _selectedAccount,
-          decoration: InputDecoration(
-            labelText: '账户',
-            labelStyle: TextStyle(
-              color: AppTheme.neutral600,
-              fontSize: 14,
-            ),
-            border: InputBorder.none,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: AppTheme.spaceMedium,
-              vertical: AppTheme.spaceSmall,
-            ),
-          ),
-          icon: Icon(
-            Icons.expand_more_rounded,
-            color: AppTheme.neutral400,
-          ),
-          items: _accounts
-              .map((account) => DropdownMenuItem(
-                    value: account,
-                    child: Text(
-                      account,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ))
-              .toList(),
-          onChanged: (value) {
-            setState(() => _selectedAccount = value!);
-          },
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNoteField() {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppTheme.neutral50,
-        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-        border: Border.all(color: AppTheme.neutral200),
-      ),
-      child: TextFormField(
-        controller: _noteController,
-        decoration: InputDecoration(
-          labelText: '备注',
-          labelStyle: TextStyle(
-            color: AppTheme.neutral600,
-            fontSize: 14,
-          ),
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.all(AppTheme.spaceMedium),
-          hintText: '添加备注信息...',
-          hintStyle: TextStyle(
-            color: AppTheme.neutral400,
-          ),
-        ),
-        maxLines: 3,
-        style: const TextStyle(
-          fontSize: 15,
-          height: 1.5,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNumberPad() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.neutral900.withOpacity(0.08),
-            blurRadius: 20,
-            offset: const Offset(0, -8),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(AppTheme.spaceMedium),
-              child: SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: ElevatedButton(
-                  onPressed: _saveTransaction,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryColor,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                    ),
-                  ),
-                  child: const Text(
-                    '完成',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: -0.3,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppTheme.spaceMedium,
-                vertical: AppTheme.spaceSmall,
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      _buildNumberButton('1'),
-                      const SizedBox(width: AppTheme.spaceSmall),
-                      _buildNumberButton('2'),
-                      const SizedBox(width: AppTheme.spaceSmall),
-                      _buildNumberButton('3'),
-                    ],
-                  ),
-                  const SizedBox(height: AppTheme.spaceSmall),
-                  Row(
-                    children: [
-                      _buildNumberButton('4'),
-                      const SizedBox(width: AppTheme.spaceSmall),
-                      _buildNumberButton('5'),
-                      const SizedBox(width: AppTheme.spaceSmall),
-                      _buildNumberButton('6'),
-                    ],
-                  ),
-                  const SizedBox(height: AppTheme.spaceSmall),
-                  Row(
-                    children: [
-                      _buildNumberButton('7'),
-                      const SizedBox(width: AppTheme.spaceSmall),
-                      _buildNumberButton('8'),
-                      const SizedBox(width: AppTheme.spaceSmall),
-                      _buildNumberButton('9'),
-                    ],
-                  ),
-                  const SizedBox(height: AppTheme.spaceSmall),
-                  Row(
-                    children: [
-                      _buildNumberButton('.'),
-                      const SizedBox(width: AppTheme.spaceSmall),
-                      _buildNumberButton('0'),
-                      const SizedBox(width: AppTheme.spaceSmall),
-                      _buildDeleteButton(),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNumberButton(String text) {
-    return Expanded(
-      child: Container(
-        height: 64,
-        decoration: BoxDecoration(
-          color: AppTheme.neutral100,
-          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-        ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: () => _onNumberPressed(text),
-            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-            child: Center(
-              child: Text(
-                text,
-                style: const TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w500,
-                  color: AppTheme.neutral900,
-                  letterSpacing: -0.5,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDeleteButton() {
-    return Expanded(
-      child: Container(
-        height: 64,
-        decoration: BoxDecoration(
-          color: AppTheme.errorColor.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-        ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: _onDeletePressed,
-            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-            child: Center(
-              child: Icon(
-                Icons.backspace_rounded,
-                size: 28,
-                color: AppTheme.errorColor,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   void _onNumberPressed(String text) {
     setState(() {
       if (text == '.') {
         if (!_amountText.contains('.')) {
           _amountText += '.';
         }
+      } else if (text == '-') {
+      } else if (text == '+') {
       } else {
-        if (_amountText == '0.00') {
+        if (_amountText == '0' || _amountText == '0.0') {
           _amountText = text;
         } else {
+          final parts = _amountText.split('.');
+          if (parts.length > 1 && parts[1].length >= 2) {
+            return;
+          }
           _amountText += text;
         }
       }
@@ -634,213 +650,373 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       if (_amountText.length > 1) {
         _amountText = _amountText.substring(0, _amountText.length - 1);
       } else {
-        _amountText = '0.00';
+        _amountText = '0.0';
       }
     });
   }
 
-  Future<void> _selectDate() async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: _selectedDate,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now().add(const Duration(days: 30)),
-      locale: const Locale('zh', 'CN'),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.light(
-              primary: AppTheme.primaryColor,
-              onPrimary: Colors.white,
-              surface: Colors.white,
-              onSurface: AppTheme.neutral900,
-            ),
-          ),
-          child: child!,
-        );
-      },
-    );
-    if (picked != null && picked != _selectedDate) {
-      setState(() {
-        _selectedDate = DateTime(picked.year, picked.month, picked.day);
-      });
+  String _formatDateTimeText(DateTime date) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final dayBeforeYesterday = today.subtract(const Duration(days: 2));
+    final tomorrow = today.add(const Duration(days: 1));
+
+    final dateOnly = DateTime(date.year, date.month, date.day);
+    final timeText = DateFormat('HH:mm').format(date);
+
+    if (dateOnly == today) {
+      return '今天 $timeText';
+    } else if (dateOnly == yesterday) {
+      return '昨天 $timeText';
+    } else if (dateOnly == dayBeforeYesterday) {
+      return '前天 $timeText';
+    } else if (dateOnly == tomorrow) {
+      return '明天 $timeText';
+    } else {
+      return '${DateFormat('M/d').format(date)} $timeText';
     }
   }
 
-  void _saveTransaction() {
+  bool get _canSave {
     final amount = double.tryParse(_amountText);
-    if (amount == null || amount <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('请输入有效的金额'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
-
-    if (_selectedCategory == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('请选择分类'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
-
-    if (!_isIncome) {
-      final willExceed = _checkBudgetWarning(amount);
-      if (willExceed) {
-        _showOverBudgetWarning(amount);
-        return;
-      }
-    }
-
-    final transaction = Transaction(
-      id: _uuid.v4(),
-      amount: amount,
-      isIncome: _isIncome,
-      category: _selectedCategory!.name,
-      account: _selectedAccount,
-      date: _selectedDate,
-      note: _noteController.text,
-    );
-
-    DatabaseService.addTransaction(transaction);
-    Navigator.pop(context);
+    return amount != null && amount > 0 && _selectedCategory != null;
   }
 
-  bool _checkBudgetWarning(double amount) {
-    final budgets = DatabaseService.budgets.values
-        .where((b) =>
-            b.category == _selectedCategory!.name &&
-            b.year == _selectedDate.year &&
-            b.month == _selectedDate.month &&
-            b.amount > 0)
-        .toList();
-
-    if (budgets.isEmpty) return false;
-
-    final budget = budgets.first;
-
-    final spent = DatabaseService.transactions.values
-        .where((t) =>
-            !t.isIncome &&
-            t.category == _selectedCategory!.name &&
-            t.date.year == _selectedDate.year &&
-            t.date.month == _selectedDate.month)
-        .fold(0.0, (sum, t) => sum + t.amount);
-
-    return spent + amount > budget.amount;
-  }
-
-  void _showOverBudgetWarning(double amount) {
-    final budgets = DatabaseService.budgets.values
-        .where((b) =>
-            b.category == _selectedCategory!.name &&
-            b.year == _selectedDate.year &&
-            b.month == _selectedDate.month)
-        .toList();
-
-    if (budgets.isEmpty) return;
-
-    final budget = budgets.first;
-
-    final spent = DatabaseService.transactions.values
-        .where((t) =>
-            !t.isIncome &&
-            t.category == _selectedCategory!.name &&
-            t.date.year == _selectedDate.year &&
-            t.date.month == _selectedDate.month)
-        .fold(0.0, (sum, t) => sum + t.amount);
-
-    final remaining = budget.amount - spent;
-    final overAmount = amount - remaining;
-
-    showDialog(
+  Future<void> _selectDate() async {
+    await showModalBottomSheet(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(AppTheme.spaceSmall),
-              decoration: BoxDecoration(
-                color: AppTheme.errorColor.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.warning_rounded,
-                color: AppTheme.errorColor,
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: AppTheme.spaceMedium),
-            const Text('预算超支警告'),
-          ],
+      backgroundColor: AppTheme.getCardColor(context),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppTheme.radiusXLarge),
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('您的「${_selectedCategory!.name}」分类预算为 ¥${budget.amount.toStringAsFixed(2)}'),
-            const SizedBox(height: AppTheme.spaceSmall),
-            Text('本月已支出：¥${spent.toStringAsFixed(2)}'),
-            const SizedBox(height: AppTheme.spaceSmall),
-            Text('本次支出：¥${amount.toStringAsFixed(2)}'),
-            const SizedBox(height: AppTheme.spaceSmall),
-            Container(
-              padding: const EdgeInsets.all(AppTheme.spaceMedium),
-              decoration: BoxDecoration(
-                color: AppTheme.errorColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+      ),
+      builder: (context) => _buildDateTimePicker(context),
+    );
+  }
+
+  Widget _buildDateTimePicker(BuildContext context) {
+    return StatefulBuilder(
+      builder: (context, setModalState) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final now = DateTime.now();
+        final today = DateTime(now.year, now.month, now.day);
+        final yesterday = today.subtract(const Duration(days: 1));
+        final dayBeforeYesterday = today.subtract(const Duration(days: 2));
+        final tomorrow = today.add(const Duration(days: 1));
+
+        final quickDates = [
+          QuickDateOption('前天', dayBeforeYesterday),
+          QuickDateOption('昨天', yesterday),
+          QuickDateOption('今天', today),
+          QuickDateOption('明天', tomorrow),
+        ];
+
+        return Container(
+          padding: const EdgeInsets.all(AppTheme.spaceLarge),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppTheme.neutral300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
               ),
-              child: Row(
-                children: [
-                  Text(
-                    '超支金额：¥${overAmount.toStringAsFixed(2)}',
-                    style: TextStyle(
-                      color: AppTheme.errorColor,
+              const SizedBox(height: AppTheme.spaceLarge),
+              Text(
+                '选择日期时间',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.w700,
-                      fontSize: 16,
+                      letterSpacing: -0.3,
+                    ),
+              ),
+              const SizedBox(height: AppTheme.spaceMedium),
+
+              // 快捷日期按钮
+              SizedBox(
+                height: 44,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: quickDates.length,
+                  itemBuilder: (context, index) {
+                    final item = quickDates[index];
+                    final isSelected = DateTime(_selectedDate.year,
+                            _selectedDate.month, _selectedDate.day) ==
+                        item.date;
+                    return Padding(
+                      padding:
+                          const EdgeInsets.only(right: AppTheme.spaceSmall),
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppTheme.spaceMedium,
+                          ),
+                          backgroundColor: isSelected
+                              ? AppTheme.getPrimaryColor(context)
+                              : AppTheme.getSecondaryBackground(context),
+                          foregroundColor: isSelected
+                              ? Colors.white
+                              : Theme.of(context).colorScheme.onSurface,
+                          shape: RoundedRectangleBorder(
+                            borderRadius:
+                                BorderRadius.circular(AppTheme.radiusMedium),
+                          ),
+                        ),
+                        onPressed: () {
+                          setModalState(() {
+                            _selectedDate = DateTime(
+                              item.date.year,
+                              item.date.month,
+                              item.date.day,
+                              _selectedDate.hour,
+                              _selectedDate.minute,
+                            );
+                          });
+                          setState(() {});
+                        },
+                        child: Text(
+                          item.label,
+                          style: TextStyle(
+                            fontWeight:
+                                isSelected ? FontWeight.w600 : FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: AppTheme.spaceLarge),
+
+              // 日期选择器
+              Container(
+                color: isDark ? AppTheme.neutral800 : Colors.white,
+                padding:
+                    const EdgeInsets.symmetric(vertical: AppTheme.spaceSmall),
+                child: CalendarDatePicker(
+                  initialDate: _selectedDate,
+                  firstDate: DateTime(2020),
+                  lastDate: DateTime.now().add(const Duration(days: 30)),
+                  onDateChanged: (date) {
+                    setModalState(() {
+                      _selectedDate = DateTime(
+                        date.year,
+                        date.month,
+                        date.day,
+                        _selectedDate.hour,
+                        _selectedDate.minute,
+                      );
+                    });
+                    setState(() {});
+                  },
+                ),
+              ),
+              const SizedBox(height: AppTheme.spaceLarge),
+
+              // 时间选择器
+              Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: AppTheme.getSecondaryBackground(context),
+                        borderRadius:
+                            BorderRadius.circular(AppTheme.radiusMedium),
+                      ),
+                      child: DropdownButtonFormField<int>(
+                        value: _selectedDate.hour,
+                        decoration: const InputDecoration(
+                          labelText: '小时',
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: AppTheme.spaceMedium,
+                            vertical: AppTheme.spaceSmall,
+                          ),
+                          border: InputBorder.none,
+                        ),
+                        items: List.generate(24, (index) => index)
+                            .map((hour) => DropdownMenuItem(
+                                  value: hour,
+                                  child: Text(
+                                      '${hour.toString().padLeft(2, '0')}:00'),
+                                ))
+                            .toList(),
+                        onChanged: (hour) {
+                          if (hour != null) {
+                            setModalState(() {
+                              _selectedDate = DateTime(
+                                _selectedDate.year,
+                                _selectedDate.month,
+                                _selectedDate.day,
+                                hour,
+                                _selectedDate.minute,
+                              );
+                            });
+                            setState(() {});
+                          }
+                        },
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: AppTheme.spaceSmall),
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: AppTheme.getSecondaryBackground(context),
+                        borderRadius:
+                            BorderRadius.circular(AppTheme.radiusMedium),
+                      ),
+                      child: DropdownButtonFormField<int>(
+                        value: _selectedDate.minute,
+                        decoration: const InputDecoration(
+                          labelText: '分钟',
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: AppTheme.spaceMedium,
+                            vertical: AppTheme.spaceSmall,
+                          ),
+                          border: InputBorder.none,
+                        ),
+                        items: [0, 15, 30, 45]
+                            .map((minute) => DropdownMenuItem(
+                                  value: minute,
+                                  child: Text(
+                                      ':${minute.toString().padLeft(2, '0')}'),
+                                ))
+                            .toList(),
+                        onChanged: (minute) {
+                          if (minute != null) {
+                            setModalState(() {
+                              _selectedDate = DateTime(
+                                _selectedDate.year,
+                                _selectedDate.month,
+                                _selectedDate.day,
+                                _selectedDate.hour,
+                                minute,
+                              );
+                            });
+                            setState(() {});
+                          }
+                        },
+                      ),
                     ),
                   ),
                 ],
               ),
-            ),
-          ],
-        ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppTheme.radiusXLarge),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
+              const SizedBox(height: AppTheme.spaceLarge),
+
+              // 当前选中时间显示
+              Container(
+                padding: const EdgeInsets.all(AppTheme.spaceMedium),
+                decoration: BoxDecoration(
+                  color: AppTheme.getPrimaryColor(context).withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      '当前选择',
+                      style: TextStyle(
+                        fontSize: AppTheme.textBodyMedium,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    Text(
+                      DateFormat('yyyy年M月d日 HH:mm', 'zh_CN')
+                          .format(_selectedDate),
+                      style: TextStyle(
+                        fontSize: AppTheme.textBodyLarge,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.getPrimaryColor(context),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: AppTheme.spaceXLarge),
+
+              // 确认按钮
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text(
+                    '确定',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: AppTheme.spaceLarge),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              final transaction = Transaction(
-                id: _uuid.v4(),
-                amount: amount,
-                isIncome: _isIncome,
-                category: _selectedCategory!.name,
-                account: _selectedAccount,
-                date: _selectedDate,
-                note: _noteController.text,
-              );
-              DatabaseService.addTransaction(transaction);
-              Navigator.pop(context);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primaryColor,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('继续记账'),
-          ),
-        ],
-      ),
+        );
+      },
     );
+  }
+
+  Future<void> _saveTransaction() async {
+    if (!_canSave) return;
+    await _doSaveTransaction(false);
+  }
+
+  Future<void> _saveAndAddTransaction() async {
+    if (!_canSave) return;
+    await _doSaveTransaction(true);
+  }
+
+  Future<void> _doSaveTransaction(bool keepOpen) async {
+    final amount = double.parse(_amountText);
+    final isIncome = _currentTab == 1;
+
+    final transaction = Transaction(
+      id: UuidUtil.generate(),
+      amount: amount,
+      isIncome: isIncome,
+      category: _selectedCategory!.name,
+      account: _selectedAccount?.name ?? '默认账户',
+      date: _selectedDate,
+      note: _noteController.text,
+      tags: _selectedTags.map((t) => t.id).join(','),
+      isReimbursed: _isReimbursed,
+      fee: _feeAmount,
+      coupon: _couponAmount,
+    );
+
+    DatabaseService.addTransaction(transaction);
+
+    if (_selectedAccount != null) {
+      final account = AccountService.getAccountById(_selectedAccount!.id);
+      if (account != null) {
+        if (isIncome) {
+          account.currentBalance += amount;
+        } else {
+          account.currentBalance -= amount;
+        }
+        await AccountService.updateAccount(account);
+      }
+    }
+
+    if (mounted) {
+      if (keepOpen) {
+        setState(() {
+          _amountText = '0.0';
+          _noteController.clear();
+          _isReimbursed = false;
+          _couponAmount = 0.0;
+          _feeAmount = 0.0;
+        });
+      } else {
+        Navigator.pop(context);
+      }
+    }
   }
 }

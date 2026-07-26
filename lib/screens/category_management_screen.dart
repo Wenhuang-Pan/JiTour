@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:material_symbols_icons/material_symbols_icons.dart';
 import '../models/category.dart';
 import '../services/category_service.dart';
 import '../utils/icon_library.dart';
@@ -31,11 +30,11 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.neutral50,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Column(
         children: [
           _buildHeader(),
-          _buildTabBar(),
+          _buildTabBar(context),
           Expanded(
             child: TabBarView(
               controller: _tabController,
@@ -111,34 +110,54 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen>
     );
   }
 
-  Widget _buildTabBar() {
-    return Container(
-      margin: const EdgeInsets.all(AppTheme.spaceMedium),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-        boxShadow: AppTheme.cardShadow,
+  Widget _buildTabBar(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(AppTheme.spaceMedium),
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: AppTheme.getSecondaryBackground(context),
+          borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: _buildTabButton(context, '收入分类', _tabController.index == 0),
+            ),
+            const SizedBox(width: 4),
+            Expanded(
+              child: _buildTabButton(context, '支出分类', _tabController.index == 1),
+            ),
+          ],
+        ),
       ),
-      child: TabBar(
-        controller: _tabController,
-        indicator: BoxDecoration(
-          gradient: AppTheme.primaryGradient,
+    );
+  }
+
+  Widget _buildTabButton(BuildContext context, String label, bool isSelected) {
+    return GestureDetector(
+      onTap: () {
+        _tabController.animateTo(isSelected ? _tabController.index : (label == '收入分类' ? 0 : 1));
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: AppTheme.spaceMedium),
+        decoration: BoxDecoration(
+          color: isSelected ? AppTheme.getCardColor(context) : Colors.transparent,
           borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+          boxShadow: isSelected ? AppTheme.cardShadow : null,
         ),
-        labelColor: Colors.white,
-        unselectedLabelColor: AppTheme.neutral500,
-        labelStyle: const TextStyle(
-          fontWeight: FontWeight.w600,
-          fontSize: 16,
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+            color: isSelected
+                ? AppTheme.primaryColor
+                : Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
-        unselectedLabelStyle: const TextStyle(
-          fontWeight: FontWeight.w500,
-          fontSize: 16,
-        ),
-        tabs: const [
-          Tab(text: '收入分类'),
-          Tab(text: '支出分类'),
-        ],
       ),
     );
   }
@@ -222,13 +241,13 @@ class _CategoryList extends StatelessWidget {
               width: 120,
               height: 120,
               decoration: BoxDecoration(
-                color: AppTheme.neutral100,
+                color: AppTheme.getSecondaryBackground(context),
                 borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
               ),
               child: Icon(
                 Icons.category_outlined,
                 size: 60,
-                color: AppTheme.neutral400,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
             const SizedBox(height: AppTheme.spaceLarge),
@@ -237,7 +256,7 @@ class _CategoryList extends StatelessWidget {
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
-                color: AppTheme.neutral600,
+                color: Theme.of(context).colorScheme.onSurface,
               ),
             ),
             const SizedBox(height: AppTheme.spaceSmall),
@@ -245,7 +264,7 @@ class _CategoryList extends StatelessWidget {
               '点击下方按钮添加您的第一个分类',
               style: TextStyle(
                 fontSize: 14,
-                color: AppTheme.neutral500,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
           ],
@@ -284,6 +303,8 @@ class _CategoryList extends StatelessWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
         ),
@@ -329,7 +350,7 @@ class _CategoryCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: AppTheme.spaceMedium),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.getCardColor(context),
         borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
         boxShadow: AppTheme.cardShadow,
       ),
@@ -346,7 +367,7 @@ class _CategoryCard extends StatelessWidget {
                   width: 56,
                   height: 56,
                   decoration: BoxDecoration(
-                    color: color.withOpacity(0.1),
+                    color: color.withOpacity(0.12),
                     borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
                   ),
                   child: Icon(
@@ -370,7 +391,7 @@ class _CategoryCard extends StatelessWidget {
                       Text(
                         category.isIncome ? '收入分类' : '支出分类',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: AppTheme.neutral500,
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
                             ),
                       ),
                     ],
@@ -463,6 +484,8 @@ class _CategoryDialogState extends State<_CategoryDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppTheme.radiusXLarge),
       ),
@@ -478,18 +501,18 @@ class _CategoryDialogState extends State<_CategoryDialog> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildNameField(),
+                    _buildNameField(context),
                     const SizedBox(height: AppTheme.spaceLarge),
-                    _buildIconSelector(),
+                    _buildIconSelector(context),
                     const SizedBox(height: AppTheme.spaceLarge),
-                    _buildColorSelector(),
+                    _buildColorSelector(context),
                     const SizedBox(height: AppTheme.spaceLarge),
-                    _buildPreview(),
+                    _buildPreview(context),
                   ],
                 ),
               ),
             ),
-            _buildActions(),
+            _buildActions(context),
           ],
         ),
       ),
@@ -534,7 +557,7 @@ class _CategoryDialogState extends State<_CategoryDialog> {
     );
   }
 
-  Widget _buildNameField() {
+  Widget _buildNameField(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -543,31 +566,25 @@ class _CategoryDialogState extends State<_CategoryDialog> {
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,
-            color: AppTheme.neutral800,
+            color: Theme.of(context).colorScheme.onSurface,
           ),
         ),
         const SizedBox(height: AppTheme.spaceSmall),
         _isCustomCategory
             ? TextField(
                 controller: _customNameController,
+                style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
                 decoration: InputDecoration(
                   hintText: '输入自定义分类名称',
                   prefixIcon: Icon(_selectedIcon, color: _selectedColor, size: 20),
-                  filled: true,
-                  fillColor: AppTheme.neutral50,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                    borderSide: BorderSide.none,
-                  ),
-                  contentPadding: const EdgeInsets.all(AppTheme.spaceMedium),
                 ),
               )
             : Container(
                 padding: const EdgeInsets.all(AppTheme.spaceMedium),
                 decoration: BoxDecoration(
-                  color: AppTheme.neutral50,
+                  color: AppTheme.getSecondaryBackground(context),
                   borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                  border: Border.all(color: AppTheme.neutral200),
+                  border: Border.all(color: AppTheme.getDividerColor(context)),
                 ),
                 child: Row(
                   children: [
@@ -582,7 +599,7 @@ class _CategoryDialogState extends State<_CategoryDialog> {
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
-                        color: AppTheme.neutral800,
+                        color: Theme.of(context).colorScheme.onSurface,
                       ),
                     ),
                     const Spacer(),
@@ -590,7 +607,7 @@ class _CategoryDialogState extends State<_CategoryDialog> {
                       '点击图标选择',
                       style: TextStyle(
                         fontSize: 12,
-                        color: AppTheme.neutral400,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ],
@@ -600,7 +617,7 @@ class _CategoryDialogState extends State<_CategoryDialog> {
     );
   }
 
-  Widget _buildIconSelector() {
+  Widget _buildIconSelector(BuildContext context) {
     final allIcons = IconLibrary.getIconsByType(widget.isIncome);
     final allCategoryNames = IconLibrary.getCategoryNamesByType(widget.isIncome);
 
@@ -624,7 +641,7 @@ class _CategoryDialogState extends State<_CategoryDialog> {
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,
-            color: AppTheme.neutral800,
+            color: Theme.of(context).colorScheme.onSurface,
           ),
         ),
         const SizedBox(height: AppTheme.spaceSmall),
@@ -632,6 +649,7 @@ class _CategoryDialogState extends State<_CategoryDialog> {
         TextField(
           controller: _searchController,
           onChanged: (value) => setState(() => _searchQuery = value),
+          style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
           decoration: InputDecoration(
             hintText: '搜索分类...',
             prefixIcon: const Icon(Icons.search, size: 20),
@@ -644,30 +662,23 @@ class _CategoryDialogState extends State<_CategoryDialog> {
                     },
                   )
                 : null,
-            filled: true,
-            fillColor: AppTheme.neutral50,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-              borderSide: BorderSide.none,
-            ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceMedium, vertical: AppTheme.spaceSmall),
           ),
         ),
         const SizedBox(height: AppTheme.spaceSmall),
         Container(
           constraints: const BoxConstraints(maxHeight: 280),
           decoration: BoxDecoration(
-            color: AppTheme.neutral50,
+            color: AppTheme.getSecondaryBackground(context),
             borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-            border: Border.all(color: AppTheme.neutral200),
+            border: Border.all(color: AppTheme.getDividerColor(context)),
           ),
           child: filteredIndices.isEmpty && _searchQuery.isNotEmpty
-              ? const Center(
+              ? Center(
                   child: Padding(
-                    padding: EdgeInsets.all(AppTheme.spaceMedium),
+                    padding: const EdgeInsets.all(AppTheme.spaceMedium),
                     child: Text(
                       '未找到匹配的分类',
-                      style: TextStyle(color: AppTheme.neutral400),
+                      style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
                     ),
                   ),
                 )
@@ -695,16 +706,16 @@ class _CategoryDialogState extends State<_CategoryDialog> {
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 200),
                           decoration: BoxDecoration(
-                            color: isSelected ? _selectedColor.withOpacity(0.15) : Colors.white,
+                            color: isSelected ? _selectedColor.withOpacity(0.15) : AppTheme.getCardColor(context),
                             borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                             border: Border.all(
-                              color: isSelected ? _selectedColor : AppTheme.neutral200,
+                              color: isSelected ? _selectedColor : AppTheme.getDividerColor(context),
                               width: isSelected ? 2.5 : 1,
                             ),
                             boxShadow: isSelected
                                 ? [
                                     BoxShadow(
-                                      color: _selectedColor.withOpacity(0.3),
+                                      color: _selectedColor.withOpacity(0.30),
                                       blurRadius: 8,
                                       offset: const Offset(0, 2),
                                     ),
@@ -716,7 +727,7 @@ class _CategoryDialogState extends State<_CategoryDialog> {
                             children: [
                               Icon(
                                 Icons.add_circle_outline,
-                                color: isSelected ? _selectedColor : AppTheme.neutral600,
+                                color: isSelected ? _selectedColor : Theme.of(context).colorScheme.onSurfaceVariant,
                                 size: 26,
                               ),
                               const SizedBox(height: 4),
@@ -727,7 +738,7 @@ class _CategoryDialogState extends State<_CategoryDialog> {
                                   style: TextStyle(
                                     fontSize: 10,
                                     fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                                    color: isSelected ? _selectedColor : AppTheme.neutral600,
+                                    color: isSelected ? _selectedColor : Theme.of(context).colorScheme.onSurfaceVariant,
                                   ),
                                   textAlign: TextAlign.center,
                                   maxLines: 2,
@@ -755,16 +766,16 @@ class _CategoryDialogState extends State<_CategoryDialog> {
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 200),
                         decoration: BoxDecoration(
-                          color: isSelected ? _selectedColor.withOpacity(0.15) : Colors.white,
+                          color: isSelected ? _selectedColor.withOpacity(0.15) : AppTheme.getCardColor(context),
                           borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                           border: Border.all(
-                            color: isSelected ? _selectedColor : AppTheme.neutral200,
+                            color: isSelected ? _selectedColor : AppTheme.getDividerColor(context),
                             width: isSelected ? 2.5 : 1,
                           ),
                           boxShadow: isSelected
                               ? [
                                   BoxShadow(
-                                    color: _selectedColor.withOpacity(0.3),
+                                    color: _selectedColor.withOpacity(0.30),
                                     blurRadius: 8,
                                     offset: const Offset(0, 2),
                                   ),
@@ -776,7 +787,7 @@ class _CategoryDialogState extends State<_CategoryDialog> {
                           children: [
                             Icon(
                               icon,
-                              color: isSelected ? _selectedColor : AppTheme.neutral600,
+                              color: isSelected ? _selectedColor : Theme.of(context).colorScheme.onSurfaceVariant,
                               size: 26,
                             ),
                             const SizedBox(height: 4),
@@ -787,7 +798,7 @@ class _CategoryDialogState extends State<_CategoryDialog> {
                                 style: TextStyle(
                                   fontSize: 10,
                                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                                  color: isSelected ? _selectedColor : AppTheme.neutral600,
+                                  color: isSelected ? _selectedColor : Theme.of(context).colorScheme.onSurfaceVariant,
                                 ),
                                 textAlign: TextAlign.center,
                                 maxLines: 2,
@@ -805,7 +816,7 @@ class _CategoryDialogState extends State<_CategoryDialog> {
     );
   }
 
-  Widget _buildColorSelector() {
+  Widget _buildColorSelector(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -814,16 +825,16 @@ class _CategoryDialogState extends State<_CategoryDialog> {
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,
-            color: AppTheme.neutral800,
+            color: Theme.of(context).colorScheme.onSurface,
           ),
         ),
         const SizedBox(height: AppTheme.spaceSmall),
         Container(
           padding: const EdgeInsets.all(AppTheme.spaceMedium),
           decoration: BoxDecoration(
-            color: AppTheme.neutral50,
+            color: AppTheme.getSecondaryBackground(context),
             borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-            border: Border.all(color: AppTheme.neutral200),
+            border: Border.all(color: AppTheme.getDividerColor(context)),
           ),
           child: Column(
             children: [
@@ -842,7 +853,7 @@ class _CategoryDialogState extends State<_CategoryDialog> {
                         color: color,
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: isSelected ? AppTheme.neutral800 : Colors.transparent,
+                          color: isSelected ? Theme.of(context).colorScheme.onSurface : Colors.transparent,
                           width: 3,
                         ),
                         boxShadow: isSelected
@@ -882,7 +893,7 @@ class _CategoryDialogState extends State<_CategoryDialog> {
                         color: color,
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: isSelected ? AppTheme.neutral800 : Colors.transparent,
+                          color: isSelected ? Theme.of(context).colorScheme.onSurface : Colors.transparent,
                           width: 3,
                         ),
                         boxShadow: isSelected
@@ -913,7 +924,7 @@ class _CategoryDialogState extends State<_CategoryDialog> {
     );
   }
 
-  Widget _buildPreview() {
+  Widget _buildPreview(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -922,16 +933,16 @@ class _CategoryDialogState extends State<_CategoryDialog> {
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,
-            color: AppTheme.neutral800,
+            color: Theme.of(context).colorScheme.onSurface,
           ),
         ),
         const SizedBox(height: AppTheme.spaceSmall),
         Container(
           padding: const EdgeInsets.all(AppTheme.spaceMedium),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppTheme.getCardColor(context),
             borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-            border: Border.all(color: AppTheme.neutral200),
+            border: Border.all(color: AppTheme.getDividerColor(context)),
             boxShadow: AppTheme.cardShadow,
           ),
           child: Row(
@@ -940,7 +951,7 @@ class _CategoryDialogState extends State<_CategoryDialog> {
                 width: 56,
                 height: 56,
                 decoration: BoxDecoration(
-                  color: _selectedColor.withOpacity(0.1),
+                  color: _selectedColor.withOpacity(0.12),
                   borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
                 ),
                 child: Icon(
@@ -966,7 +977,7 @@ class _CategoryDialogState extends State<_CategoryDialog> {
                     Text(
                       widget.isIncome ? '收入分类' : '支出分类',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppTheme.neutral500,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                     ),
                   ],
@@ -979,7 +990,7 @@ class _CategoryDialogState extends State<_CategoryDialog> {
     );
   }
 
-  Widget _buildActions() {
+  Widget _buildActions(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.all(AppTheme.spaceLarge),
       child: Row(
@@ -988,7 +999,7 @@ class _CategoryDialogState extends State<_CategoryDialog> {
             child: Container(
               height: 48,
               decoration: BoxDecoration(
-                color: AppTheme.neutral200,
+                color: AppTheme.getSecondaryBackground(context),
                 borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
               ),
               child: Material(
@@ -996,13 +1007,13 @@ class _CategoryDialogState extends State<_CategoryDialog> {
                 child: InkWell(
                   onTap: () => Navigator.pop(context),
                   borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                  child: const Center(
+                  child: Center(
                     child: Text(
                       '取消',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
-                        color: AppTheme.neutral600,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ),
