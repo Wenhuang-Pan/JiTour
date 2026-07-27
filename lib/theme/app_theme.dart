@@ -7,9 +7,9 @@ class AppTheme {
   AppTheme._();
 
   // ==================== 品牌主色 ====================
-  static const Color primaryColor = Color(0xFF10B981);
-  static const Color primaryLight = Color(0xFF34D399);
-  static const Color primaryDark = Color(0xFF059669);
+  static const Color primaryColor = Color(0xFF6366F1);
+  static const Color primaryLight = Color(0xFF818CF8);
+  static const Color primaryDark = Color(0xFF4F46E5);
 
   // 动态获取主题主色（从 ThemeProvider）
   static Color getPrimaryColor(BuildContext context) {
@@ -28,7 +28,7 @@ class AppTheme {
       return themeProvider.primaryGradient;
     } catch (e) {
       return const LinearGradient(
-        colors: [Color(0xFF34D399), Color(0xFF10B981)],
+        colors: [Color(0xFF818CF8), Color(0xFF6366F1)],
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
       );
@@ -51,21 +51,21 @@ class AppTheme {
   static const Color infoColor = Color(0xFF3B82F6);
   static const Color infoLight = Color(0xFF60A5FA);
 
-  // ==================== 中性色阶 ====================
+  // ==================== 中性色阶（简约风格）====================
   static const Color neutral0 = Color(0xFFFFFFFF);
-  static const Color neutral50 = Color(0xFFF9FAFB);
-  static const Color neutral100 = Color(0xFFF3F4F6);
-  static const Color neutral200 = Color(0xFFE5E7EB);
-  static const Color neutral300 = Color(0xFFD1D5DB);
-  static const Color neutral400 = Color(0xFF9CA3AF);
-  static const Color neutral500 = Color(0xFF6B7280);
-  static const Color neutral600 = Color(0xFF4B5563);
-  static const Color neutral700 = Color(0xFF374151);
-  static const Color neutral800 = Color(0xFF1F2937);
-  static const Color neutral900 = Color(0xFF111827);
-  static const Color neutral950 = Color(0xFF030712);
+  static const Color neutral50 = Color(0xFFFAFAFA);
+  static const Color neutral100 = Color(0xFFF5F5F5);
+  static const Color neutral200 = Color(0xFFE5E5E5);
+  static const Color neutral300 = Color(0xFFD4D4D4);
+  static const Color neutral400 = Color(0xFFA3A3A3);
+  static const Color neutral500 = Color(0xFF737373);
+  static const Color neutral600 = Color(0xFF525252);
+  static const Color neutral700 = Color(0xFF404040);
+  static const Color neutral800 = Color(0xFF262626);
+  static const Color neutral900 = Color(0xFF171717);
+  static const Color neutral950 = Color(0xFF0A0A0A);
 
-  // ==================== 分类色板 ====================
+  // ==================== 分类色板（简约柔和）====================
   static const List<Color> categoryPalette = [
     Color(0xFFEF4444),
     Color(0xFFF97316),
@@ -81,8 +81,8 @@ class AppTheme {
     Color(0xFF14B8A6),
   ];
 
-  // ==================== 圆角系统 ====================
-  static const double radiusXS = 6.0;
+  // ==================== 圆角系统（适度圆润）====================
+  static const double radiusXS = 4.0;
   static const double radiusSmall = 8.0;
   static const double radiusMedium = 12.0;
   static const double radiusLarge = 16.0;
@@ -90,15 +90,15 @@ class AppTheme {
   static const double radiusXXLarge = 24.0;
   static const double radiusFull = 9999.0;
 
-  // ==================== 间距系统 ====================
+  // ==================== 间距系统（大量留白）====================
   static const double space0 = 0.0;
   static const double spaceXSmall = 4.0;
   static const double spaceSmall = 8.0;
   static const double spaceMedium = 12.0;
   static const double spaceLarge = 16.0;
-  static const double spaceXLarge = 20.0;
-  static const double spaceXXLarge = 24.0;
-  static const double spaceXXXLarge = 32.0;
+  static const double spaceXLarge = 24.0;
+  static const double spaceXXLarge = 32.0;
+  static const double spaceXXXLarge = 40.0;
   static const double spaceHuge = 48.0;
 
   // ==================== 字体系统 ====================
@@ -128,53 +128,48 @@ class AppTheme {
   static const Duration animSlow = Duration(milliseconds: 400);
   static const Duration animSlower = Duration(milliseconds: 600);
 
-  // ==================== 阴影系统 ====================
+  // ==================== 阴影系统（细腻柔和）====================
   static const List<BoxShadow> cardShadow = [
     BoxShadow(
-      color: Color(0x10000000),
-      blurRadius: 8,
+      color: Color(0x08000000),
+      blurRadius: 12,
       offset: Offset(0, 2),
     ),
   ];
 
   static const List<BoxShadow> cardShadowStrong = [
     BoxShadow(
-      color: Color(0x1A000000),
-      blurRadius: 16,
+      color: Color(0x10000000),
+      blurRadius: 20,
       offset: Offset(0, 4),
     ),
   ];
 
   static const List<BoxShadow> buttonShadow = [
     BoxShadow(
-      color: Color(0x3310B981),
-      blurRadius: 12,
+      color: Color(0x206366F1),
+      blurRadius: 16,
       offset: Offset(0, 4),
     ),
   ];
 
   static List<BoxShadow> glowShadow(Color color) => [
         BoxShadow(
-          color: color.withOpacity(0.25),
-          blurRadius: 20,
-          offset: const Offset(0, 6),
-        ),
-        BoxShadow(
-          color: color.withOpacity(0.10),
-          blurRadius: 8,
-          offset: const Offset(0, 2),
+          color: color.withValues(alpha: 0.15),
+          blurRadius: 24,
+          offset: const Offset(0, 8),
         ),
       ];
 
-  // ==================== 渐变系统 ====================
+  // ==================== 渐变系统（柔和渐变）====================
   static const LinearGradient primaryGradient = LinearGradient(
-    colors: [Color(0xFF34D399), Color(0xFF10B981)],
+    colors: [Color(0xFF818CF8), Color(0xFF6366F1)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
 
   static const LinearGradient primaryGradientDeep = LinearGradient(
-    colors: [Color(0xFF059669), Color(0xFF047857)],
+    colors: [Color(0xFF4F46E5), Color(0xFF4338CA)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
@@ -212,7 +207,7 @@ class AppTheme {
       cardTheme: CardThemeData(
         elevation: 0,
         color: isDark ? neutral800 : neutral0,
-        shadowColor: isDark ? const Color(0x33000000) : const Color(0x10000000),
+        shadowColor: isDark ? const Color(0x10000000) : const Color(0x08000000),
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(radiusLarge)),
@@ -235,7 +230,7 @@ class AppTheme {
           letterSpacing: -0.4,
         ),
         iconTheme: IconThemeData(
-          color: isDark ? neutral400 : neutral600,
+          color: isDark ? neutral400 : neutral500,
           size: 24,
         ),
       ),
@@ -321,7 +316,7 @@ class AppTheme {
           minimumSize: const Size(0, 48),
           shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(radiusMedium)),
-          side: BorderSide(color: primaryColor, width: 1.5),
+          side: BorderSide(color: primaryColor, width: 1),
           foregroundColor: primaryColor,
           textStyle: const TextStyle(
             fontSize: textBodyLarge,
@@ -357,7 +352,7 @@ class AppTheme {
           borderRadius: BorderRadius.circular(radiusMedium),
           borderSide: const BorderSide(color: errorColor, width: 2),
         ),
-        hintStyle: TextStyle(color: neutral500, fontSize: textBodyMedium),
+        hintStyle: TextStyle(color: neutral400, fontSize: textBodyMedium),
         labelStyle: TextStyle(color: neutral500, fontSize: textBodyMedium),
         floatingLabelStyle:
             TextStyle(color: primaryColor, fontSize: textBodyMedium),
@@ -394,7 +389,7 @@ class AppTheme {
         elevation: 0,
         backgroundColor: isDark ? neutral800 : neutral0,
         selectedItemColor: primaryColor,
-        unselectedItemColor: neutral500,
+        unselectedItemColor: neutral400,
         showUnselectedLabels: true,
         type: BottomNavigationBarType.fixed,
         selectedLabelStyle: const TextStyle(
@@ -411,7 +406,7 @@ class AppTheme {
       navigationBarTheme: NavigationBarThemeData(
         elevation: 0,
         backgroundColor: isDark ? neutral800 : neutral0,
-        indicatorColor: primaryColor.withOpacity(0.10),
+        indicatorColor: primaryColor.withValues(alpha: 0.08),
         surfaceTintColor: Colors.transparent,
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
@@ -425,7 +420,7 @@ class AppTheme {
           return TextStyle(
             fontSize: textLabelMedium,
             fontWeight: FontWeight.w500,
-            color: neutral500,
+            color: neutral400,
             letterSpacing: 0.1,
           );
         }),
@@ -433,17 +428,17 @@ class AppTheme {
           if (states.contains(WidgetState.selected)) {
             return IconThemeData(color: primaryColor, size: 24);
           }
-          return IconThemeData(color: neutral500, size: 24);
+          return IconThemeData(color: neutral400, size: 24);
         }),
         height: 64,
       ),
       dividerTheme: DividerThemeData(
         color: isDark ? neutral700 : neutral200,
         thickness: 1,
-        space: 1,
+        space: 0,
       ),
       iconTheme: IconThemeData(
-        color: isDark ? neutral400 : neutral600,
+        color: isDark ? neutral400 : neutral500,
         size: 22,
       ),
       progressIndicatorTheme: ProgressIndicatorThemeData(
@@ -464,7 +459,7 @@ class AppTheme {
         trackOutlineColor: WidgetStateProperty.all(Colors.transparent),
       ),
       snackBarTheme: SnackBarThemeData(
-        backgroundColor: isDark ? neutral700 : neutral900,
+        backgroundColor: isDark ? neutral700 : neutral800,
         contentTextStyle: TextStyle(
           color: isDark ? neutral100 : neutral0,
           fontSize: textBodyMedium,
@@ -477,12 +472,12 @@ class AppTheme {
       ),
       chipTheme: ChipThemeData(
         backgroundColor: isDark ? neutral700 : neutral100,
-        selectedColor: primaryColor.withOpacity(0.12),
-        secondarySelectedColor: primaryColor.withOpacity(0.12),
+        selectedColor: primaryColor.withValues(alpha: 0.10),
+        secondarySelectedColor: primaryColor.withValues(alpha: 0.10),
         labelStyle: TextStyle(
           fontSize: textLabelMedium,
           fontWeight: FontWeight.w500,
-          color: isDark ? neutral100 : neutral800,
+          color: isDark ? neutral100 : neutral700,
         ),
         secondaryLabelStyle: TextStyle(
           fontSize: textLabelMedium,
@@ -499,16 +494,16 @@ class AppTheme {
         activeTrackColor: primaryColor,
         inactiveTrackColor: isDark ? neutral700 : neutral200,
         thumbColor: primaryColor,
-        overlayColor: primaryColor.withOpacity(0.12),
+        overlayColor: primaryColor.withValues(alpha: 0.10),
         trackHeight: 4,
       ),
       listTileTheme: ListTileThemeData(
         contentPadding: const EdgeInsets.symmetric(
           horizontal: spaceLarge,
-          vertical: spaceXSmall,
+          vertical: spaceSmall,
         ),
         minVerticalPadding: spaceSmall,
-        iconColor: isDark ? neutral400 : neutral600,
+        iconColor: isDark ? neutral400 : neutral500,
         textColor: isDark ? neutral100 : neutral900,
         titleTextStyle: TextStyle(
           fontSize: textBodyLarge,
@@ -533,26 +528,26 @@ class AppTheme {
       brightness: Brightness.light,
       primary: primaryColor,
       onPrimary: Colors.white,
-      primaryContainer: primaryColor.withOpacity(0.10),
+      primaryContainer: primaryColor.withValues(alpha: 0.08),
       onPrimaryContainer: primaryColor,
       secondary: successColor,
       onSecondary: Colors.white,
-      secondaryContainer: successColor.withOpacity(0.10),
+      secondaryContainer: successColor.withValues(alpha: 0.08),
       onSecondaryContainer: successDark,
       tertiary: infoColor,
       onTertiary: Colors.white,
-      tertiaryContainer: infoColor.withOpacity(0.10),
+      tertiaryContainer: infoColor.withValues(alpha: 0.08),
       onTertiaryContainer: infoColor,
       error: errorColor,
       onError: Colors.white,
-      errorContainer: errorColor.withOpacity(0.10),
+      errorContainer: errorColor.withValues(alpha: 0.08),
       onErrorContainer: errorDark,
       surface: neutral50,
       onSurface: neutral900,
       onSurfaceVariant: neutral600,
-      outline: neutral300,
-      outlineVariant: neutral200,
-      shadow: const Color(0x10000000),
+      outline: neutral200,
+      outlineVariant: neutral100,
+      shadow: const Color(0x08000000),
       inverseSurface: neutral900,
       inversePrimary: primaryLight,
     );
@@ -563,26 +558,26 @@ class AppTheme {
       brightness: Brightness.dark,
       primary: primaryColor,
       onPrimary: Colors.white,
-      primaryContainer: primaryColor.withOpacity(0.15),
+      primaryContainer: primaryColor.withValues(alpha: 0.12),
       onPrimaryContainer: primaryLight,
       secondary: successLight,
       onSecondary: neutral900,
-      secondaryContainer: successColor.withOpacity(0.15),
+      secondaryContainer: successColor.withValues(alpha: 0.12),
       onSecondaryContainer: successLight,
       tertiary: infoLight,
       onTertiary: neutral900,
-      tertiaryContainer: infoColor.withOpacity(0.15),
+      tertiaryContainer: infoColor.withValues(alpha: 0.12),
       onTertiaryContainer: infoLight,
       error: errorLight,
       onError: neutral900,
-      errorContainer: errorColor.withOpacity(0.15),
+      errorContainer: errorColor.withValues(alpha: 0.12),
       onErrorContainer: errorLight,
       surface: neutral900,
       onSurface: neutral100,
       onSurfaceVariant: neutral400,
       outline: neutral700,
       outlineVariant: neutral800,
-      shadow: const Color(0x33000000),
+      shadow: const Color(0x20000000),
       inverseSurface: neutral50,
       inversePrimary: primaryDark,
     );
@@ -592,7 +587,7 @@ class AppTheme {
   static TextTheme _getTextTheme(bool isDark) {
     final primaryText = isDark ? neutral100 : neutral900;
     final secondaryText = isDark ? neutral400 : neutral600;
-    final tertiaryText = isDark ? neutral500 : neutral500;
+    final tertiaryText = isDark ? neutral500 : neutral400;
 
     return TextTheme(
       displayLarge: TextStyle(
@@ -752,8 +747,8 @@ class AppTheme {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
-        borderRadius: BorderRadius.circular(radiusMedium),
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(radiusSmall),
       ),
       child: Icon(icon, color: color, size: iconSize),
     );

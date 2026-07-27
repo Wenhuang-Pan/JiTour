@@ -29,7 +29,7 @@ class UpdateCheckerWidget extends StatefulWidget {
             Container(
               padding: const EdgeInsets.all(AppTheme.spaceSmall),
               decoration: BoxDecoration(
-                color: AppTheme.primaryColor.withOpacity(0.12),
+                color: AppTheme.primaryColor.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
               ),
               child: Icon(
@@ -59,7 +59,7 @@ class UpdateCheckerWidget extends StatefulWidget {
                       vertical: 2,
                     ),
                     decoration: BoxDecoration(
-                      color: AppTheme.primaryColor.withOpacity(0.12),
+                      color: AppTheme.primaryColor.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(AppTheme.radiusFull),
                     ),
                     child: Text(
@@ -138,7 +138,7 @@ class UpdateCheckerWidget extends StatefulWidget {
         Container(
           padding: const EdgeInsets.all(AppTheme.spaceSmall),
           decoration: BoxDecoration(
-            color: AppTheme.successColor.withOpacity(0.12),
+            color: AppTheme.successColor.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
           ),
           child: Row(

@@ -108,7 +108,7 @@ class AccountsScreen extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(AppTheme.spaceSmall),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.20),
+                  color: Colors.white.withValues(alpha: 0.20),
                   borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                 ),
                 child: const Icon(
@@ -135,8 +135,8 @@ class AccountsScreen extends StatelessWidget {
                 ),
                 decoration: BoxDecoration(
                   color: totalBalance >= 0
-                      ? AppTheme.successColor.withOpacity(0.25)
-                      : AppTheme.errorColor.withOpacity(0.25),
+                      ? AppTheme.successColor.withValues(alpha: 0.25)
+                      : AppTheme.errorColor.withValues(alpha: 0.25),
                   borderRadius: BorderRadius.circular(AppTheme.radiusFull),
                 ),
                 child: Row(
@@ -179,7 +179,7 @@ class AccountsScreen extends StatelessWidget {
             '共 ${AccountService.getActiveAccounts().length} 个账户',
             style: TextStyle(
               fontSize: AppTheme.textBodySmall,
-              color: Colors.white.withOpacity(0.85),
+              color: Colors.white.withValues(alpha: 0.85),
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -231,7 +231,7 @@ class AccountsScreen extends StatelessWidget {
                 width: 52,
                 height: 52,
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.12),
+                  color: color.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
                 ),
                 child: Icon(
@@ -287,7 +287,7 @@ class AccountsScreen extends StatelessWidget {
                       color: (account.currentBalance >= 0
                               ? AppTheme.successColor
                               : AppTheme.errorColor)
-                          .withOpacity(0.12),
+                          .withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(AppTheme.radiusFull),
                     ),
                     child: Text(
@@ -416,7 +416,7 @@ class AccountsScreen extends StatelessWidget {
           vertical: AppTheme.spaceSmall,
         ),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
+          color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
         ),
         child: Row(
@@ -440,10 +440,10 @@ class AccountsScreen extends StatelessWidget {
   Widget _buildTestDataTools(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: AppTheme.warningColor.withOpacity(0.05),
+        color: AppTheme.warningColor.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
         border: Border.all(
-          color: AppTheme.warningColor.withOpacity(0.2),
+          color: AppTheme.warningColor.withValues(alpha: 0.2),
           width: 1,
         ),
       ),
@@ -458,7 +458,7 @@ class AccountsScreen extends StatelessWidget {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: AppTheme.warningColor.withOpacity(0.1),
+                    color: AppTheme.warningColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                   ),
                   child: const Icon(
@@ -516,7 +516,7 @@ class AccountsScreen extends StatelessWidget {
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppTheme.errorColor,
                       side: BorderSide(
-                        color: AppTheme.errorColor.withOpacity(0.5),
+                        color: AppTheme.errorColor.withValues(alpha: 0.5),
                         width: 1,
                       ),
                       padding: const EdgeInsets.symmetric(
@@ -602,7 +602,7 @@ class AccountsScreen extends StatelessWidget {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: AppTheme.getPrimaryColor(context).withOpacity(0.1),
+                  color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                 ),
                 child: Icon(
@@ -622,7 +622,7 @@ class AccountsScreen extends StatelessWidget {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: AppTheme.warningColor.withOpacity(0.1),
+                  color: AppTheme.warningColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                 ),
                 child: const Icon(
@@ -642,7 +642,7 @@ class AccountsScreen extends StatelessWidget {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: AppTheme.errorColor.withOpacity(0.1),
+                  color: AppTheme.errorColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                 ),
                 child: const Icon(
@@ -915,7 +915,7 @@ class AccountsScreen extends StatelessWidget {
               width: 32,
               height: 32,
               decoration: BoxDecoration(
-                color: AppTheme.warningColor.withOpacity(0.1),
+                color: AppTheme.warningColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
               ),
               child: const Icon(
@@ -1000,7 +1000,7 @@ class AccountsScreen extends StatelessWidget {
               width: 32,
               height: 32,
               decoration: BoxDecoration(
-                color: AppTheme.errorColor.withOpacity(0.1),
+                color: AppTheme.errorColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
               ),
               child: Icon(
@@ -1214,7 +1214,7 @@ class _AccountFormDialogState extends State<_AccountFormDialog> {
                     padding: const EdgeInsets.all(AppTheme.spaceSmall),
                     decoration: BoxDecoration(
                       color: isSelected
-                          ? Color(_selectedColorValue).withOpacity(0.2)
+                          ? Color(_selectedColorValue).withValues(alpha: 0.2)
                           : AppTheme.neutral100,
                       borderRadius:
                           BorderRadius.circular(AppTheme.radiusMedium),

@@ -121,7 +121,7 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
             width: 80,
             height: 80,
             decoration: BoxDecoration(
-              color: AppTheme.neutral100.withOpacity(0.2),
+              color: AppTheme.neutral100.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(AppTheme.radiusXLarge),
             ),
             child: Icon(
@@ -166,7 +166,7 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
           Container(
             padding: const EdgeInsets.all(AppTheme.spaceMedium),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              color: color.withValues(alpha: 0.1),
               borderRadius: const BorderRadius.vertical(
                 top: Radius.circular(AppTheme.radiusLarge),
               ),
@@ -218,7 +218,7 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: AppTheme.errorColor.withOpacity(0.1),
+                      color: AppTheme.errorColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                     ),
                     child: Text(
@@ -556,7 +556,7 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
                               decoration: BoxDecoration(
                                 color: isSelected
                                     ? Color(selectedColorValue)
-                                        .withOpacity(0.1)
+                                        .withValues(alpha: 0.1)
                                     : AppTheme.neutral100,
                                 borderRadius:
                                     BorderRadius.circular(AppTheme.radiusSmall),
@@ -615,7 +615,7 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
                                 boxShadow: isSelected
                                     ? [
                                         BoxShadow(
-                                          color: color.withOpacity(0.2),
+                                          color: color.withValues(alpha: 0.2),
                                           blurRadius: 8,
                                         )
                                       ]

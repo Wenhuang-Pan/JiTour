@@ -69,7 +69,7 @@ class _BackupScreenState extends State<BackupScreen> {
         borderRadius: BorderRadius.circular(AppTheme.radiusXLarge),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.primaryColor.withOpacity(0.3),
+            color: AppTheme.primaryColor.withValues(alpha: 0.3),
             blurRadius: 24,
             offset: const Offset(0, 8),
           ),
@@ -83,7 +83,7 @@ class _BackupScreenState extends State<BackupScreen> {
               Container(
                 padding: const EdgeInsets.all(AppTheme.spaceSmall),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                 ),
                 child: const Icon(
@@ -107,7 +107,7 @@ class _BackupScreenState extends State<BackupScreen> {
           Container(
             padding: const EdgeInsets.all(AppTheme.spaceMedium),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.15),
+              color: Colors.white.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
             ),
             child: Column(
@@ -164,7 +164,7 @@ class _BackupScreenState extends State<BackupScreen> {
               borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
               boxShadow: [
                 BoxShadow(
-                  color: AppTheme.successColor.withOpacity(0.3),
+                  color: AppTheme.successColor.withValues(alpha: 0.3),
                   blurRadius: 16,
                   offset: const Offset(0, 6),
                 ),
@@ -209,7 +209,7 @@ class _BackupScreenState extends State<BackupScreen> {
               borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
               boxShadow: AppTheme.cardShadow,
               border: Border.all(
-                color: AppTheme.primaryColor.withOpacity(0.3),
+                color: AppTheme.primaryColor.withValues(alpha: 0.3),
                 width: 1,
               ),
             ),
@@ -263,7 +263,7 @@ class _BackupScreenState extends State<BackupScreen> {
         label: const Text('自动备份设置'),
         style: OutlinedButton.styleFrom(
           foregroundColor: AppTheme.primaryColor,
-          side: BorderSide(color: AppTheme.primaryColor.withOpacity(0.5)),
+          side: BorderSide(color: AppTheme.primaryColor.withValues(alpha: 0.5)),
           padding: const EdgeInsets.all(AppTheme.spaceMedium),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
@@ -293,7 +293,7 @@ class _BackupScreenState extends State<BackupScreen> {
                     Container(
                       padding: const EdgeInsets.all(AppTheme.spaceSmall),
                       decoration: BoxDecoration(
-                        color: AppTheme.primaryColor.withOpacity(0.1),
+                        color: AppTheme.primaryColor.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                       ),
                       child: Icon(
@@ -439,7 +439,7 @@ class _BackupScreenState extends State<BackupScreen> {
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withOpacity(0.1),
+                    color: AppTheme.primaryColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
                   ),
                   child: Icon(
@@ -526,10 +526,10 @@ class _BackupScreenState extends State<BackupScreen> {
     return Container(
       padding: const EdgeInsets.all(AppTheme.spaceMedium),
       decoration: BoxDecoration(
-        color: AppTheme.warningColor.withOpacity(0.05),
+        color: AppTheme.warningColor.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
         border: Border.all(
-          color: AppTheme.warningColor.withOpacity(0.2),
+          color: AppTheme.warningColor.withValues(alpha: 0.2),
           width: 1,
         ),
       ),
@@ -539,7 +539,7 @@ class _BackupScreenState extends State<BackupScreen> {
             width: 32,
             height: 32,
             decoration: BoxDecoration(
-              color: AppTheme.warningColor.withOpacity(0.1),
+              color: AppTheme.warningColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
             ),
             child: Icon(
@@ -665,7 +665,7 @@ class _BackupScreenState extends State<BackupScreen> {
               width: 32,
               height: 32,
               decoration: BoxDecoration(
-                color: AppTheme.warningColor.withOpacity(0.1),
+                color: AppTheme.warningColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
               ),
               child: Icon(
@@ -787,7 +787,7 @@ class _BackupScreenState extends State<BackupScreen> {
               width: 32,
               height: 32,
               decoration: BoxDecoration(
-                color: AppTheme.errorColor.withOpacity(0.1),
+                color: AppTheme.errorColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
               ),
               child: Icon(

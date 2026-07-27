@@ -87,7 +87,7 @@ class _TagsManagementScreenState extends State<TagsManagementScreen> {
         borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.neutral900.withOpacity(0.05),
+            color: AppTheme.neutral900.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -99,7 +99,7 @@ class _TagsManagementScreenState extends State<TagsManagementScreen> {
           width: 48,
           height: 48,
           decoration: BoxDecoration(
-            color: Color(tag.colorValue).withOpacity(0.1),
+            color: Color(tag.colorValue).withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
           ),
           child: Icon(
@@ -201,7 +201,7 @@ class _TagsManagementScreenState extends State<TagsManagementScreen> {
                           height: 40,
                           decoration: BoxDecoration(
                             color: isSelected
-                                ? AppTheme.primaryColor.withOpacity(0.1)
+                                ? AppTheme.primaryColor.withValues(alpha: 0.1)
                                 : AppTheme.neutral50,
                             borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                             border: Border.all(
@@ -386,7 +386,7 @@ class _TagsManagementScreenState extends State<TagsManagementScreen> {
                           height: 40,
                           decoration: BoxDecoration(
                             color: isSelected
-                                ? selectedColor.withOpacity(0.1)
+                                ? selectedColor.withValues(alpha: 0.1)
                                 : AppTheme.neutral50,
                             borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                             border: Border.all(
@@ -517,7 +517,7 @@ class _TagsManagementScreenState extends State<TagsManagementScreen> {
               width: 32,
               height: 32,
               decoration: BoxDecoration(
-                color: Color(tag.colorValue).withOpacity(0.1),
+                color: Color(tag.colorValue).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
               ),
               child: Icon(

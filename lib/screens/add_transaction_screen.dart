@@ -140,12 +140,13 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         ? AppTheme.successColor
         : (isTransfer
             ? AppTheme.getPrimaryColor(context)
-            : AppTheme.errorColor);
+            : AppTheme.neutral900);
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceMedium),
+      padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceLarge),
       child: Column(
         children: [
+          const SizedBox(height: AppTheme.spaceLarge),
           Row(
             children: [
               _buildTabButton('支出', 0),
@@ -153,25 +154,27 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
               _buildTabButton('转账', 2),
             ],
           ),
-          const SizedBox(height: AppTheme.spaceMedium),
+          const SizedBox(height: AppTheme.spaceXLarge),
           Row(
             children: [
               Text(
                 '¥',
                 style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w500,
+                  fontSize: 32,
+                  fontWeight: FontWeight.w400,
                   color: color,
                 ),
               ),
               const SizedBox(width: 8),
-              Text(
-                _amountText,
-                style: TextStyle(
-                  fontSize: 48,
-                  fontWeight: FontWeight.w700,
-                  color: color,
-                  letterSpacing: -2,
+              Expanded(
+                child: Text(
+                  _amountText,
+                  style: TextStyle(
+                    fontSize: 56,
+                    fontWeight: FontWeight.w700,
+                    color: color,
+                    letterSpacing: -2,
+                  ),
                 ),
               ),
             ],
@@ -192,7 +195,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           _updateDefaultCategory();
         },
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: AppTheme.spaceMedium),
+          padding: const EdgeInsets.symmetric(vertical: AppTheme.spaceLarge),
           alignment: Alignment.center,
           decoration: BoxDecoration(
             border: Border(
@@ -207,11 +210,11 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           child: Text(
             label,
             style: TextStyle(
-              fontSize: 16,
+              fontSize: AppTheme.textBodyLarge,
               fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
               color: isSelected
                   ? AppTheme.getPrimaryColor(context)
-                  : AppTheme.neutral500,
+                  : AppTheme.neutral400,
             ),
           ),
         ),
@@ -225,20 +228,22 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         : CategoryService.getIncomeCategories();
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceMedium),
-      margin: const EdgeInsets.only(top: AppTheme.spaceSmall),
+      padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceLarge),
+      margin: const EdgeInsets.only(top: AppTheme.spaceXLarge),
       child: GridView.builder(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 5,
-          mainAxisSpacing: AppTheme.spaceMedium,
-          crossAxisSpacing: AppTheme.spaceSmall,
+          crossAxisCount: 4,
+          mainAxisSpacing: AppTheme.spaceXLarge,
+          crossAxisSpacing: AppTheme.spaceMedium,
         ),
         itemCount: categories.length,
         itemBuilder: (context, index) {
           final category = categories[index];
           final isSelected = _selectedCategory?.id == category.id;
+          final categoryColor =
+              Color(int.parse(category.color.replaceFirst('#', '0xFF')));
           return InkWell(
             onTap: () {
               setState(() => _selectedCategory = category);
@@ -247,39 +252,33 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
             child: Column(
               children: [
                 Container(
-                  width: 48,
-                  height: 48,
+                  width: 52,
+                  height: 52,
                   decoration: BoxDecoration(
                     color: isSelected
-                        ? Color(
-                            int.parse(category.color.replaceFirst('#', '0xFF')))
-                        : Color(int.parse(
-                                category.color.replaceFirst('#', '0xFF')))
-                            .withOpacity(0.1),
+                        ? categoryColor
+                        : categoryColor.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
                     border: Border.all(
-                      color: isSelected
-                          ? Color(int.parse(
-                              category.color.replaceFirst('#', '0xFF')))
-                          : Colors.transparent,
-                      width: 2,
+                      color: isSelected ? categoryColor : Colors.transparent,
+                      width: isSelected ? 2 : 0,
                     ),
                   ),
                   child: Icon(
                     _getIconData(category.iconName),
-                    color: isSelected
-                        ? Colors.white
-                        : Color(int.parse(
-                            category.color.replaceFirst('#', '0xFF'))),
+                    color: isSelected ? Colors.white : categoryColor,
                     size: 24,
                   ),
                 ),
-                const SizedBox(height: AppTheme.spaceXSmall),
+                const SizedBox(height: AppTheme.spaceSmall),
                 Text(
                   category.name,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         fontWeight:
                             isSelected ? FontWeight.w600 : FontWeight.w400,
+                        color: isSelected
+                            ? categoryColor
+                            : Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                   textAlign: TextAlign.center,
                   overflow: TextOverflow.ellipsis,
@@ -343,7 +342,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                     margin: const EdgeInsets.only(bottom: AppTheme.spaceSmall),
                     decoration: BoxDecoration(
                       color: isSelected
-                          ? AppTheme.getPrimaryColor(context).withOpacity(0.12)
+                          ? AppTheme.getPrimaryColor(context).withValues(alpha: 0.12)
                           : Colors.transparent,
                       borderRadius:
                           BorderRadius.circular(AppTheme.radiusMedium),
@@ -354,7 +353,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                           width: 36,
                           height: 36,
                           decoration: BoxDecoration(
-                            color: Color(account.colorValue).withOpacity(0.12),
+                            color: Color(account.colorValue).withValues(alpha: 0.12),
                             borderRadius:
                                 BorderRadius.circular(AppTheme.radiusSmall),
                           ),
@@ -426,7 +425,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
             Container(
               padding: const EdgeInsets.all(AppTheme.spaceSmall),
               decoration: BoxDecoration(
-                color: AppTheme.getPrimaryColor(context).withOpacity(0.12),
+                color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
               ),
               child: Icon(
@@ -553,7 +552,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                         decoration: BoxDecoration(
                           color: isSelected
                               ? tagColor
-                              : tagColor.withOpacity(0.12),
+                              : tagColor.withValues(alpha: 0.12),
                           borderRadius:
                               BorderRadius.circular(AppTheme.radiusMedium),
                           border: Border.all(
@@ -913,7 +912,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
               Container(
                 padding: const EdgeInsets.all(AppTheme.spaceMedium),
                 decoration: BoxDecoration(
-                  color: AppTheme.getPrimaryColor(context).withOpacity(0.12),
+                  color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
                 ),
                 child: Row(

@@ -61,8 +61,8 @@ class _NumpadState extends State<Numpad> {
         boxShadow: [
           BoxShadow(
             color: isDark
-                ? Colors.black.withOpacity(0.4)
-                : Colors.black.withOpacity(0.06),
+                ? Colors.black.withValues(alpha: 0.4)
+                : Colors.black.withValues(alpha: 0.06),
             blurRadius: 20,
             offset: const Offset(0, -4),
           ),
@@ -310,7 +310,7 @@ class _NumpadState extends State<Numpad> {
         HapticFeedback.selectionClick();
         widget.onNumberPressed(symbol);
       },
-      backgroundColor: color.withOpacity(0.12),
+      backgroundColor: color.withValues(alpha: 0.12),
       child: Text(
         symbol,
         style: TextStyle(
@@ -331,12 +331,10 @@ class _NumpadState extends State<Numpad> {
               widget.onSavePressed();
             }
           : null,
-      backgroundColor: widget.canSave
-          ? AppTheme.primaryColor
-          : AppTheme.neutral300,
-      boxShadow: widget.canSave
-          ? AppTheme.glowShadow(AppTheme.primaryColor)
-          : null,
+      backgroundColor:
+          widget.canSave ? AppTheme.primaryColor : AppTheme.neutral300,
+      boxShadow:
+          widget.canSave ? AppTheme.glowShadow(AppTheme.primaryColor) : null,
       child: const Text(
         '保存',
         style: TextStyle(

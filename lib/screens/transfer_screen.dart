@@ -43,7 +43,7 @@ class _TransferScreenState extends State<TransferScreen> {
             Container(
               padding: const EdgeInsets.all(AppTheme.spaceMedium),
               decoration: BoxDecoration(
-                color: AppTheme.primaryColor.withOpacity(0.1),
+                color: AppTheme.primaryColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
               ),
               child: Row(
@@ -254,7 +254,7 @@ class _TransferScreenState extends State<TransferScreen> {
         Container(
           padding: const EdgeInsets.all(AppTheme.spaceSmall),
           decoration: BoxDecoration(
-            color: AppTheme.primaryColor.withOpacity(0.1),
+            color: AppTheme.primaryColor.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
           ),
           child: Icon(
@@ -283,7 +283,7 @@ class _TransferScreenState extends State<TransferScreen> {
           height: 60,
           decoration: BoxDecoration(
             color: account != null
-                ? Color(account.colorValue).withOpacity(0.1)
+                ? Color(account.colorValue).withValues(alpha: 0.1)
                 : AppTheme.neutral100,
             borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
             border: Border.all(
@@ -369,7 +369,7 @@ class _TransferScreenState extends State<TransferScreen> {
                 width: 32,
                 height: 32,
                 decoration: BoxDecoration(
-                  color: Color(account.colorValue).withOpacity(0.1),
+                  color: Color(account.colorValue).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                 ),
                 child: Icon(

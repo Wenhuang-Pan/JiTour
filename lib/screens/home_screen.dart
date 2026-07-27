@@ -15,8 +15,10 @@ import '../models/savings_goal.dart';
 import '../services/database_service.dart';
 import '../services/savings_goal_service.dart';
 import '../services/category_service.dart';
+import '../services/filter_service.dart';
 import '../utils/icon_library.dart';
 import '../utils/animation_utils.dart';
+import '../widgets/filter_modal.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -170,136 +172,138 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                Container(
-                  width: 56,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.20),
-                    borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.20),
+                      borderRadius:
+                          BorderRadius.circular(AppTheme.radiusMedium),
+                    ),
+                    child: const Icon(
+                      Icons.account_balance_wallet_rounded,
+                      color: Colors.white,
+                      size: 28,
+                    ),
                   ),
-                  child: const Icon(
-                    Icons.account_balance_wallet_rounded,
-                    color: Colors.white,
-                    size: 28,
+                  const SizedBox(height: AppTheme.spaceLarge),
+                  const Text(
+                    '记途',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: AppTheme.textHeadlineMedium,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.5,
+                    ),
                   ),
-                ),
-                const SizedBox(height: AppTheme.spaceLarge),
-                const Text(
-                  '记途',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: AppTheme.textHeadlineMedium,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.5,
+                  const SizedBox(height: AppTheme.spaceXSmall),
+                  Text(
+                    '记录每一笔，走向财务自由',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.85),
+                      fontSize: AppTheme.textBodySmall,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
-                ),
-                const SizedBox(height: AppTheme.spaceXSmall),
-                Text(
-                  '记录每一笔，走向财务自由',
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.85),
-                    fontSize: AppTheme.textBodySmall,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: AppTheme.spaceSmall),
-          _buildDrawerItem(
-            context,
-            icon: Icons.category_rounded,
-            title: '分类管理',
-            subtitle: '管理收入和支出分类',
-            color: AppTheme.getPrimaryColor(context),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const CategoryManagementScreen(),
-                ),
-              );
-            },
-          ),
-          _buildDrawerItem(
-            context,
-            icon: Icons.label_rounded,
-            title: '标签管理',
-            subtitle: '管理交易标签',
-            color: const Color(0xFF8B5CF6),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const TagsManagementScreen(),
-                ),
-              );
-            },
-          ),
-          const Divider(height: 1, indent: 20, endIndent: 20),
-          _buildDrawerItem(
-            context,
-            icon: Icons.settings_rounded,
-            title: '设置',
-            subtitle: '主题、币种、备份等',
-            color: AppTheme.neutral600,
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.pushNamed(context, '/settings');
-            },
-          ),
-          _buildDrawerItem(
-            context,
-            icon: Icons.import_export_rounded,
-            title: '导入导出',
-            subtitle: 'CSV导入与数据管理',
-            color: AppTheme.warningColor,
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.pushNamed(context, '/data');
-            },
-          ),
-          const Spacer(),
-          _buildDrawerItem(
-            context,
-            icon: Icons.info_outline_rounded,
-            title: '关于记途',
-            subtitle: 'V1.2.0 · 一起记账吧',
-            color: AppTheme.neutral500,
-            onTap: () {
-              Navigator.pop(context);
-              showAboutDialog(
-                context: context,
-                applicationName: '记途',
-                applicationVersion: 'V1.2.0',
-                applicationIcon: Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    gradient: AppTheme.getPrimaryGradient(context),
-                    borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                  ),
-                  child: const Icon(
-                    Icons.account_balance_wallet_rounded,
-                    color: Colors.white,
-                    size: 24,
-                  ),
-                ),
-                children: const [
-                  Text('一款简洁好用的个人记账应用'),
-                  SizedBox(height: 8),
-                  Text('帮助你轻松管理日常收支'),
                 ],
-              );
-            },
-          ),
-          const SizedBox(height: AppTheme.spaceLarge),
-        ],
+              ),
+            ),
+            const SizedBox(height: AppTheme.spaceSmall),
+            _buildDrawerItem(
+              context,
+              icon: Icons.category_rounded,
+              title: '分类管理',
+              subtitle: '管理收入和支出分类',
+              color: AppTheme.getPrimaryColor(context),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const CategoryManagementScreen(),
+                  ),
+                );
+              },
+            ),
+            _buildDrawerItem(
+              context,
+              icon: Icons.label_rounded,
+              title: '标签管理',
+              subtitle: '管理交易标签',
+              color: const Color(0xFF8B5CF6),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const TagsManagementScreen(),
+                  ),
+                );
+              },
+            ),
+            const Divider(height: 1, indent: 20, endIndent: 20),
+            _buildDrawerItem(
+              context,
+              icon: Icons.settings_rounded,
+              title: '设置',
+              subtitle: '主题、币种、备份等',
+              color: AppTheme.neutral600,
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/settings');
+              },
+            ),
+            _buildDrawerItem(
+              context,
+              icon: Icons.import_export_rounded,
+              title: '导入导出',
+              subtitle: 'CSV导入与数据管理',
+              color: AppTheme.warningColor,
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/data');
+              },
+            ),
+            const Spacer(),
+            _buildDrawerItem(
+              context,
+              icon: Icons.info_outline_rounded,
+              title: '关于记途',
+              subtitle: 'V1.2.0 · 一起记账吧',
+              color: AppTheme.neutral500,
+              onTap: () {
+                Navigator.pop(context);
+                showAboutDialog(
+                  context: context,
+                  applicationName: '记途',
+                  applicationVersion: 'V1.2.0',
+                  applicationIcon: Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      gradient: AppTheme.getPrimaryGradient(context),
+                      borderRadius:
+                          BorderRadius.circular(AppTheme.radiusMedium),
+                    ),
+                    child: const Icon(
+                      Icons.account_balance_wallet_rounded,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                  ),
+                  children: const [
+                    Text('一款简洁好用的个人记账应用'),
+                    SizedBox(height: 8),
+                    Text('帮助你轻松管理日常收支'),
+                  ],
+                );
+              },
+            ),
+            const SizedBox(height: AppTheme.spaceLarge),
+          ],
+        ),
       ),
-    ),
-  );
+    );
   }
 
   Widget _buildDrawerItem(
@@ -323,7 +327,7 @@ class _HomeScreenState extends State<HomeScreen> {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: color.withOpacity(0.12),
+                color: color.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
               ),
               child: Icon(icon, color: color, size: 20),
@@ -361,8 +365,16 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-class TransactionListScreen extends StatelessWidget {
+class TransactionListScreen extends StatefulWidget {
   const TransactionListScreen({super.key});
+
+  @override
+  State<TransactionListScreen> createState() => _TransactionListScreenState();
+}
+
+class _TransactionListScreenState extends State<TransactionListScreen> {
+  final FilterConditions _filterConditions = FilterConditions();
+  String? _activeFilterType;
 
   String _formatDate(DateTime date) {
     final now = DateTime.now();
@@ -423,8 +435,13 @@ class TransactionListScreen extends StatelessWidget {
         child: ValueListenableBuilder(
           valueListenable: DatabaseService.transactions.listenable(),
           builder: (context, Box<Transaction> box, _) {
-            final transactions = box.values.toList()
-              ..sort((a, b) => b.date.compareTo(a.date));
+            final allTransactions = box.values.toList();
+
+            // 应用筛选条件
+            final transactions = FilterService.filterTransactions(
+              allTransactions,
+              _filterConditions,
+            );
 
             if (transactions.isEmpty) {
               return _buildEmptyState(context);
@@ -432,7 +449,7 @@ class TransactionListScreen extends StatelessWidget {
 
             final now = DateTime.now();
             final today = DateTime(now.year, now.month, now.day);
-            final todayTransactions = transactions
+            final todayTransactions = allTransactions
                 .where((t) =>
                     DateTime(t.date.year, t.date.month, t.date.day) == today)
                 .toList();
@@ -456,8 +473,15 @@ class TransactionListScreen extends StatelessWidget {
                   ),
                 ),
                 SliverToBoxAdapter(
+                  child: _buildSearchSection(context),
+                ),
+                SliverToBoxAdapter(
                   child: _buildSavingsSection(context),
                 ),
+                if (_filterConditions.hasFilters)
+                  SliverToBoxAdapter(
+                    child: _buildFilterIndicator(context),
+                  ),
                 SliverPadding(
                   padding: const EdgeInsets.fromLTRB(
                     AppTheme.spaceLarge,
@@ -479,8 +503,8 @@ class TransactionListScreen extends StatelessWidget {
                             if (isFirstOfDay)
                               Padding(
                                 padding: const EdgeInsets.only(
-                                  top: AppTheme.spaceLarge,
-                                  bottom: AppTheme.spaceSmall,
+                                  top: AppTheme.spaceXXLarge,
+                                  bottom: AppTheme.spaceLarge,
                                 ),
                                 child: Row(
                                   children: [
@@ -490,14 +514,14 @@ class TransactionListScreen extends StatelessWidget {
                                           .textTheme
                                           .labelMedium
                                           ?.copyWith(
-                                            color: AppTheme.neutral500,
+                                            color: AppTheme.neutral400,
                                             fontWeight: FontWeight.w600,
                                           ),
                                     ),
-                                    const SizedBox(width: AppTheme.spaceSmall),
+                                    const SizedBox(width: AppTheme.spaceMedium),
                                     Expanded(
                                       child: Container(
-                                        height: 1,
+                                        height: 0.5,
                                         color:
                                             AppTheme.getDividerColor(context),
                                       ),
@@ -521,39 +545,198 @@ class TransactionListScreen extends StatelessWidget {
     );
   }
 
+  /// 构建搜索和筛选区域
+  Widget _buildSearchSection(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceLarge),
+      child: Row(
+        children: [
+          Expanded(
+            child: Container(
+              height: 44,
+              decoration: BoxDecoration(
+                color: AppTheme.getSecondaryBackground(context),
+                borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+              ),
+              child: Row(
+                children: [
+                  const SizedBox(width: AppTheme.spaceMedium),
+                  const Icon(
+                    Icons.search_rounded,
+                    size: 20,
+                    color: AppTheme.neutral400,
+                  ),
+                  const SizedBox(width: AppTheme.spaceSmall),
+                  Expanded(
+                    child: TextField(
+                      decoration: const InputDecoration(
+                        hintText: '搜索账单',
+                        border: InputBorder.none,
+                        contentPadding: EdgeInsets.zero,
+                        isDense: true,
+                      ),
+                      onChanged: (value) {
+                        setState(() {
+                          _filterConditions.keyword = value;
+                        });
+                      },
+                    ),
+                  ),
+                  if (_filterConditions.keyword != null &&
+                      _filterConditions.keyword!.isNotEmpty)
+                    IconButton(
+                      icon: const Icon(Icons.clear_rounded, size: 18),
+                      onPressed: () {
+                        setState(() {
+                          _filterConditions.keyword = null;
+                        });
+                      },
+                    ),
+                  const SizedBox(width: AppTheme.spaceSmall),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: AppTheme.spaceSmall),
+          InkWell(
+            onTap: () => _showFilterModal(context),
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+            child: Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: AppTheme.getSecondaryBackground(context),
+                borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+              ),
+              child: Icon(
+                Icons.filter_alt_rounded,
+                size: 20,
+                color: _filterConditions.hasFilters
+                    ? AppTheme.getPrimaryColor(context)
+                    : AppTheme.neutral400,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 构建筛选状态指示器
+  Widget _buildFilterIndicator(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppTheme.spaceLarge,
+        AppTheme.spaceSmall,
+        AppTheme.spaceLarge,
+        AppTheme.spaceSmall,
+      ),
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppTheme.spaceMedium,
+          vertical: AppTheme.spaceSmall,
+        ),
+        decoration: BoxDecoration(
+          color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.filter_alt_rounded,
+              size: 16,
+              color: AppTheme.getPrimaryColor(context),
+            ),
+            const SizedBox(width: AppTheme.spaceSmall),
+            Text(
+              '已应用筛选',
+              style: TextStyle(
+                fontSize: AppTheme.textBodySmall,
+                color: AppTheme.getPrimaryColor(context),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const Spacer(),
+            InkWell(
+              onTap: _clearFilters,
+              child: Text(
+                '清除',
+                style: TextStyle(
+                  fontSize: AppTheme.textBodySmall,
+                  color: AppTheme.getPrimaryColor(context),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 显示筛选模态框
+  void _showFilterModal(BuildContext context) {
+    showFilterModal(
+      context,
+      conditions: _filterConditions,
+      onApply: (conditions) {
+        setState(() {
+          _filterConditions.keyword = conditions.keyword;
+          _filterConditions.category = conditions.category;
+          _filterConditions.account = conditions.account;
+          _filterConditions.startDate = conditions.startDate;
+          _filterConditions.endDate = conditions.endDate;
+          _filterConditions.minAmount = conditions.minAmount;
+          _filterConditions.maxAmount = conditions.maxAmount;
+          _filterConditions.isIncome = conditions.isIncome;
+          _filterConditions.hasTag = conditions.hasTag;
+          _filterConditions.tag = conditions.tag;
+        });
+      },
+      onClear: _clearFilters,
+    );
+  }
+
+  /// 清除所有筛选条件
+  void _clearFilters() {
+    setState(() {
+      _filterConditions.reset();
+    });
+  }
+
   Widget _buildEmptyState(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(AppTheme.spaceXXLarge),
+        padding: const EdgeInsets.all(AppTheme.spaceXXXLarge),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              padding: const EdgeInsets.all(AppTheme.spaceXLarge),
+              width: 80,
+              height: 80,
               decoration: BoxDecoration(
-                gradient: AppTheme.getPrimaryGradient(context),
+                color:
+                    AppTheme.getPrimaryColor(context).withValues(alpha: 0.08),
                 shape: BoxShape.circle,
-                boxShadow:
-                    AppTheme.glowShadow(AppTheme.getPrimaryColor(context)),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.receipt_long_rounded,
-                size: 56,
-                color: Colors.white,
+                size: 40,
+                color: AppTheme.getPrimaryColor(context),
               ),
             ),
-            const SizedBox(height: AppTheme.spaceXLarge),
+            const SizedBox(height: AppTheme.spaceXXLarge),
             Text(
               '暂无账单',
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w600,
                   ),
             ),
             const SizedBox(height: AppTheme.spaceSmall),
             Text(
               '点击下方"记一笔"开始记录',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppTheme.neutral500,
+                    color: AppTheme.neutral400,
                   ),
             ),
           ],
@@ -571,12 +754,12 @@ class TransactionListScreen extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         AppTheme.spaceLarge,
-        AppTheme.spaceMedium,
+        AppTheme.spaceLarge,
         AppTheme.spaceLarge,
         AppTheme.spaceSmall,
       ),
       child: Container(
-        padding: const EdgeInsets.all(AppTheme.spaceXLarge),
+        padding: const EdgeInsets.all(AppTheme.spaceXXLarge),
         decoration: BoxDecoration(
           gradient: AppTheme.getPrimaryGradient(context),
           borderRadius: BorderRadius.circular(AppTheme.radiusXLarge),
@@ -587,90 +770,104 @@ class TransactionListScreen extends StatelessWidget {
           children: [
             Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(AppTheme.spaceSmall),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.20),
-                    borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
-                  ),
-                  child: const Icon(
-                    Icons.today_rounded,
-                    color: Colors.white,
-                    size: 18,
-                  ),
-                ),
-                const SizedBox(width: AppTheme.spaceSmall),
                 const Text(
                   '今日概览',
                   style: TextStyle(
                     fontSize: AppTheme.textBodyMedium,
                     fontWeight: FontWeight.w600,
                     color: Colors.white,
-                    letterSpacing: -0.2,
+                    letterSpacing: 0.1,
                   ),
                 ),
                 const Spacer(),
+                Text(
+                  DateFormat('MM月dd日').format(DateTime.now()),
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.85),
+                    fontSize: AppTheme.textLabelSmall,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppTheme.spaceXXLarge),
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '收入',
+                        style: TextStyle(
+                          fontSize: AppTheme.textBodySmall,
+                          color: Colors.white.withValues(alpha: 0.85),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: AppTheme.spaceXSmall),
+                      Text(
+                        '¥${income.toStringAsFixed(2)}',
+                        style: const TextStyle(
+                          fontSize: AppTheme.textHeadlineSmall,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                          letterSpacing: -0.4,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppTheme.spaceSmall,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.20),
-                    borderRadius: BorderRadius.circular(AppTheme.radiusFull),
-                  ),
-                  child: Text(
-                    DateFormat('MM/dd').format(DateTime.now()),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: AppTheme.textLabelSmall,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  width: 1,
+                  height: 48,
+                  color: Colors.white.withValues(alpha: 0.25),
+                ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '支出',
+                        style: TextStyle(
+                          fontSize: AppTheme.textBodySmall,
+                          color: Colors.white.withValues(alpha: 0.85),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: AppTheme.spaceXSmall),
+                      Text(
+                        '¥${expense.toStringAsFixed(2)}',
+                        style: const TextStyle(
+                          fontSize: AppTheme.textHeadlineSmall,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                          letterSpacing: -0.4,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
             const SizedBox(height: AppTheme.spaceLarge),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildSummaryItem(
-                    context,
-                    '收入',
-                    income,
-                    Icons.arrow_upward_rounded,
-                  ),
-                ),
-                const SizedBox(width: AppTheme.spaceSmall),
-                Expanded(
-                  child: _buildSummaryItem(
-                    context,
-                    '支出',
-                    expense,
-                    Icons.arrow_downward_rounded,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppTheme.spaceSmall),
             Container(
-              padding: const EdgeInsets.all(AppTheme.spaceMedium),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppTheme.spaceLarge,
+                vertical: AppTheme.spaceMedium,
+              ),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.15),
+                color: Colors.white.withValues(alpha: 0.10),
                 borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                border: Border.all(
-                  color: Colors.white.withOpacity(0.20),
-                  width: 1,
-                ),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
+                  Text(
                     '今日结余',
                     style: TextStyle(
                       fontSize: AppTheme.textBodySmall,
-                      color: Colors.white,
+                      color: Colors.white.withValues(alpha: 0.85),
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -680,7 +877,7 @@ class TransactionListScreen extends StatelessWidget {
                       fontSize: AppTheme.textTitleLarge,
                       fontWeight: FontWeight.w700,
                       color: Colors.white,
-                      letterSpacing: -0.5,
+                      letterSpacing: -0.4,
                     ),
                   ),
                 ],
@@ -688,54 +885,6 @@ class TransactionListScreen extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildSummaryItem(
-    BuildContext context,
-    String label,
-    double amount,
-    IconData icon,
-  ) {
-    return Container(
-      padding: const EdgeInsets.all(AppTheme.spaceMedium),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-        border: Border.all(
-          color: Colors.white.withOpacity(0.20),
-          width: 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, color: Colors.white, size: 14),
-              const SizedBox(width: 4),
-              Text(
-                label,
-                style: const TextStyle(
-                  fontSize: AppTheme.textLabelSmall,
-                  color: Colors.white,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppTheme.spaceXSmall),
-          Text(
-            '¥${amount.toStringAsFixed(2)}',
-            style: const TextStyle(
-              fontSize: AppTheme.textTitleMedium,
-              fontWeight: FontWeight.w700,
-              color: Colors.white,
-              letterSpacing: -0.3,
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -872,11 +1021,6 @@ class TransactionListScreen extends StatelessWidget {
     final categoryColor = _getCategoryColor(transaction.category);
     return Container(
       margin: const EdgeInsets.only(bottom: AppTheme.spaceSmall),
-      decoration: BoxDecoration(
-        color: AppTheme.getCardColor(context),
-        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-        boxShadow: AppTheme.cardShadow,
-      ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
@@ -884,14 +1028,17 @@ class TransactionListScreen extends StatelessWidget {
           onLongPress: () => _showDeleteDialog(context, transaction),
           borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
           child: Padding(
-            padding: const EdgeInsets.all(AppTheme.spaceMedium),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppTheme.spaceLarge,
+              vertical: AppTheme.spaceLarge,
+            ),
             child: Row(
               children: [
                 Container(
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    color: categoryColor.withOpacity(0.12),
+                    color: categoryColor.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
                   ),
                   child: Icon(
@@ -900,7 +1047,7 @@ class TransactionListScreen extends StatelessWidget {
                     size: 22,
                   ),
                 ),
-                const SizedBox(width: AppTheme.spaceMedium),
+                const SizedBox(width: AppTheme.spaceLarge),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -915,58 +1062,41 @@ class TransactionListScreen extends StatelessWidget {
                       const SizedBox(height: 2),
                       Row(
                         children: [
-                          Icon(
-                            Icons.account_balance_wallet_outlined,
-                            size: 12,
-                            color: AppTheme.neutral400,
-                          ),
-                          const SizedBox(width: AppTheme.spaceXSmall),
-                          Flexible(
-                            child: Text(
-                              transaction.account,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall
-                                  ?.copyWith(
-                                    color: AppTheme.neutral500,
-                                  ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                          Text(
+                            transaction.account,
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: AppTheme.neutral400,
+                                    ),
                           ),
                           if (transaction.note != null &&
                               transaction.note!.isNotEmpty) ...[
                             const SizedBox(width: AppTheme.spaceSmall),
                             Container(
-                              width: 3,
-                              height: 3,
+                              width: 2,
+                              height: 2,
                               decoration: const BoxDecoration(
-                                color: AppTheme.neutral400,
+                                color: AppTheme.neutral300,
                                 shape: BoxShape.circle,
                               ),
                             ),
                             const SizedBox(width: AppTheme.spaceSmall),
-                            Flexible(
-                              child: Text(
-                                transaction.note!,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodySmall
-                                    ?.copyWith(
-                                      color: AppTheme.neutral500,
-                                    ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
+                            Text(
+                              transaction.note!,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(
+                                    color: AppTheme.neutral400,
+                                  ),
                             ),
                           ],
                         ],
                       ),
-                      const SizedBox(height: 4),
                     ],
                   ),
                 ),
-                const SizedBox(width: AppTheme.spaceSmall),
+                const SizedBox(width: AppTheme.spaceLarge),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
@@ -976,7 +1106,7 @@ class TransactionListScreen extends StatelessWidget {
                             fontWeight: FontWeight.w700,
                             color: transaction.isIncome
                                 ? AppTheme.successColor
-                                : AppTheme.errorColor,
+                                : AppTheme.neutral900,
                             letterSpacing: -0.3,
                           ),
                     ),

@@ -85,7 +85,7 @@ class _ExportScreenState extends State<ExportScreen> {
                 Container(
                   padding: const EdgeInsets.all(AppTheme.spaceSmall),
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withOpacity(0.1),
+                    color: AppTheme.primaryColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                   ),
                   child: Icon(
@@ -245,7 +245,7 @@ class _ExportScreenState extends State<ExportScreen> {
                 Container(
                   padding: const EdgeInsets.all(AppTheme.spaceSmall),
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withOpacity(0.1),
+                    color: AppTheme.primaryColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                   ),
                   child: Icon(
@@ -304,10 +304,10 @@ class _ExportScreenState extends State<ExportScreen> {
       child: Container(
         padding: const EdgeInsets.all(AppTheme.spaceMedium),
         decoration: BoxDecoration(
-          color: isSelected ? color.withOpacity(0.05) : AppTheme.neutral50,
+          color: isSelected ? color.withValues(alpha: 0.05) : AppTheme.neutral50,
           borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
           border: Border.all(
-            color: isSelected ? color.withOpacity(0.3) : AppTheme.neutral200,
+            color: isSelected ? color.withValues(alpha: 0.3) : AppTheme.neutral200,
             width: 1,
           ),
         ),
@@ -317,7 +317,7 @@ class _ExportScreenState extends State<ExportScreen> {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
+                color: color.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
               ),
               child: Icon(
@@ -389,7 +389,7 @@ class _ExportScreenState extends State<ExportScreen> {
                     Container(
                       padding: const EdgeInsets.all(AppTheme.spaceSmall),
                       decoration: BoxDecoration(
-                        color: AppTheme.primaryColor.withOpacity(0.1),
+                        color: AppTheme.primaryColor.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                       ),
                       child: Icon(
@@ -516,7 +516,7 @@ class _ExportScreenState extends State<ExportScreen> {
                           vertical: 2,
                         ),
                         decoration: BoxDecoration(
-                          color: (t.isIncome ? AppTheme.successColor : AppTheme.errorColor).withOpacity(0.1),
+                          color: (t.isIncome ? AppTheme.successColor : AppTheme.errorColor).withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                         ),
                         child: Text(
@@ -571,7 +571,7 @@ class _ExportScreenState extends State<ExportScreen> {
         borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
         boxShadow: _filteredTransactions.isEmpty ? null : [
           BoxShadow(
-            color: AppTheme.primaryColor.withOpacity(0.3),
+            color: AppTheme.primaryColor.withValues(alpha: 0.3),
             blurRadius: 16,
             offset: const Offset(0, 6),
           ),

@@ -165,7 +165,7 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
             height: 200,
             decoration: BoxDecoration(
               border: Border.all(
-                color: AppTheme.primaryColor.withOpacity(0.3),
+                color: AppTheme.primaryColor.withValues(alpha: 0.3),
                 width: 2,
               ),
               borderRadius: BorderRadius.circular(AppTheme.radiusLarge),

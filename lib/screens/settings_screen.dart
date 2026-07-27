@@ -75,7 +75,7 @@ class SettingsScreen extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(AppTheme.spaceXSmall),
                   decoration: BoxDecoration(
-                    color: AppTheme.getPrimaryColor(context).withOpacity(0.10),
+                    color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.10),
                     borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                   ),
                   child: Icon(
@@ -107,7 +107,7 @@ class SettingsScreen extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: provider.themeMode == mode
                             ? AppTheme.getPrimaryColor(context)
-                                .withOpacity(0.10)
+                                .withValues(alpha: 0.10)
                             : AppTheme.getSecondaryBackground(context),
                         borderRadius:
                             BorderRadius.circular(AppTheme.radiusSmall),
@@ -158,7 +158,7 @@ class SettingsScreen extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(AppTheme.spaceXSmall),
                   decoration: BoxDecoration(
-                    color: AppTheme.successColor.withOpacity(0.10),
+                    color: AppTheme.successColor.withValues(alpha: 0.10),
                     borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                   ),
                   child: Icon(
@@ -194,7 +194,7 @@ class SettingsScreen extends StatelessWidget {
                                 ? provider.getThemeColorOptionColor(color)
                                 : provider
                                     .getThemeColorOptionColor(color)
-                                    .withOpacity(0.30),
+                                    .withValues(alpha: 0.30),
                             borderRadius:
                                 BorderRadius.circular(AppTheme.radiusSmall),
                             border: Border.all(
@@ -248,7 +248,7 @@ class SettingsScreen extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(AppTheme.spaceXSmall),
                   decoration: BoxDecoration(
-                    color: AppTheme.warningColor.withOpacity(0.10),
+                    color: AppTheme.warningColor.withValues(alpha: 0.10),
                     borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                   ),
                   child: Icon(
@@ -280,7 +280,7 @@ class SettingsScreen extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: provider.currency == currency
                             ? AppTheme.getPrimaryColor(context)
-                                .withOpacity(0.10)
+                                .withValues(alpha: 0.10)
                             : AppTheme.getSecondaryBackground(context),
                         borderRadius:
                             BorderRadius.circular(AppTheme.radiusSmall),
@@ -430,7 +430,7 @@ class SettingsScreen extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(AppTheme.spaceXSmall),
               decoration: BoxDecoration(
-                color: iconColor.withOpacity(0.10),
+                color: iconColor.withValues(alpha: 0.10),
                 borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
               ),
               child: Icon(icon, color: iconColor, size: 18),
@@ -524,7 +524,7 @@ class SettingsScreen extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(AppTheme.spaceXSmall),
               decoration: BoxDecoration(
-                color: iconColor.withOpacity(0.10),
+                color: iconColor.withValues(alpha: 0.10),
                 borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
               ),
               child: Icon(icon, color: iconColor, size: 20),

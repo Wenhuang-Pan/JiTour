@@ -326,7 +326,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> with Single
             Container(
               padding: const EdgeInsets.all(AppTheme.spaceMedium),
               decoration: BoxDecoration(
-                color: AppTheme.successColor.withOpacity(0.1),
+                color: AppTheme.successColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
               ),
               child: Row(
@@ -363,7 +363,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> with Single
               height: 200,
               decoration: BoxDecoration(
                 border: Border.all(
-                  color: AppTheme.primaryColor.withOpacity(0.3),
+                  color: AppTheme.primaryColor.withValues(alpha: 0.3),
                   width: 2,
                 ),
                 borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
@@ -599,7 +599,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> with Single
             Container(
               padding: const EdgeInsets.all(AppTheme.spaceMedium),
               decoration: BoxDecoration(
-                color: AppTheme.successColor.withOpacity(0.1),
+                color: AppTheme.successColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
               ),
               child: Row(

@@ -41,35 +41,37 @@ class StatsScreen extends StatelessWidget {
           if (allTransactions.isEmpty) {
             return Center(
               child: Padding(
-                padding: const EdgeInsets.all(AppTheme.spaceXXLarge),
+                padding: const EdgeInsets.all(AppTheme.spaceXXXLarge),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(AppTheme.spaceXLarge),
+                      width: 80,
+                      height: 80,
                       decoration: BoxDecoration(
-                        color: AppTheme.primaryColor.withOpacity(0.1),
+                        color: AppTheme.getPrimaryColor(context)
+                            .withValues(alpha: 0.08),
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
                         Icons.bar_chart_rounded,
-                        size: 64,
-                        color: AppTheme.primaryColor,
+                        size: 40,
+                        color: AppTheme.getPrimaryColor(context),
                       ),
                     ),
-                    const SizedBox(height: AppTheme.spaceLarge),
+                    const SizedBox(height: AppTheme.spaceXXLarge),
                     Text(
                       '暂无统计数据',
                       style:
                           Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                color: AppTheme.neutral700,
+                                fontWeight: FontWeight.w600,
                               ),
                     ),
                     const SizedBox(height: AppTheme.spaceSmall),
                     Text(
                       '添加交易后即可查看统计',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: AppTheme.neutral500,
+                            color: AppTheme.neutral400,
                           ),
                     ),
                   ],
@@ -147,126 +149,115 @@ class StatsScreen extends StatelessWidget {
   Widget _buildKpiSection(
       BuildContext context, double income, double expense, double balance) {
     return Container(
-      padding: const EdgeInsets.all(AppTheme.spaceLarge),
+      padding: const EdgeInsets.all(AppTheme.spaceXXLarge),
       decoration: BoxDecoration(
-        gradient: AppTheme.primaryGradient,
+        gradient: AppTheme.getPrimaryGradient(context),
         borderRadius: BorderRadius.circular(AppTheme.radiusXLarge),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.primaryColor.withOpacity(0.3),
-            blurRadius: 24,
-            offset: const Offset(0, 8),
-          ),
-        ],
+        boxShadow: AppTheme.glowShadow(AppTheme.getPrimaryColor(context)),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const Text(
+            '本月概览',
+            style: TextStyle(
+              fontSize: AppTheme.textBodyMedium,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+              letterSpacing: 0.1,
+            ),
+          ),
+          const SizedBox(height: AppTheme.spaceXXLarge),
           Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(AppTheme.spaceSmall),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
-                ),
-                child: const Icon(
-                  Icons.insights_rounded,
-                  color: Colors.white,
-                  size: 20,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '收入',
+                      style: TextStyle(
+                        fontSize: AppTheme.textBodySmall,
+                        color: Colors.white.withValues(alpha: 0.85),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: AppTheme.spaceXSmall),
+                    Text(
+                      '¥${income.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                        fontSize: AppTheme.textHeadlineSmall,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                        letterSpacing: -0.4,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(width: AppTheme.spaceMedium),
-              const Text(
-                '本月概览',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
+              Container(
+                width: 1,
+                height: 48,
+                color: Colors.white.withValues(alpha: 0.25),
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '支出',
+                      style: TextStyle(
+                        fontSize: AppTheme.textBodySmall,
+                        color: Colors.white.withValues(alpha: 0.85),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: AppTheme.spaceXSmall),
+                    Text(
+                      '¥${expense.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                        fontSize: AppTheme.textHeadlineSmall,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                        letterSpacing: -0.4,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
           const SizedBox(height: AppTheme.spaceLarge),
-          Row(
-            children: [
-              Expanded(
-                child: _buildKpiItem('收入', income, AppTheme.successLight),
-              ),
-              const SizedBox(width: AppTheme.spaceMedium),
-              Expanded(
-                child: _buildKpiItem('支出', expense, AppTheme.errorLight),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppTheme.spaceMedium),
           Container(
-            padding: const EdgeInsets.all(AppTheme.spaceMedium),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppTheme.spaceLarge,
+              vertical: AppTheme.spaceMedium,
+            ),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.15),
+              color: Colors.white.withValues(alpha: 0.10),
               borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-              border: Border.all(
-                color: Colors.white.withOpacity(0.2),
-                width: 1,
-              ),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  '结余',
+                Text(
+                  '本月结余',
                   style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.white70,
+                    fontSize: AppTheme.textBodySmall,
+                    color: Colors.white.withValues(alpha: 0.85),
                     fontWeight: FontWeight.w500,
                   ),
                 ),
                 Text(
                   '¥${balance.toStringAsFixed(2)}',
                   style: const TextStyle(
-                    fontSize: 24,
+                    fontSize: AppTheme.textTitleLarge,
                     fontWeight: FontWeight.w700,
                     color: Colors.white,
-                    letterSpacing: -0.5,
+                    letterSpacing: -0.4,
                   ),
                 ),
               ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildKpiItem(String label, double amount, Color accentColor) {
-    return Container(
-      padding: const EdgeInsets.all(AppTheme.spaceMedium),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-        border: Border.all(
-          color: Colors.white.withOpacity(0.2),
-          width: 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 12,
-              color: Colors.white70,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: AppTheme.spaceXSmall),
-          Text(
-            '¥${amount.toStringAsFixed(2)}',
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: Colors.white,
-              letterSpacing: -0.3,
             ),
           ),
         ],
@@ -299,11 +290,10 @@ class StatsScreen extends StatelessWidget {
   Widget _buildTrendChart(
       BuildContext context, Map<String, Map<String, double>> trendData) {
     return Container(
-      padding: const EdgeInsets.all(AppTheme.spaceMedium),
+      padding: const EdgeInsets.all(AppTheme.spaceLarge),
       decoration: BoxDecoration(
         color: AppTheme.getCardColor(context),
         borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-        boxShadow: AppTheme.cardShadow,
       ),
       child: Column(
         children: [
@@ -432,8 +422,8 @@ class StatsScreen extends StatelessWidget {
         show: true,
         gradient: LinearGradient(
           colors: [
-            AppTheme.successColor.withOpacity(0.15),
-            AppTheme.successColor.withOpacity(0.02),
+            AppTheme.successColor.withValues(alpha: 0.15),
+            AppTheme.successColor.withValues(alpha: 0.02),
           ],
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
@@ -467,8 +457,8 @@ class StatsScreen extends StatelessWidget {
         show: true,
         gradient: LinearGradient(
           colors: [
-            AppTheme.warningColor.withOpacity(0.15),
-            AppTheme.warningColor.withOpacity(0.02),
+            AppTheme.warningColor.withValues(alpha: 0.15),
+            AppTheme.warningColor.withValues(alpha: 0.02),
           ],
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
@@ -493,7 +483,6 @@ class StatsScreen extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppTheme.getCardColor(context),
         borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-        boxShadow: AppTheme.cardShadow,
       ),
       child: Row(
         children: [
@@ -600,7 +589,6 @@ class StatsScreen extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppTheme.getCardColor(context),
         borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-        boxShadow: AppTheme.cardShadow,
       ),
       child: Column(
         children: sortedEntries.asMap().entries.map((entry) {
@@ -627,7 +615,7 @@ class StatsScreen extends StatelessWidget {
                   width: 36,
                   height: 36,
                   decoration: BoxDecoration(
-                    color: colors[index].withOpacity(0.12),
+                    color: colors[index].withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                   ),
                   child: Center(
@@ -738,7 +726,6 @@ class StatsScreen extends StatelessWidget {
           decoration: BoxDecoration(
             color: AppTheme.getCardColor(context),
             borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-            boxShadow: AppTheme.cardShadow,
           ),
           child: Row(
             children: [
@@ -877,7 +864,6 @@ class StatsScreen extends StatelessWidget {
           decoration: BoxDecoration(
             color: AppTheme.getCardColor(context),
             borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-            boxShadow: AppTheme.cardShadow,
           ),
           child: Column(
             children:
@@ -911,7 +897,7 @@ class StatsScreen extends StatelessWidget {
                       width: 36,
                       height: 36,
                       decoration: BoxDecoration(
-                        color: Color(tag.colorValue).withOpacity(0.1),
+                        color: Color(tag.colorValue).withValues(alpha: 0.1),
                         borderRadius:
                             BorderRadius.circular(AppTheme.radiusSmall),
                       ),

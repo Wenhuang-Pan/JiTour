@@ -61,7 +61,7 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen>
         ),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.primaryColor.withOpacity(0.3),
+            color: AppTheme.primaryColor.withValues(alpha: 0.3),
             blurRadius: 24,
             offset: const Offset(0, 8),
           ),
@@ -76,7 +76,7 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen>
                 Container(
                   padding: const EdgeInsets.all(AppTheme.spaceSmall),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
+                    color: Colors.white.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                   ),
                   child: const Icon(
@@ -101,7 +101,7 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen>
               '自定义您的收入和支出分类',
               style: TextStyle(
                 fontSize: 14,
-                color: Colors.white.withOpacity(0.8),
+                color: Colors.white.withValues(alpha: 0.8),
               ),
             ),
           ],
@@ -170,7 +170,7 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen>
         borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.primaryColor.withOpacity(0.3),
+            color: AppTheme.primaryColor.withValues(alpha: 0.3),
             blurRadius: 16,
             offset: const Offset(0, 6),
           ),
@@ -367,7 +367,7 @@ class _CategoryCard extends StatelessWidget {
                   width: 56,
                   height: 56,
                   decoration: BoxDecoration(
-                    color: color.withOpacity(0.12),
+                    color: color.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
                   ),
                   child: Icon(
@@ -534,7 +534,7 @@ class _CategoryDialogState extends State<_CategoryDialog> {
           Container(
             padding: const EdgeInsets.all(AppTheme.spaceSmall),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              color: Colors.white.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
             ),
             child: Icon(
@@ -706,7 +706,7 @@ class _CategoryDialogState extends State<_CategoryDialog> {
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 200),
                           decoration: BoxDecoration(
-                            color: isSelected ? _selectedColor.withOpacity(0.15) : AppTheme.getCardColor(context),
+                            color: isSelected ? _selectedColor.withValues(alpha: 0.15) : AppTheme.getCardColor(context),
                             borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                             border: Border.all(
                               color: isSelected ? _selectedColor : AppTheme.getDividerColor(context),
@@ -715,7 +715,7 @@ class _CategoryDialogState extends State<_CategoryDialog> {
                             boxShadow: isSelected
                                 ? [
                                     BoxShadow(
-                                      color: _selectedColor.withOpacity(0.30),
+                                      color: _selectedColor.withValues(alpha: 0.30),
                                       blurRadius: 8,
                                       offset: const Offset(0, 2),
                                     ),
@@ -766,7 +766,7 @@ class _CategoryDialogState extends State<_CategoryDialog> {
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 200),
                         decoration: BoxDecoration(
-                          color: isSelected ? _selectedColor.withOpacity(0.15) : AppTheme.getCardColor(context),
+                          color: isSelected ? _selectedColor.withValues(alpha: 0.15) : AppTheme.getCardColor(context),
                           borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                           border: Border.all(
                             color: isSelected ? _selectedColor : AppTheme.getDividerColor(context),
@@ -775,7 +775,7 @@ class _CategoryDialogState extends State<_CategoryDialog> {
                           boxShadow: isSelected
                               ? [
                                   BoxShadow(
-                                    color: _selectedColor.withOpacity(0.30),
+                                    color: _selectedColor.withValues(alpha: 0.30),
                                     blurRadius: 8,
                                     offset: const Offset(0, 2),
                                   ),
@@ -859,7 +859,7 @@ class _CategoryDialogState extends State<_CategoryDialog> {
                         boxShadow: isSelected
                             ? [
                                 BoxShadow(
-                                  color: color.withOpacity(0.5),
+                                  color: color.withValues(alpha: 0.5),
                                   blurRadius: 8,
                                   spreadRadius: 2,
                                 ),
@@ -899,7 +899,7 @@ class _CategoryDialogState extends State<_CategoryDialog> {
                         boxShadow: isSelected
                             ? [
                                 BoxShadow(
-                                  color: color.withOpacity(0.5),
+                                  color: color.withValues(alpha: 0.5),
                                   blurRadius: 8,
                                   spreadRadius: 2,
                                 ),
@@ -951,7 +951,7 @@ class _CategoryDialogState extends State<_CategoryDialog> {
                 width: 56,
                 height: 56,
                 decoration: BoxDecoration(
-                  color: _selectedColor.withOpacity(0.12),
+                  color: _selectedColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
                 ),
                 child: Icon(

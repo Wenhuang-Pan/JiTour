@@ -141,7 +141,7 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
         borderRadius: BorderRadius.circular(AppTheme.radiusXLarge),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.primaryColor.withOpacity(0.3),
+            color: AppTheme.primaryColor.withValues(alpha: 0.3),
             blurRadius: 24,
             offset: const Offset(0, 8),
           ),
@@ -155,7 +155,7 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
               Container(
                 padding: const EdgeInsets.all(AppTheme.spaceSmall),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                 ),
                 child: const Icon(
@@ -180,7 +180,7 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
             '开启自动备份后，数据会定期备份到手机本地目录。\n配合云盘同步功能，实现数据安全备份。',
             style: TextStyle(
               fontSize: 14,
-              color: Colors.white.withOpacity(0.9),
+              color: Colors.white.withValues(alpha: 0.9),
             ),
           ),
         ],
@@ -203,7 +203,7 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
             height: 48,
             decoration: BoxDecoration(
               color: _autoBackupEnabled 
-                  ? AppTheme.successColor.withOpacity(0.10)
+                  ? AppTheme.successColor.withValues(alpha: 0.10)
                   : AppTheme.getSecondaryBackground(context),
               borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
             ),
@@ -283,7 +283,7 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
           padding: const EdgeInsets.all(AppTheme.spaceMedium),
           decoration: BoxDecoration(
             color: isSelected 
-                ? AppTheme.primaryColor.withOpacity(0.10)
+                ? AppTheme.primaryColor.withValues(alpha: 0.10)
                 : AppTheme.getCardColor(context),
             borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
             border: Border.all(
@@ -345,10 +345,10 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
     return Container(
       padding: const EdgeInsets.all(AppTheme.spaceMedium),
       decoration: BoxDecoration(
-        color: AppTheme.successColor.withOpacity(0.10),
+        color: AppTheme.successColor.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
         border: Border.all(
-          color: AppTheme.successColor.withOpacity(0.30),
+          color: AppTheme.successColor.withValues(alpha: 0.30),
         ),
       ),
       child: Row(
@@ -443,10 +443,10 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
     return Container(
       padding: const EdgeInsets.all(AppTheme.spaceMedium),
       decoration: BoxDecoration(
-        color: AppTheme.warningColor.withOpacity(0.10),
+        color: AppTheme.warningColor.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
         border: Border.all(
-          color: AppTheme.warningColor.withOpacity(0.30),
+          color: AppTheme.warningColor.withValues(alpha: 0.30),
         ),
       ),
       child: Column(
