@@ -26,6 +26,8 @@ class Numpad extends StatefulWidget {
   final VoidCallback? onTagTap;
   final String? tagText;
   final String? timeText;
+  final VoidCallback? onLocationTap;
+  final String? locationText;
 
   const Numpad({
     super.key,
@@ -45,6 +47,8 @@ class Numpad extends StatefulWidget {
     this.onTagTap,
     this.tagText,
     this.timeText,
+    this.onLocationTap,
+    this.locationText,
   });
 
   @override
@@ -178,6 +182,12 @@ class _NumpadState extends State<Numpad> {
             icon: Icons.local_offer_rounded,
             label: widget.tagText ?? '标签',
             onTap: widget.onTagTap,
+          ),
+          const SizedBox(width: 4),
+          _buildOptionButton(
+            icon: Icons.location_on_rounded,
+            label: widget.locationText ?? '位置',
+            onTap: widget.onLocationTap,
           ),
         ],
       ),

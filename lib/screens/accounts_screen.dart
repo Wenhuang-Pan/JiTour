@@ -9,6 +9,7 @@ import '../utils/icon_library.dart';
 import 'export_screen.dart';
 import 'backup_screen.dart';
 import 'transfer_screen.dart';
+import 'account_detail_screen.dart';
 
 class AccountsScreen extends StatelessWidget {
   const AccountsScreen({super.key});
@@ -221,7 +222,14 @@ class AccountsScreen extends StatelessWidget {
         boxShadow: AppTheme.cardShadow,
       ),
       child: InkWell(
-        onTap: () => _showAccountOptionsDialog(context, account),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => AccountDetailScreen(account: account),
+            ),
+          );
+        },
         borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
         child: Padding(
           padding: const EdgeInsets.all(AppTheme.spaceMedium),

@@ -3,11 +3,10 @@ import 'package:intl/intl.dart';
 import '../services/filter_service.dart';
 import '../services/category_service.dart';
 import '../services/account_service.dart';
-import '../services/tag_service.dart';
 import '../theme/app_theme.dart';
 
 /// 筛选模态框组件
-/// 
+///
 /// 提供多维度筛选功能，支持按分类、账户、日期、金额、收支类型等筛选交易。
 class FilterModal extends StatefulWidget {
   /// 当前筛选条件
@@ -41,10 +40,14 @@ class _FilterModalState extends State<FilterModal> {
     super.initState();
     _conditions = widget.initialConditions.copyWith();
     _minAmountController = TextEditingController(
-      text: _conditions.minAmount != null ? _conditions.minAmount!.toString() : '',
+      text: _conditions.minAmount != null
+          ? _conditions.minAmount!.toString()
+          : '',
     );
     _maxAmountController = TextEditingController(
-      text: _conditions.maxAmount != null ? _conditions.maxAmount!.toString() : '',
+      text: _conditions.maxAmount != null
+          ? _conditions.maxAmount!.toString()
+          : '',
     );
     _keywordController = TextEditingController(
       text: _conditions.keyword ?? '',
@@ -64,7 +67,8 @@ class _FilterModalState extends State<FilterModal> {
     return Container(
       height: MediaQuery.of(context).size.height * 0.85,
       decoration: const BoxDecoration(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(AppTheme.radiusXLarge)),
+        borderRadius:
+            BorderRadius.vertical(top: Radius.circular(AppTheme.radiusXLarge)),
       ),
       child: Column(
         children: [
@@ -243,7 +247,8 @@ class _FilterModalState extends State<FilterModal> {
                           .withValues(alpha: 0.10),
                   labelStyle: TextStyle(
                     color: isSelected
-                        ? Color(int.parse(category.color.replaceFirst('#', '0xFF')))
+                        ? Color(
+                            int.parse(category.color.replaceFirst('#', '0xFF')))
                         : Theme.of(context).colorScheme.onSurfaceVariant,
                     fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                   ),
@@ -419,9 +424,7 @@ class _FilterModalState extends State<FilterModal> {
         child: Row(
           children: [
             Text(
-              date != null
-                  ? DateFormat('MM/dd').format(date)
-                  : label,
+              date != null ? DateFormat('MM/dd').format(date) : label,
               style: TextStyle(
                 color: date != null
                     ? Theme.of(context).colorScheme.onSurface
@@ -522,7 +525,7 @@ class _FilterModalState extends State<FilterModal> {
 }
 
 /// 显示筛选模态框
-/// 
+///
 /// @param context 上下文
 /// @param conditions 当前筛选条件
 /// @param onApply 筛选确认回调
@@ -537,7 +540,8 @@ void showFilterModal(
     context: context,
     isScrollControlled: true,
     shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(AppTheme.radiusXLarge)),
+      borderRadius:
+          BorderRadius.vertical(top: Radius.circular(AppTheme.radiusXLarge)),
     ),
     builder: (_) => FilterModal(
       initialConditions: conditions,

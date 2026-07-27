@@ -49,6 +49,15 @@ class Transaction extends HiveObject {
   @HiveField(14)
   double coupon;
 
+  @HiveField(15)
+  String? locationName;
+
+  @HiveField(16)
+  double? latitude;
+
+  @HiveField(17)
+  double? longitude;
+
   Transaction({
     required this.id,
     required this.amount,
@@ -65,6 +74,9 @@ class Transaction extends HiveObject {
     this.isReimbursed = false,
     this.fee = 0.0,
     this.coupon = 0.0,
+    this.locationName,
+    this.latitude,
+    this.longitude,
   });
 
   // 软删除

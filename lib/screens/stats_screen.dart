@@ -9,6 +9,7 @@ import '../services/account_service.dart';
 import '../services/tag_service.dart';
 import '../services/stats_service.dart';
 import '../utils/icon_library.dart';
+import '../widgets/comparison_card.dart';
 
 class StatsScreen extends StatelessWidget {
   const StatsScreen({super.key});
@@ -37,6 +38,12 @@ class StatsScreen extends StatelessWidget {
           final incomeStats =
               StatsService.calculateCategoryStats(monthTransactions, true);
           final trendData = StatsService.calculateTrendData(allTransactions);
+
+          // 计算对比分析数据
+          final monthComparison =
+              StatsService.calculateMonthComparison(allTransactions);
+          final yearComparison =
+              StatsService.calculateYearComparison(allTransactions);
 
           if (allTransactions.isEmpty) {
             return Center(
@@ -89,6 +96,11 @@ class StatsScreen extends StatelessWidget {
                 _buildKpiSection(context, totalIncome, totalExpense, balance),
                 const SizedBox(height: AppTheme.spaceXLarge),
 
+                // 对比分析区域
+                _buildComparisonSection(
+                    context, monthComparison, yearComparison),
+                const SizedBox(height: AppTheme.spaceXLarge),
+
                 // 收支趋势图
                 if (trendData.isNotEmpty) ...[
                   _buildSectionTitle(context, '收支趋势', '近6个月'),
@@ -135,6 +147,10 @@ class StatsScreen extends StatelessWidget {
 
                 // 标签统计
                 _buildTagStats(context, monthTransactions),
+                const SizedBox(height: AppTheme.spaceXLarge),
+
+                // TOP N 排行榜
+                _buildTopRankingSection(context, monthTransactions),
                 const SizedBox(height: AppTheme.spaceXLarge),
 
                 const SizedBox(height: AppTheme.spaceXXXLarge),
@@ -978,5 +994,231 @@ class StatsScreen extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  /// 构建对比分析区域
+  Widget _buildComparisonSection(
+    BuildContext context,
+    Map<String, Map<String, double>> monthComparison,
+    Map<String, Map<String, double>> yearComparison,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle(context, '对比分析', '月度同比'),
+        const SizedBox(height: AppTheme.spaceMedium),
+        Column(
+          children: [
+            // 月度对比（本月 vs 上月）
+            ComparisonCard(
+              title: '月度对比',
+              compareTitle: 'vs 上月',
+              currentIncome: monthComparison['current']?['income'] ?? 0,
+              currentExpense: monthComparison['current']?['expense'] ?? 0,
+              compareIncome: monthComparison['previous']?['income'] ?? 0,
+              compareExpense: monthComparison['previous']?['expense'] ?? 0,
+            ),
+            const SizedBox(height: AppTheme.spaceMedium),
+            // 同比对比（本月 vs 去年同月）
+            ComparisonCard(
+              title: '同比分析',
+              compareTitle: 'vs 去年同月',
+              currentIncome: yearComparison['current']?['income'] ?? 0,
+              currentExpense: yearComparison['current']?['expense'] ?? 0,
+              compareIncome: yearComparison['yearAgo']?['income'] ?? 0,
+              compareExpense: yearComparison['yearAgo']?['expense'] ?? 0,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  /// 构建 TOP N 排行榜区域
+  Widget _buildTopRankingSection(
+      BuildContext context, List<Transaction> transactions) {
+    final topExpenseCategories =
+        StatsService.getTopExpenseCategories(transactions, 5);
+    final topIncomeCategories =
+        StatsService.getTopIncomeCategories(transactions, 5);
+    final topMerchants = StatsService.getTopMerchants(transactions, 5);
+
+    if (topExpenseCategories.isEmpty &&
+        topIncomeCategories.isEmpty &&
+        topMerchants.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle(context, 'TOP N 排行榜', '本月'),
+        const SizedBox(height: AppTheme.spaceMedium),
+
+        // 支出分类 TOP 5
+        if (topExpenseCategories.isNotEmpty) ...[
+          _buildRankingCard(
+            context,
+            '支出分类 TOP 5',
+            topExpenseCategories,
+            AppTheme.errorColor,
+            isAmount: true,
+          ),
+          const SizedBox(height: AppTheme.spaceMedium),
+        ],
+
+        // 收入分类 TOP 5
+        if (topIncomeCategories.isNotEmpty) ...[
+          _buildRankingCard(
+            context,
+            '收入分类 TOP 5',
+            topIncomeCategories,
+            AppTheme.successColor,
+            isAmount: true,
+          ),
+          const SizedBox(height: AppTheme.spaceMedium),
+        ],
+
+        // 消费商家 TOP 5
+        if (topMerchants.isNotEmpty) ...[
+          _buildRankingCard(
+            context,
+            '消费商家 TOP 5',
+            topMerchants,
+            AppTheme.getPrimaryColor(context),
+            isAmount: true,
+          ),
+        ],
+      ],
+    );
+  }
+
+  /// 构建排行榜卡片
+  Widget _buildRankingCard(
+    BuildContext context,
+    String title,
+    Map<String, double> data,
+    Color primaryColor, {
+    bool isAmount = true,
+  }) {
+    final sortedEntries = data.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final total = data.values.fold(0.0, (sum, val) => sum + val);
+
+    return Container(
+      padding: const EdgeInsets.all(AppTheme.spaceLarge),
+      decoration: BoxDecoration(
+        color: AppTheme.getCardColor(context),
+        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+          ),
+          const SizedBox(height: AppTheme.spaceMedium),
+          ...sortedEntries.asMap().entries.map((entry) {
+            final index = entry.key;
+            final item = entry.value;
+            final percentage = total > 0 ? (item.value / total) * 100 : 0;
+
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Row(
+                children: [
+                  // 排名标识
+                  Container(
+                    width: 24,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      color: _getRankBackgroundColor(index, primaryColor),
+                      borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                    ),
+                    child: Center(
+                      child: Text(
+                        '${index + 1}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: _getRankTextColor(index),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: AppTheme.spaceMedium),
+
+                  // 名称
+                  Expanded(
+                    child: Text(
+                      item.key,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w500,
+                          ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+
+                  // 金额和占比
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        isAmount
+                            ? '¥${StatsService.formatAmount(item.value)}'
+                            : '${item.value}笔',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: primaryColor,
+                            ),
+                      ),
+                      if (isAmount && total > 0)
+                        Text(
+                          '${percentage.toStringAsFixed(1)}%',
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: AppTheme.neutral500,
+                                  ),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
+        ],
+      ),
+    );
+  }
+
+  /// 获取排名背景色
+  Color _getRankBackgroundColor(int index, Color primaryColor) {
+    switch (index) {
+      case 0:
+        return Colors.amber.withValues(alpha: 0.15);
+      case 1:
+        return Colors.grey.withValues(alpha: 0.15);
+      case 2:
+        return Colors.orange.withValues(alpha: 0.15);
+      default:
+        return Colors.grey.withValues(alpha: 0.05);
+    }
+  }
+
+  /// 获取排名文字颜色
+  Color _getRankTextColor(int index) {
+    switch (index) {
+      case 0:
+        return Colors.amber[600] ?? Colors.amber;
+      case 1:
+        return Colors.grey[600] ?? Colors.grey;
+      case 2:
+        return Colors.orange[600] ?? Colors.orange;
+      default:
+        return AppTheme.neutral400;
+    }
   }
 }

@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
 import '../providers/currency_provider.dart';
+import '../providers/reminder_provider.dart';
 import '../services/update_service.dart';
 import '../services/database_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/update_checker.dart';
+import 'reminder_settings_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -38,6 +40,10 @@ class SettingsScreen extends StatelessWidget {
             _buildSectionTitle(context, '数据'),
             const SizedBox(height: AppTheme.spaceSmall),
             _buildDataCard(context),
+            const SizedBox(height: AppTheme.spaceLarge),
+            _buildSectionTitle(context, '提醒'),
+            const SizedBox(height: AppTheme.spaceSmall),
+            _buildReminderCard(context),
             const SizedBox(height: AppTheme.spaceLarge),
             _buildSectionTitle(context, '关于'),
             const SizedBox(height: AppTheme.spaceSmall),
@@ -75,7 +81,8 @@ class SettingsScreen extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(AppTheme.spaceXSmall),
                   decoration: BoxDecoration(
-                    color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.10),
+                    color: AppTheme.getPrimaryColor(context)
+                        .withValues(alpha: 0.10),
                     borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                   ),
                   child: Icon(
@@ -602,5 +609,96 @@ class SettingsScreen extends StatelessWidget {
         ),
       );
     }
+  }
+
+  Widget _buildReminderCard(BuildContext context) {
+    return Consumer<ReminderProvider>(
+      builder: (context, reminderProvider, child) {
+        return Container(
+          decoration: BoxDecoration(
+            color: AppTheme.getCardColor(context),
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+            boxShadow: AppTheme.cardShadow,
+          ),
+          child: Column(
+            children: [
+              _buildReminderItem(
+                context,
+                icon: Icons.notifications_rounded,
+                iconColor: AppTheme.successColor,
+                title: '记账提醒',
+                subtitle: reminderProvider.isEnabled
+                    ? '${reminderProvider.getFrequencyLabel()} ${reminderProvider.getTimeLabel()}'
+                    : '未开启',
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const ReminderSettingsScreen(),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildReminderItem(
+    BuildContext context, {
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.all(AppTheme.spaceMedium),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(AppTheme.spaceXSmall),
+              decoration: BoxDecoration(
+                color: iconColor.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+              ),
+              child: Icon(icon, color: iconColor, size: 20),
+            ),
+            const SizedBox(width: AppTheme.spaceMedium),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 15,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

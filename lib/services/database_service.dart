@@ -5,6 +5,7 @@ import '../models/category.dart';
 import '../models/account.dart';
 import '../models/tag.dart';
 import '../models/savings_goal.dart';
+import '../models/debt.dart';
 import 'category_service.dart';
 import 'account_service.dart';
 import 'tag_service.dart';
@@ -17,12 +18,14 @@ class DatabaseService {
   static const String _tagBoxName = 'tags';
   static const String _savingsGoalBoxName = 'savings_goals';
   static const String _categoryBoxName = 'categories';
+  static const String _debtBoxName = 'debts';
   static late Box<Transaction> _transactionBox;
   static late Box<Budget> _budgetBox;
   static late Box<Account> _accountBox;
   static late Box<Tag> _tagBox;
   static late Box<SavingsGoal> _savingsGoalBox;
   static late Box<Category> _categoryBox;
+  static late Box<Debt> _debtBox;
 
   static Future<void> init() async {
     if (!Hive.isAdapterRegistered(0)) {
@@ -43,6 +46,9 @@ class DatabaseService {
     if (!Hive.isAdapterRegistered(5)) {
       Hive.registerAdapter(SavingsGoalAdapter());
     }
+    if (!Hive.isAdapterRegistered(6)) {
+      Hive.registerAdapter(DebtAdapter());
+    }
 
     _transactionBox = await Hive.openBox<Transaction>(_transactionBoxName);
     _budgetBox = await Hive.openBox<Budget>(_budgetBoxName);
@@ -50,6 +56,7 @@ class DatabaseService {
     _tagBox = await Hive.openBox<Tag>(_tagBoxName);
     _savingsGoalBox = await Hive.openBox<SavingsGoal>(_savingsGoalBoxName);
     _categoryBox = await Hive.openBox<Category>(_categoryBoxName);
+    _debtBox = await Hive.openBox<Debt>(_debtBoxName);
 
     // 初始化分类服务
     await CategoryService.init();
@@ -70,6 +77,7 @@ class DatabaseService {
   static Box<Tag> get tags => _tagBox;
   static Box<SavingsGoal> get savingsGoals => _savingsGoalBox;
   static Box<Category> get categories => _categoryBox;
+  static Box<Debt> get debts => _debtBox;
 
   static Future<void> addTransaction(Transaction transaction) async {
     await _transactionBox.put(transaction.id, transaction);

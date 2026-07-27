@@ -13,6 +13,7 @@ import 'services/auto_backup_service.dart';
 import 'theme/app_theme.dart';
 import 'providers/theme_provider.dart';
 import 'providers/currency_provider.dart';
+import 'providers/reminder_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,6 +25,9 @@ void main() async {
 
   final currencyProvider = CurrencyProvider();
   await currencyProvider.init();
+
+  final reminderProvider = ReminderProvider();
+  await reminderProvider.init();
 
   final prefs = await SharedPreferences.getInstance();
   final bool isFirstLaunch = prefs.getBool('is_first_launch') ?? true;
@@ -46,6 +50,7 @@ void main() async {
       providers: [
         ChangeNotifierProvider.value(value: themeProvider),
         ChangeNotifierProvider.value(value: currencyProvider),
+        ChangeNotifierProvider.value(value: reminderProvider),
       ],
       child: JituApp(isFirstLaunch: isFirstLaunch),
     ),

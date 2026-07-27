@@ -9,11 +9,11 @@ import 'accounts_screen.dart';
 import 'budget_screen.dart';
 import 'category_management_screen.dart';
 import 'tags_management_screen.dart';
+import 'debt_screen.dart';
 import '../models/transaction.dart';
 import '../models/category.dart';
 import '../models/savings_goal.dart';
 import '../services/database_service.dart';
-import '../services/savings_goal_service.dart';
 import '../services/category_service.dart';
 import '../services/filter_service.dart';
 import '../utils/icon_library.dart';
@@ -237,6 +237,22 @@ class _HomeScreenState extends State<HomeScreen> {
                   context,
                   MaterialPageRoute(
                     builder: (_) => const TagsManagementScreen(),
+                  ),
+                );
+              },
+            ),
+            _buildDrawerItem(
+              context,
+              icon: Icons.account_balance_rounded,
+              title: '负债管理',
+              subtitle: '管理欠款和还款',
+              color: AppTheme.errorColor,
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const DebtScreen(),
                   ),
                 );
               },

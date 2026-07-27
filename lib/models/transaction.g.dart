@@ -32,13 +32,16 @@ class TransactionAdapter extends TypeAdapter<Transaction> {
       isReimbursed: fields[12] as bool,
       fee: fields[13] as double,
       coupon: fields[14] as double,
+      locationName: fields[15] as String?,
+      latitude: fields[16] as double?,
+      longitude: fields[17] as double?,
     );
   }
 
   @override
   void write(BinaryWriter writer, Transaction obj) {
     writer
-      ..writeByte(15)
+      ..writeByte(18)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -68,7 +71,13 @@ class TransactionAdapter extends TypeAdapter<Transaction> {
       ..writeByte(13)
       ..write(obj.fee)
       ..writeByte(14)
-      ..write(obj.coupon);
+      ..write(obj.coupon)
+      ..writeByte(15)
+      ..write(obj.locationName)
+      ..writeByte(16)
+      ..write(obj.latitude)
+      ..writeByte(17)
+      ..write(obj.longitude);
   }
 
   @override
