@@ -148,7 +148,7 @@ class _NumpadState extends State<Numpad> {
   Widget _buildOptionsRow() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceLarge),
-      height: 44,
+      height: 40,
       child: Row(
         children: [
           _buildOptionButton(
@@ -156,38 +156,26 @@ class _NumpadState extends State<Numpad> {
             label: widget.selectedAccountName ?? '账户',
             onTap: widget.onAccountTap,
           ),
-          const SizedBox(width: 4),
+          const SizedBox(width: 8),
           _buildOptionButton(
             icon: Icons.access_time_rounded,
             label: widget.timeText ?? '今天',
             onTap: widget.onDateTap,
             flex: 2,
           ),
-          const SizedBox(width: 4),
+          const SizedBox(width: 8),
           _buildOptionButton(
             icon: Icons.receipt_rounded,
-            label: '报销',
+            label: widget.isReimbursed ? '已报销' : '报销',
             isActive: widget.isReimbursed,
             activeColor: AppTheme.successColor,
             onTap: widget.onReimbursedTap,
           ),
-          const SizedBox(width: 4),
+          const Spacer(),
           _buildOptionButton(
-            icon: Icons.percent_rounded,
-            label: widget.couponText ?? '优惠',
-            onTap: widget.onCouponTap,
-          ),
-          const SizedBox(width: 4),
-          _buildOptionButton(
-            icon: Icons.local_offer_rounded,
-            label: widget.tagText ?? '标签',
+            icon: Icons.more_horiz_rounded,
+            label: '更多',
             onTap: widget.onTagTap,
-          ),
-          const SizedBox(width: 4),
-          _buildOptionButton(
-            icon: Icons.location_on_rounded,
-            label: widget.locationText ?? '位置',
-            onTap: widget.onLocationTap,
           ),
         ],
       ),

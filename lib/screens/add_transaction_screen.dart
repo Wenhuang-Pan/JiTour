@@ -106,15 +106,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
             onReimbursedTap: () =>
                 setState(() => _isReimbursed = !_isReimbursed),
             isReimbursed: _isReimbursed,
-            onCouponTap: _showCouponDialog,
-            couponText: _couponAmount > 0
-                ? '-¥${_couponAmount.toStringAsFixed(0)}'
-                : null,
-            onTagTap: _showTagPicker,
-            tagText:
-                _selectedTags.isNotEmpty ? '${_selectedTags.length}个' : null,
-            onLocationTap: _showLocationPicker,
-            locationText: _selectedLocationName,
+            onTagTap: _showMoreOptions,
+            tagText: null,
           ),
         ],
       ),
@@ -250,8 +243,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         physics: const NeverScrollableScrollPhysics(),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 4,
-          mainAxisSpacing: AppTheme.spaceXLarge,
-          crossAxisSpacing: AppTheme.spaceMedium,
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 16,
         ),
         itemCount: categories.length,
         itemBuilder: (context, index) {
@@ -267,8 +260,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
             child: Column(
               children: [
                 Container(
-                  width: 52,
-                  height: 52,
+                  width: 44,
+                  height: 44,
                   decoration: BoxDecoration(
                     color: isSelected
                         ? categoryColor
@@ -282,10 +275,10 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                   child: Icon(
                     _getIconData(category.iconName),
                     color: isSelected ? Colors.white : categoryColor,
-                    size: 24,
+                    size: 20,
                   ),
                 ),
-                const SizedBox(height: AppTheme.spaceSmall),
+                const SizedBox(height: 4),
                 Text(
                   category.name,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -461,7 +454,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           children: [
             TextField(
               controller: couponController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
               decoration: const InputDecoration(
                 labelText: '优惠券金额',
                 prefixText: '-¥',
@@ -473,7 +467,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
             const SizedBox(height: AppTheme.spaceMedium),
             TextField(
               controller: feeController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
               decoration: const InputDecoration(
                 labelText: '手续费',
                 prefixText: '+¥',
@@ -638,6 +633,146 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     } catch (e) {
       return Icons.category;
     }
+  }
+
+  /// 显示更多选项菜单
+  void _showMoreOptions() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.getCardColor(context),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppTheme.radiusXLarge),
+        ),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(AppTheme.spaceLarge),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppTheme.neutral300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: AppTheme.spaceLarge),
+            Text(
+              '更多选项',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+            const SizedBox(height: AppTheme.spaceXLarge),
+            _buildMoreOptionItem(
+              Icons.local_offer_rounded,
+              '标签',
+              _selectedTags.isNotEmpty ? '已选${_selectedTags.length}个' : '添加标签',
+              () {
+                Navigator.pop(context);
+                _showTagPicker();
+              },
+            ),
+            const SizedBox(height: 4),
+            _buildMoreOptionItem(
+              Icons.percent_rounded,
+              '优惠/手续费',
+              _couponAmount > 0 || _feeAmount > 0
+                  ? '优惠${_couponAmount}元 手续费${_feeAmount}元'
+                  : '添加优惠或手续费',
+              () {
+                Navigator.pop(context);
+                _showCouponDialog();
+              },
+            ),
+            const SizedBox(height: 4),
+            _buildMoreOptionItem(
+              Icons.location_on_rounded,
+              '位置',
+              _selectedLocationName ?? '添加位置',
+              () {
+                Navigator.pop(context);
+                _showLocationPicker();
+              },
+            ),
+            const SizedBox(height: AppTheme.spaceXLarge),
+            SizedBox(
+              width: double.infinity,
+              height: 44,
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('完成'),
+              ),
+            ),
+            const SizedBox(height: AppTheme.spaceLarge),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMoreOptionItem(
+    IconData icon,
+    String title,
+    String subtitle,
+    VoidCallback onTap,
+  ) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppTheme.spaceMedium,
+          vertical: AppTheme.spaceLarge,
+        ),
+        decoration: BoxDecoration(
+          color: AppTheme.getSecondaryBackground(context),
+          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color:
+                    AppTheme.getPrimaryColor(context).withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+              ),
+              child: Icon(icon,
+                  color: AppTheme.getPrimaryColor(context), size: 20),
+            ),
+            const SizedBox(width: AppTheme.spaceMedium),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontSize: AppTheme.textBodySmall,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right_rounded, color: AppTheme.neutral400),
+          ],
+        ),
+      ),
+    );
   }
 
   /// 显示位置选择器

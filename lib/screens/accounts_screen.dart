@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../theme/app_theme.dart';
@@ -79,8 +80,11 @@ class AccountsScreen extends StatelessWidget {
                 const SizedBox(height: AppTheme.spaceXLarge),
                 _buildQuickActions(context),
                 const SizedBox(height: AppTheme.spaceXLarge),
-                _buildTestDataTools(context),
-                const SizedBox(height: AppTheme.spaceXXXLarge),
+                // 测试数据工具仅在开发模式显示
+                if (kDebugMode) ...[
+                  _buildTestDataTools(context),
+                  const SizedBox(height: AppTheme.spaceXXXLarge),
+                ],
               ],
             ),
           );

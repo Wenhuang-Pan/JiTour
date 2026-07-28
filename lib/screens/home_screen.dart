@@ -152,7 +152,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildDrawer(BuildContext context) {
     return Drawer(
+      width: MediaQuery.of(context).size.width * 0.85,
       backgroundColor: AppTheme.getCardColor(context),
+      elevation: 0,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.zero,
       ),
@@ -163,15 +165,13 @@ class _HomeScreenState extends State<HomeScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              padding: const EdgeInsets.only(
-                top: 72,
+              padding: EdgeInsets.only(
+                top: MediaQuery.of(context).padding.top + 20,
                 left: AppTheme.spaceXLarge,
                 right: AppTheme.spaceXLarge,
                 bottom: AppTheme.spaceXLarge,
               ),
-              decoration: BoxDecoration(
-                gradient: AppTheme.getPrimaryGradient(context),
-              ),
+              color: AppTheme.getPrimaryColor(context),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

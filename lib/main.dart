@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -15,42 +16,49 @@ import 'providers/reminder_provider.dart';
 import 'services/recurring_transaction_service.dart';
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await Hive.initFlutter();
-  await DatabaseService.init();
-  
-  // 检查并执行定期交易
-  await RecurringTransactionService.checkAndExecute();
+  runZonedGuarded(() async {
+    WidgetsFlutterBinding.ensureInitialized();
 
-  final themeProvider = ThemeProvider();
-  await themeProvider.init();
+    FlutterError.onError = (FlutterErrorDetails details) {
+      FlutterError.presentError(details);
+      debugPrint('Flutter Error: ${details.exception}');
+    };
 
-  final currencyProvider = CurrencyProvider();
-  await currencyProvider.init();
+    await Hive.initFlutter();
+    await DatabaseService.init();
 
-  final reminderProvider = ReminderProvider();
-  await reminderProvider.init();
+    // 检查并执行定期交易
+    await RecurringTransactionService.checkAndExecute();
 
-  if (!kIsWeb) {
-    await AutoBackupService.initializeNotifications();
-    await AutoBackupService.initializeWorkmanager();
+    final themeProvider = ThemeProvider();
+    await themeProvider.init();
 
-    final autoBackupEnabled = await AutoBackupService.isAutoBackupEnabled();
-    if (autoBackupEnabled) {
-      await AutoBackupService.checkBackupStatus();
+    final currencyProvider = CurrencyProvider();
+    await currencyProvider.init();
+
+    final reminderProvider = ReminderProvider();
+    await reminderProvider.init();
+
+    if (!kIsWeb) {
+      // 暂时禁用自动备份服务初始化，避免某些Android设备崩溃
+      // 自动备份功能将在设置页面中手动启用
+      debugPrint('Auto backup services skipped for mobile startup');
     }
-  }
 
-  runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider.value(value: themeProvider),
-        ChangeNotifierProvider.value(value: currencyProvider),
-        ChangeNotifierProvider.value(value: reminderProvider),
-      ],
-      child: const JituApp(),
-    ),
-  );
+    runApp(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider.value(value: themeProvider),
+          ChangeNotifierProvider.value(value: currencyProvider),
+          ChangeNotifierProvider.value(value: reminderProvider),
+        ],
+        child: const JituApp(),
+      ),
+    );
+  }, (error, stackTrace) {
+    debugPrint('Uncaught error: $error');
+    debugPrint('Stack trace: $stackTrace');
+  });
 }
 
 class JituApp extends StatelessWidget {
