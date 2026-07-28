@@ -71,7 +71,7 @@ class ExportService {
       for (var t in entry.value) {
         final type = t.isIncome ? '[收入]' : '[支出]';
         final amountStr = moneyFormat.format(t.amount);
-        buffer.writeln('${t.category.padRight(8)} ${type} $amountStr');
+        buffer.writeln('${t.category.padRight(8)} $type $amountStr');
         if (t.note != null && t.note!.isNotEmpty) {
           buffer.writeln('  备注: ${t.note}');
         }

@@ -7,11 +7,11 @@ import 'package:jitu/models/budget.dart';
 
 void main() {
   group('DatabaseService', () {
-    late Directory _tmpDir;
+    late Directory tmpDir;
 
     setUp(() async {
-      _tmpDir = await Directory.systemTemp.createTemp('hive_test_');
-      Hive.init(_tmpDir.path);
+      tmpDir = await Directory.systemTemp.createTemp('hive_test_');
+      Hive.init(tmpDir.path);
       await DatabaseService.init();
       await DatabaseService.transactions.clear();
       await DatabaseService.budgets.clear();
@@ -22,7 +22,7 @@ void main() {
       await DatabaseService.budgets.clear();
       try {
         await Hive.close();
-        _tmpDir.delete(recursive: true);
+        tmpDir.delete(recursive: true);
       } catch (_) {}
     });
 

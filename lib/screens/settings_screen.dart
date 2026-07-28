@@ -168,7 +168,7 @@ class SettingsScreen extends StatelessWidget {
                     color: AppTheme.successColor.withValues(alpha: 0.10),
                     borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                   ),
-                  child: Icon(
+                  child: const Icon(
                     Icons.color_lens_rounded,
                     color: AppTheme.successColor,
                     size: 18,
@@ -258,7 +258,7 @@ class SettingsScreen extends StatelessWidget {
                     color: AppTheme.warningColor.withValues(alpha: 0.10),
                     borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                   ),
-                  child: Icon(
+                  child: const Icon(
                     Icons.attach_money_rounded,
                     color: AppTheme.warningColor,
                     size: 18,

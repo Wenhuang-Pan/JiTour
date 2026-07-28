@@ -27,8 +27,6 @@ class _BudgetScreenState extends State<BudgetScreen> {
     return CategoryService.getExpenseCategories().map((c) => c.name).toList();
   }
 
-  bool get _isTotalBudgetMode => _selectedTab == 1;
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -391,7 +389,6 @@ class _BudgetScreenState extends State<BudgetScreen> {
       List<Budget> budgets, List<Transaction> transactions) {
     final totalBudget = budgets.fold(0.0, (sum, b) => sum + b.amount);
     final totalSpent = transactions.fold(0.0, (sum, t) => sum + t.amount);
-    final remaining = totalBudget - totalSpent;
     final progress = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
     final isOverBudget = progress > 100;
 
@@ -413,7 +410,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
                   color: AppTheme.primaryColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                 ),
-                child: Icon(
+                child: const Icon(
                   Icons.account_balance_wallet_rounded,
                   color: AppTheme.primaryColor,
                   size: 16,
@@ -430,7 +427,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
               const Spacer(),
               GestureDetector(
                 onTap: _showTotalBudgetTip,
-                child: Icon(
+                child: const Icon(
                   Icons.help_outline_rounded,
                   color: AppTheme.neutral400,
                   size: 18,
@@ -451,7 +448,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      const Text(
                         '预算',
                         style: TextStyle(
                           fontSize: 11,
@@ -462,7 +459,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
                       const SizedBox(height: 2),
                       Text(
                         '¥${totalBudget.toStringAsFixed(0)}',
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w700,
                           color: AppTheme.successColor,
@@ -483,7 +480,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Text(
+                      const Text(
                         '已支出',
                         style: TextStyle(
                           fontSize: 11,
@@ -494,7 +491,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
                       const SizedBox(height: 2),
                       Text(
                         '¥${totalSpent.toStringAsFixed(0)}',
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w700,
                           color: AppTheme.errorColor,
@@ -513,7 +510,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
+                  const Text(
                     '进度',
                     style: TextStyle(
                       fontSize: 11,
@@ -608,7 +605,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
                     color: AppTheme.primaryColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                   ),
-                  child: Row(
+                  child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
@@ -616,7 +613,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
                         size: 14,
                         color: AppTheme.primaryColor,
                       ),
-                      const SizedBox(width: 4),
+                      SizedBox(width: 4),
                       Text(
                         '设置',
                         style: TextStyle(
@@ -685,7 +682,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      const Text(
                         '已支出',
                         style: TextStyle(
                           fontSize: 11,
@@ -696,7 +693,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
                       const SizedBox(height: 2),
                       Text(
                         '¥${totalSpent.toStringAsFixed(2)}',
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w700,
                           color: AppTheme.errorColor,
@@ -717,7 +714,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Text(
+                      const Text(
                         '剩余',
                         style: TextStyle(
                           fontSize: 11,
@@ -750,7 +747,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
+                  const Text(
                     '使用进度',
                     style: TextStyle(
                       fontSize: 11,
@@ -869,7 +866,6 @@ class _BudgetScreenState extends State<BudgetScreen> {
       BuildContext context, String category, Budget budget, double spent) {
     final progress = budget.amount > 0 ? (spent / budget.amount) * 100 : 0;
     final isOverBudget = progress > 100;
-    final remaining = budget.amount - spent;
     final categoryColor = _getCategoryColor(category);
 
     return Container(
@@ -1010,14 +1006,14 @@ class _BudgetScreenState extends State<BudgetScreen> {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
         ),
-        title: Row(
+        title: const Row(
           children: [
             Icon(
               Icons.info_outline_rounded,
               color: AppTheme.primaryColor,
             ),
-            const SizedBox(width: AppTheme.spaceSmall),
-            const Text('分类预算说明'),
+            SizedBox(width: AppTheme.spaceSmall),
+            Text('分类预算说明'),
           ],
         ),
         content: const Text(
@@ -1077,7 +1073,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
                 labelText: '预算金额',
                 hintText: '请输入金额',
                 prefixText: '¥ ',
-                prefixStyle: TextStyle(
+                prefixStyle: const TextStyle(
                   color: AppTheme.neutral800,
                   fontWeight: FontWeight.w600,
                 ),
@@ -1086,7 +1082,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                  borderSide: BorderSide(
+                  borderSide: const BorderSide(
                     color: AppTheme.primaryColor,
                     width: 2,
                   ),
@@ -1196,7 +1192,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
                 labelText: '预算金额',
                 hintText: '请输入金额',
                 prefixText: '¥ ',
-                prefixStyle: TextStyle(
+                prefixStyle: const TextStyle(
                   color: AppTheme.neutral800,
                   fontWeight: FontWeight.w600,
                 ),
@@ -1205,7 +1201,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                  borderSide: BorderSide(
+                  borderSide: const BorderSide(
                     color: AppTheme.primaryColor,
                     width: 2,
                   ),
@@ -1391,7 +1387,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
                   color: AppTheme.successColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                 ),
-                child: Icon(
+                child: const Icon(
                   Icons.savings_rounded,
                   color: AppTheme.successColor,
                   size: 16,
@@ -1420,7 +1416,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      const Text(
                         '已存金额',
                         style: TextStyle(
                           fontSize: 11,
@@ -1431,7 +1427,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
                       const SizedBox(height: 2),
                       Text(
                         '¥${totalSaved.toStringAsFixed(0)}',
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w700,
                           color: AppTheme.successColor,
@@ -1452,7 +1448,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Text(
+                      const Text(
                         '目标总额',
                         style: TextStyle(
                           fontSize: 11,
@@ -1463,7 +1459,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
                       const SizedBox(height: 2),
                       Text(
                         '¥${totalTarget.toStringAsFixed(0)}',
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w700,
                           color: AppTheme.primaryColor,
@@ -1482,7 +1478,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
+                  const Text(
                     '总进度',
                     style: TextStyle(
                       fontSize: 11,
@@ -1540,7 +1536,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
               color: AppTheme.neutral100,
               borderRadius: BorderRadius.circular(AppTheme.radiusXLarge),
             ),
-            child: Icon(
+            child: const Icon(
               Icons.savings_outlined,
               color: AppTheme.neutral400,
               size: 32,
@@ -1554,7 +1550,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
                 ),
           ),
           const SizedBox(height: AppTheme.spaceXSmall),
-          Text(
+          const Text(
             '创建第一个储蓄目标，开始存钱吧',
             style: TextStyle(
               color: AppTheme.neutral500,
@@ -1615,7 +1611,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
                           if (goal.description != null)
                             Text(
                               goal.description!,
-                              style: TextStyle(
+                              style: const TextStyle(
                                 fontSize: 11,
                                 color: AppTheme.neutral500,
                               ),
@@ -1638,7 +1634,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
                         ),
                         Text(
                           '/ ¥${goal.targetAmount.toStringAsFixed(0)}',
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 11,
                             color: AppTheme.neutral500,
                           ),
@@ -1757,7 +1753,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
                           ),
                           Text(
                             '目标: ¥${goal.targetAmount.toStringAsFixed(2)}',
-                            style: TextStyle(
+                            style: const TextStyle(
                               color: AppTheme.neutral500,
                               fontSize: 13,
                             ),
@@ -1777,13 +1773,14 @@ class _BudgetScreenState extends State<BudgetScreen> {
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.savings_rounded, color: AppTheme.successColor),
+                      const Icon(Icons.savings_rounded,
+                          color: AppTheme.successColor),
                       const SizedBox(width: AppTheme.spaceSmall),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
+                            const Text(
                               '已存金额',
                               style: TextStyle(
                                 fontSize: 12,
@@ -1792,7 +1789,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
                             ),
                             Text(
                               '¥${goal.currentAmount.toStringAsFixed(2)}',
-                              style: TextStyle(
+                              style: const TextStyle(
                                 fontSize: 20,
                                 fontWeight: FontWeight.w700,
                                 color: AppTheme.successColor,
@@ -1803,7 +1800,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
                       ),
                       Text(
                         '${goal.progressPercent.toStringAsFixed(1)}%',
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
                           color: AppTheme.successColor,
@@ -1826,10 +1823,6 @@ class _BudgetScreenState extends State<BudgetScreen> {
                     builder: (context) {
                       final selectedAccountId =
                           goal.accountId ?? accounts.first.id;
-                      final selectedAccount =
-                          AccountService.getAccountById(selectedAccountId);
-                      final accountBalance =
-                          selectedAccount?.currentBalance ?? 0;
                       return Container(
                         padding: const EdgeInsets.symmetric(
                             horizontal: AppTheme.spaceMedium),
@@ -1852,7 +1845,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
                                     Text(account.name),
                                     Text(
                                       '¥${account.currentBalance.toStringAsFixed(2)}',
-                                      style: TextStyle(
+                                      style: const TextStyle(
                                         color: AppTheme.neutral500,
                                         fontSize: 12,
                                       ),
@@ -1885,11 +1878,6 @@ class _BudgetScreenState extends State<BudgetScreen> {
                 const SizedBox(height: AppTheme.spaceSmall),
                 Builder(
                   builder: (context) {
-                    final selectedAccountId =
-                        goal.accountId ?? accounts.first.id;
-                    final selectedAccount =
-                        AccountService.getAccountById(selectedAccountId);
-                    final accountBalance = selectedAccount?.currentBalance ?? 0;
                     return Row(
                       children: [
                         Expanded(
@@ -1950,7 +1938,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
                         },
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppTheme.warningColor,
-                          side: BorderSide(color: AppTheme.warningColor),
+                          side: const BorderSide(color: AppTheme.warningColor),
                         ),
                         child: const Text('提取'),
                       ),
@@ -2021,11 +2009,11 @@ class _BudgetScreenState extends State<BudgetScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Row(
+        title: const Row(
           children: [
             Icon(Icons.remove_circle_rounded, color: AppTheme.warningColor),
-            const SizedBox(width: 8),
-            const Text('提取存款'),
+            SizedBox(width: 8),
+            Text('提取存款'),
           ],
         ),
         content: TextField(
@@ -2244,7 +2232,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.calendar_today_rounded,
+                          const Icon(Icons.calendar_today_rounded,
                               color: AppTheme.neutral500, size: 20),
                           const SizedBox(width: AppTheme.spaceSmall),
                           Text(

@@ -1,7 +1,7 @@
 name: jitu
 description: 记途 - 记录每一笔，走向财务自由的旅途
 publish_to: 'none'
-version: 1.2.0+2
+version: 2.0.0+1
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -35,6 +35,7 @@ dev_dependencies:
   hive_generator: ^2.0.1
   build_runner: ^2.4.8
 
+  path: any
 flutter:
   uses-material-design: true
   assets:

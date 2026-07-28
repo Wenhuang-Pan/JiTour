@@ -230,6 +230,7 @@ class AccountsScreen extends StatelessWidget {
             ),
           );
         },
+        onLongPress: () => _showAccountOptionsDialog(context, account),
         borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
         child: Padding(
           padding: const EdgeInsets.all(AppTheme.spaceMedium),
@@ -610,7 +611,8 @@ class AccountsScreen extends StatelessWidget {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.1),
+                  color:
+                      AppTheme.getPrimaryColor(context).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                 ),
                 child: Icon(
@@ -658,7 +660,7 @@ class AccountsScreen extends StatelessWidget {
                   color: AppTheme.errorColor,
                 ),
               ),
-              title: Text(
+              title: const Text(
                 '删除账户',
                 style: TextStyle(color: AppTheme.errorColor),
               ),
@@ -943,7 +945,7 @@ class AccountsScreen extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text(
+            child: const Text(
               '取消',
               style: TextStyle(color: AppTheme.neutral600),
             ),
@@ -1011,7 +1013,7 @@ class AccountsScreen extends StatelessWidget {
                 color: AppTheme.errorColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
               ),
-              child: Icon(
+              child: const Icon(
                 Icons.delete_outline_rounded,
                 color: AppTheme.errorColor,
                 size: 18,
@@ -1028,7 +1030,7 @@ class AccountsScreen extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text(
+            child: const Text(
               '取消',
               style: TextStyle(color: AppTheme.neutral600),
             ),
@@ -1101,7 +1103,6 @@ class _AccountFormDialogState extends State<_AccountFormDialog> {
   final _balanceController = TextEditingController();
   String _selectedIconName = '现金';
   int _selectedColorValue = 0xFFFFB020;
-  IconData _selectedIcon = Icons.account_balance_wallet_rounded;
 
   final List<String> _iconNames = [
     '现金',
@@ -1141,7 +1142,6 @@ class _AccountFormDialogState extends State<_AccountFormDialog> {
           widget.account!.currentBalance.toStringAsFixed(2);
       _selectedIconName = widget.account!.iconName;
       _selectedColorValue = widget.account!.colorValue;
-      _selectedIcon = _iconMap[_selectedIconName] ?? Icons.category_rounded;
     } else {
       _balanceController.text = '0.00';
     }
@@ -1213,7 +1213,6 @@ class _AccountFormDialogState extends State<_AccountFormDialog> {
                   onTap: () {
                     setState(() {
                       _selectedIconName = name;
-                      _selectedIcon = _iconMap[name]!;
                       _selectedColorValue = _colorMap[name]!;
                     });
                   },

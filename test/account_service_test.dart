@@ -1,15 +1,15 @@
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
-import '../lib/services/account_service.dart';
+import 'package:jitu/services/account_service.dart';
 
 void main() {
   group('AccountService', () {
-    late Directory _tmpDir;
+    late Directory tmpDir;
 
     setUp(() async {
-      _tmpDir = await Directory.systemTemp.createTemp('hive_test_');
-      Hive.init(_tmpDir.path);
+      tmpDir = await Directory.systemTemp.createTemp('hive_test_');
+      Hive.init(tmpDir.path);
       await AccountService.init();
       await AccountService.box.clear();
     });
@@ -18,7 +18,7 @@ void main() {
       await AccountService.box.clear();
       try {
         await Hive.close();
-        _tmpDir.delete(recursive: true);
+        tmpDir.delete(recursive: true);
       } catch (_) {}
     });
 

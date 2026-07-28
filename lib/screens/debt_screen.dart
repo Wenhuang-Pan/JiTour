@@ -260,7 +260,7 @@ class _DebtScreenState extends State<DebtScreen> {
       return Center(
         child: Column(
           children: [
-            Icon(
+            const Icon(
               Icons.file_copy_rounded,
               size: 48,
               color: AppTheme.neutral400,
@@ -685,7 +685,7 @@ class _AddDebtModalState extends State<AddDebtModal> {
                           ],
                         ),
                       ),
-                      Icon(Icons.chevron_right_rounded,
+                      const Icon(Icons.chevron_right_rounded,
                           color: AppTheme.neutral400),
                     ],
                   ),
@@ -1039,7 +1039,7 @@ class _DebtDetailModalState extends State<DebtDetailModal> {
                         borderRadius:
                             BorderRadius.circular(AppTheme.radiusLarge),
                       ),
-                      side: BorderSide(color: AppTheme.errorColor),
+                      side: const BorderSide(color: AppTheme.errorColor),
                       foregroundColor: AppTheme.errorColor,
                     ),
                     child: const Text('删除'),

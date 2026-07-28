@@ -10,12 +10,15 @@ import 'budget_screen.dart';
 import 'category_management_screen.dart';
 import 'tags_management_screen.dart';
 import 'debt_screen.dart';
+import 'recurring_transaction_screen.dart';
 import '../models/transaction.dart';
 import '../models/category.dart';
 import '../models/savings_goal.dart';
+import '../models/recurring_transaction.dart';
 import '../services/database_service.dart';
 import '../services/category_service.dart';
 import '../services/filter_service.dart';
+import '../services/recurring_transaction_service.dart';
 import '../utils/icon_library.dart';
 import '../utils/animation_utils.dart';
 import '../widgets/filter_modal.dart';
@@ -257,6 +260,22 @@ class _HomeScreenState extends State<HomeScreen> {
                 );
               },
             ),
+            _buildDrawerItem(
+              context,
+              icon: Icons.repeat_rounded,
+              title: '定期交易',
+              subtitle: '自动记账（工资、房租等）',
+              color: const Color(0xFF10B981),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const RecurringTransactionScreen(),
+                  ),
+                );
+              },
+            ),
             const Divider(height: 1, indent: 20, endIndent: 20),
             _buildDrawerItem(
               context,
@@ -369,7 +388,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
             ),
-            Icon(
+            const Icon(
               Icons.chevron_right_rounded,
               color: AppTheme.neutral400,
               size: 18,
@@ -390,7 +409,6 @@ class TransactionListScreen extends StatefulWidget {
 
 class _TransactionListScreenState extends State<TransactionListScreen> {
   final FilterConditions _filterConditions = FilterConditions();
-  String? _activeFilterType;
 
   String _formatDate(DateTime date) {
     final now = DateTime.now();
@@ -493,6 +511,9 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
                 ),
                 SliverToBoxAdapter(
                   child: _buildSavingsSection(context),
+                ),
+                SliverToBoxAdapter(
+                  child: _buildRecurringTransactionReminder(context),
                 ),
                 if (_filterConditions.hasFilters)
                   SliverToBoxAdapter(
@@ -1018,6 +1039,183 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
                                 .labelSmall
                                 ?.copyWith(
                                   color: AppTheme.neutral500,
+                                ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  /// 构建定期交易提醒区域
+  Widget _buildRecurringTransactionReminder(BuildContext context) {
+    return ValueListenableBuilder(
+      valueListenable: DatabaseService.recurringTransactions.listenable(),
+      builder: (context, Box<RecurringTransaction> box, _) {
+        final upcoming =
+            RecurringTransactionService.getUpcomingRecurringTransactions(
+                days: 7);
+        if (upcoming.isEmpty) {
+          return const SizedBox.shrink();
+        }
+        return Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppTheme.spaceLarge,
+            vertical: AppTheme.spaceSmall,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppTheme.spaceXSmall,
+                  vertical: AppTheme.spaceSmall,
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.repeat_rounded,
+                      color: Color(0xFF10B981),
+                      size: 18,
+                    ),
+                    const SizedBox(width: AppTheme.spaceSmall),
+                    Text(
+                      '定期交易提醒',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                    const SizedBox(width: AppTheme.spaceSmall),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppTheme.warningColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        '${upcoming.length}笔',
+                        style: const TextStyle(
+                          fontSize: AppTheme.textLabelSmall,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.warningColor,
+                        ),
+                      ),
+                    ),
+                    const Spacer(),
+                    InkWell(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const RecurringTransactionScreen(),
+                          ),
+                        );
+                      },
+                      child: Row(
+                        children: [
+                          Text(
+                            '查看全部',
+                            style: TextStyle(
+                              fontSize: AppTheme.textBodySmall,
+                              color: AppTheme.getPrimaryColor(context),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(
+                            Icons.chevron_right_rounded,
+                            color: AppTheme.getPrimaryColor(context),
+                            size: 16,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(
+                height: 80,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: upcoming.length,
+                  itemBuilder: (context, index) {
+                    final transaction = upcoming[index];
+                    return Container(
+                      width: 160,
+                      margin: const EdgeInsets.only(right: AppTheme.spaceSmall),
+                      padding: const EdgeInsets.all(AppTheme.spaceMedium),
+                      decoration: BoxDecoration(
+                        color: AppTheme.getCardColor(context),
+                        borderRadius:
+                            BorderRadius.circular(AppTheme.radiusLarge),
+                        boxShadow: AppTheme.cardShadow,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                width: 24,
+                                height: 24,
+                                decoration: BoxDecoration(
+                                  color: transaction.amountColor
+                                      .withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(
+                                      AppTheme.radiusSmall),
+                                ),
+                                child: Icon(
+                                  Icons.repeat_rounded,
+                                  color: transaction.amountColor,
+                                  size: 14,
+                                ),
+                              ),
+                              const SizedBox(width: AppTheme.spaceSmall),
+                              Expanded(
+                                child: Text(
+                                  transaction.name,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleSmall
+                                      ?.copyWith(
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: AppTheme.spaceXSmall),
+                          Row(
+                            children: [
+                              Text(
+                                transaction.amountText,
+                                style: TextStyle(
+                                  fontSize: AppTheme.textBodyLarge,
+                                  fontWeight: FontWeight.w700,
+                                  color: transaction.amountColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: AppTheme.spaceXSmall),
+                          Text(
+                            '${transaction.frequencyText} · ${transaction.nextExecutionDateText}',
+                            style: Theme.of(context)
+                                .textTheme
+                                .labelSmall
+                                ?.copyWith(
+                                  color: AppTheme.neutral400,
                                 ),
                           ),
                         ],

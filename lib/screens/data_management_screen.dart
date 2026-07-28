@@ -100,7 +100,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> with Single
   }
 
   void _loadSampleData() {
-    final sampleCsv = '''时间,分类,二级分类,类型,金额,币种,账户1,账户2,备注,已报销,手续费,优惠券
+    const sampleCsv = '''时间,分类,二级分类,类型,金额,币种,账户1,账户2,备注,已报销,手续费,优惠券
 2026/6/27 19:17,三餐,,支出,40,CNY,,,,,,,
 2026/6/28 10:30,交通,地铁,支出,6,CNY,支付宝,,通勤,,0,0
 2026/6/28 14:00,工资,,收入,10000,CNY,,工资卡,六月工资,,0,0
@@ -232,7 +232,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> with Single
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.light(
+            colorScheme: const ColorScheme.light(
               primary: AppTheme.primaryColor,
               onPrimary: Colors.white,
               surface: Colors.white,
@@ -331,9 +331,9 @@ class _DataManagementScreenState extends State<DataManagementScreen> with Single
               ),
               child: Row(
                 children: [
-                  Icon(Icons.check_circle_rounded, color: AppTheme.successColor),
+                  const Icon(Icons.check_circle_rounded, color: AppTheme.successColor),
                   const SizedBox(width: AppTheme.spaceSmall),
-                  Text(_successMessage!, style: TextStyle(color: AppTheme.successColor)),
+                  Text(_successMessage!, style: const TextStyle(color: AppTheme.successColor)),
                 ],
               ),
             ),
@@ -371,7 +371,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> with Single
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
+                  const Icon(
                     Icons.upload_file_rounded,
                     color: AppTheme.primaryColor,
                     size: 48,
@@ -421,7 +421,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> with Single
             const SizedBox(height: AppTheme.spaceMedium),
             Text(
               _errorMessage!,
-              style: TextStyle(color: AppTheme.errorColor),
+              style: const TextStyle(color: AppTheme.errorColor),
             ),
           ],
         ],
@@ -465,10 +465,10 @@ class _DataManagementScreenState extends State<DataManagementScreen> with Single
                 ),
           ),
           const SizedBox(height: AppTheme.spaceXSmall),
-          Wrap(
+          const Wrap(
             spacing: AppTheme.spaceSmall,
             runSpacing: AppTheme.spaceSmall,
-            children: const [
+            children: [
               Chip(label: Text('时间'), visualDensity: VisualDensity.compact),
               Chip(label: Text('分类'), visualDensity: VisualDensity.compact),
               Chip(label: Text('类型'), visualDensity: VisualDensity.compact),
@@ -557,8 +557,8 @@ class _DataManagementScreenState extends State<DataManagementScreen> with Single
         ),
         const SizedBox(height: AppTheme.spaceMedium),
         if ((_mappedData?.length ?? 0) > 50)
-          Padding(
-            padding: const EdgeInsets.only(bottom: AppTheme.spaceSmall),
+          const Padding(
+            padding: EdgeInsets.only(bottom: AppTheme.spaceSmall),
             child: Text(
               '（仅显示前50条）',
               style: TextStyle(color: AppTheme.neutral500, fontSize: 12),
@@ -604,9 +604,9 @@ class _DataManagementScreenState extends State<DataManagementScreen> with Single
               ),
               child: Row(
                 children: [
-                  Icon(Icons.check_circle_rounded, color: AppTheme.successColor),
+                  const Icon(Icons.check_circle_rounded, color: AppTheme.successColor),
                   const SizedBox(width: AppTheme.spaceSmall),
-                  Expanded(child: Text(_successMessage!, style: TextStyle(color: AppTheme.successColor))),
+                  Expanded(child: Text(_successMessage!, style: const TextStyle(color: AppTheme.successColor))),
                 ],
               ),
             ),
@@ -642,14 +642,14 @@ class _DataManagementScreenState extends State<DataManagementScreen> with Single
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.date_range_rounded, color: AppTheme.primaryColor),
+                        const Icon(Icons.date_range_rounded, color: AppTheme.primaryColor),
                         const SizedBox(width: AppTheme.spaceMedium),
                         Text(
                           '${DateFormat('yyyy/MM/dd').format(_exportStartDate)} - ${DateFormat('yyyy/MM/dd').format(_exportEndDate)}',
                           style: const TextStyle(fontSize: 16),
                         ),
                         const Spacer(),
-                        Icon(Icons.chevron_right_rounded, color: AppTheme.neutral400),
+                        const Icon(Icons.chevron_right_rounded, color: AppTheme.neutral400),
                       ],
                     ),
                   ),
@@ -719,7 +719,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> with Single
             const SizedBox(height: AppTheme.spaceMedium),
             Text(
               _errorMessage!,
-              style: TextStyle(color: AppTheme.errorColor),
+              style: const TextStyle(color: AppTheme.errorColor),
             ),
           ],
           
@@ -754,7 +754,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> with Single
                   ),
                 ),
                 const SizedBox(height: AppTheme.spaceSmall),
-                Text(
+                const Text(
                   '导出的CSV格式与导入格式一致，可直接用于再次导入。',
                   style: TextStyle(color: AppTheme.neutral500, fontSize: 13),
                 ),

@@ -140,7 +140,7 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
           const SizedBox(height: AppTheme.spaceSmall),
           Text(
             subtitle,
-            style: TextStyle(
+            style: const TextStyle(
               color: AppTheme.neutral500,
               fontSize: 13,
             ),
@@ -201,7 +201,7 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
                       if (goal.description != null)
                         Text(
                           goal.description!,
-                          style: TextStyle(
+                          style: const TextStyle(
                             color: AppTheme.neutral500,
                             fontSize: 12,
                           ),
@@ -221,7 +221,7 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
                       color: AppTheme.errorColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                     ),
-                    child: Text(
+                    child: const Text(
                       '逾期',
                       style: TextStyle(
                         color: AppTheme.errorColor,
@@ -253,7 +253,7 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
                     ),
                     Text(
                       '/ ¥${goal.targetAmount.toStringAsFixed(2)}',
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 14,
                         color: AppTheme.neutral500,
                       ),
@@ -288,7 +288,7 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
                     ),
                     Text(
                       '还差 ¥${goal.remainingAmount.toStringAsFixed(2)}',
-                      style: TextStyle(
+                      style: const TextStyle(
                         color: AppTheme.neutral500,
                         fontSize: 12,
                       ),
@@ -336,9 +336,9 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
           // 操作按钮
           Container(
             padding: const EdgeInsets.all(AppTheme.spaceSmall),
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               color: AppTheme.neutral50,
-              borderRadius: const BorderRadius.vertical(
+              borderRadius: BorderRadius.vertical(
                 bottom: Radius.circular(AppTheme.radiusLarge),
               ),
             ),
@@ -347,7 +347,7 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
                 Expanded(
                   child: TextButton.icon(
                     onPressed: () => _showAddSavingsDialog(context, goal),
-                    icon: Icon(Icons.add_rounded, size: 18),
+                    icon: const Icon(Icons.add_rounded, size: 18),
                     label: const Text('存款'),
                     style: TextButton.styleFrom(
                       foregroundColor: AppTheme.successColor,
@@ -358,7 +358,7 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
                   Expanded(
                     child: TextButton.icon(
                       onPressed: () => _showWithdrawDialog(context, goal),
-                      icon: Icon(Icons.remove_rounded, size: 18),
+                      icon: const Icon(Icons.remove_rounded, size: 18),
                       label: const Text('提取'),
                       style: TextButton.styleFrom(
                         foregroundColor: AppTheme.warningColor,
@@ -367,7 +367,7 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
                   ),
                 Expanded(
                   child: PopupMenuButton<String>(
-                    icon: Icon(
+                    icon: const Icon(
                       Icons.more_vert_rounded,
                       color: AppTheme.neutral500,
                     ),
@@ -406,13 +406,13 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
                             ],
                           ),
                         ),
-                      PopupMenuItem(
+                      const PopupMenuItem(
                         value: 'delete',
                         child: Row(
                           children: [
                             Icon(Icons.delete_rounded,
                                 size: 18, color: AppTheme.errorColor),
-                            const SizedBox(width: 8),
+                            SizedBox(width: 8),
                             Text('删除',
                                 style: TextStyle(color: AppTheme.errorColor)),
                           ],
@@ -510,7 +510,7 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.calendar_today_rounded,
+                          const Icon(Icons.calendar_today_rounded,
                               color: AppTheme.neutral500, size: 20),
                           const SizedBox(width: AppTheme.spaceSmall),
                           Text(
@@ -791,7 +791,7 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
       builder: (context) => AlertDialog(
         title: Row(
           children: [
-            Icon(Icons.add_circle_rounded, color: AppTheme.successColor),
+            const Icon(Icons.add_circle_rounded, color: AppTheme.successColor),
             const SizedBox(width: 8),
             Text('存入 ${goal.name}'),
           ],
@@ -849,7 +849,7 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
       builder: (context) => AlertDialog(
         title: Row(
           children: [
-            Icon(Icons.remove_circle_rounded, color: AppTheme.warningColor),
+            const Icon(Icons.remove_circle_rounded, color: AppTheme.warningColor),
             const SizedBox(width: 8),
             Text('提取 ${goal.name}'),
           ],
@@ -988,7 +988,7 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
       ),
       child: Row(
         children: [
-          Icon(
+          const Icon(
             Icons.link_rounded,
             size: 12,
             color: AppTheme.neutral500,
@@ -996,7 +996,7 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
           const SizedBox(width: 4),
           Text(
             '关联账户: ${account.name}',
-            style: TextStyle(
+            style: const TextStyle(
               color: AppTheme.neutral600,
               fontSize: 12,
             ),
@@ -1004,7 +1004,7 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
           const Spacer(),
           Text(
             '余额: ${currencyProvider.formatAmount(account.currentBalance)}',
-            style: TextStyle(
+            style: const TextStyle(
               color: AppTheme.neutral500,
               fontSize: 12,
             ),

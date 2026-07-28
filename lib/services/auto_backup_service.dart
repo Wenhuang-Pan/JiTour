@@ -111,7 +111,7 @@ class AutoBackupService {
     await Workmanager().registerPeriodicTask(
       _taskName,
       _taskName,
-      frequency: Duration(minutes: 15), // 最小间隔15分钟（实际执行频率由frequency控制）
+      frequency: const Duration(minutes: 15), // 最小间隔15分钟（实际执行频率由frequency控制）
       initialDelay: Duration.zero,
       constraints: Constraints(
         networkType: NetworkType.connected,
@@ -295,7 +295,7 @@ class AutoBackupService {
     
     if (daysSinceBackup >= frequency) {
       await showBackupReminderNotification(
-        '距上次备份已${daysSinceBackup}天，建议立即备份'
+        '距上次备份已$daysSinceBackup天，建议立即备份'
       );
     }
   }

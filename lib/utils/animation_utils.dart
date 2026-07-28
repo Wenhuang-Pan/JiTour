@@ -68,7 +68,7 @@ class AppAnimations {
     required int index,
   }) {
     final delay = index * 0.05;
-    final maxDelay = 0.3;
+    const maxDelay = 0.3;
 
     return FadeTransition(
       opacity: Tween<double>(begin: 0, end: 1).animate(

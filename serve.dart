@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 void main() async {
-  final port = 8080;
+  const port = 8080;
   final server = await HttpServer.bind(InternetAddress.anyIPv4, port);
   print('Server running on http://localhost:$port');
 

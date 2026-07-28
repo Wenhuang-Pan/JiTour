@@ -175,17 +175,17 @@ class _BackupScreenState extends State<BackupScreen> {
               child: InkWell(
                 onTap: _createBackup,
                 borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-                child: Center(
+                child: const Center(
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.backup_rounded,
                         color: Colors.white,
                         size: 24,
                       ),
-                      const SizedBox(width: AppTheme.spaceSmall),
-                      const Text(
+                      SizedBox(width: AppTheme.spaceSmall),
+                      Text(
                         '创建备份',
                         style: TextStyle(
                           fontSize: 16,
@@ -218,7 +218,7 @@ class _BackupScreenState extends State<BackupScreen> {
               child: InkWell(
                 onTap: _restoreFromFile,
                 borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-                child: Center(
+                child: const Center(
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -227,7 +227,7 @@ class _BackupScreenState extends State<BackupScreen> {
                         color: AppTheme.primaryColor,
                         size: 24,
                       ),
-                      const SizedBox(width: AppTheme.spaceSmall),
+                      SizedBox(width: AppTheme.spaceSmall),
                       Text(
                         '从文件恢复',
                         style: TextStyle(
@@ -296,7 +296,7 @@ class _BackupScreenState extends State<BackupScreen> {
                         color: AppTheme.primaryColor.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                       ),
-                      child: Icon(
+                      child: const Icon(
                         Icons.history_rounded,
                         color: AppTheme.primaryColor,
                         size: 20,
@@ -324,7 +324,7 @@ class _BackupScreenState extends State<BackupScreen> {
                     ),
                     child: Text(
                       '共 ${_backupFiles.length} 个',
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                         color: AppTheme.neutral600,
@@ -376,14 +376,14 @@ class _BackupScreenState extends State<BackupScreen> {
               color: AppTheme.neutral100,
               borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
             ),
-            child: Icon(
+            child: const Icon(
               Icons.backup_outlined,
               size: 40,
               color: AppTheme.neutral400,
             ),
           ),
           const SizedBox(height: AppTheme.spaceLarge),
-          Text(
+          const Text(
             '暂无备份记录',
             style: TextStyle(
               fontSize: 16,
@@ -392,7 +392,7 @@ class _BackupScreenState extends State<BackupScreen> {
             ),
           ),
           const SizedBox(height: AppTheme.spaceSmall),
-          Text(
+          const Text(
             '点击上方"创建备份"按钮开始备份',
             style: TextStyle(
               fontSize: 12,
@@ -442,7 +442,7 @@ class _BackupScreenState extends State<BackupScreen> {
                     color: AppTheme.primaryColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
                   ),
-                  child: Icon(
+                  child: const Icon(
                     Icons.description_rounded,
                     color: AppTheme.primaryColor,
                     size: 24,
@@ -454,7 +454,7 @@ class _BackupScreenState extends State<BackupScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        dateFormat.format(dateTime!),
+                        dateFormat.format(dateTime),
                         style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -463,7 +463,7 @@ class _BackupScreenState extends State<BackupScreen> {
                       const SizedBox(height: AppTheme.spaceXSmall),
                       Text(
                         fileName,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 12,
                           color: AppTheme.neutral500,
                         ),
@@ -482,32 +482,32 @@ class _BackupScreenState extends State<BackupScreen> {
                     }
                   },
                   itemBuilder: (context) => [
-                    PopupMenuItem(
+                    const PopupMenuItem(
                       value: 'share',
                       child: Row(
                         children: [
                           Icon(Icons.share_rounded, size: 20, color: AppTheme.primaryColor),
-                          const SizedBox(width: AppTheme.spaceSmall),
-                          const Text('分享'),
+                          SizedBox(width: AppTheme.spaceSmall),
+                          Text('分享'),
                         ],
                       ),
                     ),
-                    PopupMenuItem(
+                    const PopupMenuItem(
                       value: 'restore',
                       child: Row(
                         children: [
                           Icon(Icons.restore_rounded, size: 20, color: AppTheme.successColor),
-                          const SizedBox(width: AppTheme.spaceSmall),
-                          const Text('恢复'),
+                          SizedBox(width: AppTheme.spaceSmall),
+                          Text('恢复'),
                         ],
                       ),
                     ),
-                    PopupMenuItem(
+                    const PopupMenuItem(
                       value: 'delete',
                       child: Row(
                         children: [
                           Icon(Icons.delete_rounded, size: 20, color: AppTheme.errorColor),
-                          const SizedBox(width: AppTheme.spaceSmall),
+                          SizedBox(width: AppTheme.spaceSmall),
                           Text('删除', style: TextStyle(color: AppTheme.errorColor)),
                         ],
                       ),
@@ -542,14 +542,14 @@ class _BackupScreenState extends State<BackupScreen> {
               color: AppTheme.warningColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
             ),
-            child: Icon(
+            child: const Icon(
               Icons.warning_amber_rounded,
               color: AppTheme.warningColor,
               size: 18,
             ),
           ),
           const SizedBox(width: AppTheme.spaceMedium),
-          Expanded(
+          const Expanded(
             child: Text(
               '恢复备份将覆盖当前所有数据，请谨慎操作！',
               style: TextStyle(
@@ -668,7 +668,7 @@ class _BackupScreenState extends State<BackupScreen> {
                 color: AppTheme.warningColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
               ),
-              child: Icon(
+              child: const Icon(
                 Icons.warning_amber_rounded,
                 color: AppTheme.warningColor,
                 size: 18,
@@ -684,7 +684,7 @@ class _BackupScreenState extends State<BackupScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text(
+            child: const Text(
               '取消',
               style: TextStyle(color: AppTheme.neutral600),
             ),
@@ -790,7 +790,7 @@ class _BackupScreenState extends State<BackupScreen> {
                 color: AppTheme.errorColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
               ),
-              child: Icon(
+              child: const Icon(
                 Icons.delete_rounded,
                 color: AppTheme.errorColor,
                 size: 18,
@@ -804,7 +804,7 @@ class _BackupScreenState extends State<BackupScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text(
+            child: const Text(
               '取消',
               style: TextStyle(color: AppTheme.neutral600),
             ),

@@ -32,7 +32,7 @@ class UpdateCheckerWidget extends StatefulWidget {
                 color: AppTheme.primaryColor.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
               ),
-              child: Icon(
+              child: const Icon(
                 Icons.system_update_rounded,
                 color: AppTheme.primaryColor,
                 size: 28,
@@ -64,7 +64,7 @@ class UpdateCheckerWidget extends StatefulWidget {
                     ),
                     child: Text(
                       'v${updateInfo.version}',
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: AppTheme.textLabelMedium,
                         fontWeight: FontWeight.w700,
                         color: AppTheme.primaryColor,
@@ -141,14 +141,14 @@ class UpdateCheckerWidget extends StatefulWidget {
             color: AppTheme.successColor.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
           ),
-          child: Row(
+          child: const Row(
             children: [
               Icon(
                 Icons.check_circle_rounded,
                 color: AppTheme.successColor,
                 size: 16,
               ),
-              const SizedBox(width: AppTheme.spaceXSmall),
+              SizedBox(width: AppTheme.spaceXSmall),
               Expanded(
                 child: Text(
                   'Web 应用自动更新，无需重装，数据安全保留',
@@ -213,11 +213,11 @@ class UpdateCheckerWidget extends StatefulWidget {
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Row(
+                  content: const Row(
                     children: [
-                      const Icon(Icons.info_outline_rounded, size: 20),
-                      const SizedBox(width: 12),
-                      const Expanded(
+                      Icon(Icons.info_outline_rounded, size: 20),
+                      SizedBox(width: 12),
+                      Expanded(
                         child: Text(
                           '请刷新浏览器页面即可完成更新，数据将自动保留',
                           style: TextStyle(fontSize: 13),
@@ -327,11 +327,11 @@ class _UpdateCheckerWidgetState extends State<UpdateCheckerWidget> {
   void _performUpdate(UpdateInfo updateInfo) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Row(
+        content: const Row(
           children: [
-            const Icon(Icons.info_outline_rounded, size: 20),
-            const SizedBox(width: 12),
-            const Expanded(
+            Icon(Icons.info_outline_rounded, size: 20),
+            SizedBox(width: 12),
+            Expanded(
               child: Text(
                 '请刷新浏览器页面即可完成更新，数据将自动保留',
                 style: TextStyle(fontSize: 13),
@@ -349,10 +349,6 @@ class _UpdateCheckerWidgetState extends State<UpdateCheckerWidget> {
         ),
       ),
     );
-  }
-
-  String _formatDate(DateTime date) {
-    return '${date.year}/${date.month.toString().padLeft(2, '0')}/${date.day.toString().padLeft(2, '0')}';
   }
 
   @override
@@ -399,7 +395,7 @@ class UpdateCheckButton extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
+            const Text(
               '检查更新',
               style: TextStyle(
                 color: AppTheme.primaryColor,
@@ -409,7 +405,7 @@ class UpdateCheckButton extends StatelessWidget {
             ),
             const SizedBox(width: AppTheme.spaceXSmall),
             if (isLoading)
-              SizedBox(
+              const SizedBox(
                 width: 14,
                 height: 14,
                 child: CircularProgressIndicator(
@@ -418,7 +414,7 @@ class UpdateCheckButton extends StatelessWidget {
                 ),
               )
             else
-              Icon(Icons.search_rounded, color: AppTheme.primaryColor, size: 16),
+              const Icon(Icons.search_rounded, color: AppTheme.primaryColor, size: 16),
           ],
         ),
       ),

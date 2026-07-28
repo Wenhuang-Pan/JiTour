@@ -93,7 +93,7 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
       case 30:
         return '每月';
       default:
-        return '每${days}天';
+        return '每$days天';
     }
   }
 
@@ -241,7 +241,7 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
           Switch(
             value: _autoBackupEnabled,
             onChanged: _toggleAutoBackup,
-            activeColor: AppTheme.successColor,
+            activeThumbColor: AppTheme.successColor,
           ),
         ],
       ),
@@ -353,7 +353,7 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
       ),
       child: Row(
         children: [
-          Icon(
+          const Icon(
             Icons.check_circle_rounded,
             color: AppTheme.successColor,
             size: 20,
@@ -410,7 +410,7 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
               final stat = file.statSync();
               
               return ListTile(
-                leading: Icon(
+                leading: const Icon(
                   Icons.file_present_rounded,
                   color: AppTheme.primaryColor,
                 ),
@@ -454,7 +454,7 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
         children: [
           Row(
             children: [
-              Icon(
+              const Icon(
                 Icons.info_rounded,
                 color: AppTheme.warningColor,
                 size: 18,

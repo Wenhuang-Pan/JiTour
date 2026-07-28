@@ -157,7 +157,7 @@ class AccountDetailScreen extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       '¥${account.currentBalance.toStringAsFixed(2)}',
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 36,
                         fontWeight: FontWeight.w800,
                         color: Colors.white,
@@ -181,7 +181,7 @@ class AccountDetailScreen extends StatelessWidget {
                 ),
                 child: Text(
                   account.currentBalance >= 0 ? '正常' : '透支',
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: AppTheme.textLabelSmall,
                     fontWeight: FontWeight.w600,
                     color: Colors.white,

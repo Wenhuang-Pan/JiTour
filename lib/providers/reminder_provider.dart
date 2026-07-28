@@ -276,7 +276,7 @@ class ReminderProvider extends ChangeNotifier {
       case 'weekly':
         final weekdayNames = ['', '周一', '周二', '周三', '周四', '周五', '周六', '周日'];
         final dayNames = _weekdays.map((d) => weekdayNames[d]).join('、');
-        return '每周 ${dayNames} $time';
+        return '每周 $dayNames $time';
       case 'custom':
         return '每月 ${_customDays.join('、')}日 $time';
       default:
@@ -292,7 +292,7 @@ class ReminderProvider extends ChangeNotifier {
       case 'weekly':
         final weekdayNames = ['', '周一', '周二', '周三', '周四', '周五', '周六', '周日'];
         final dayNames = _weekdays.map((d) => weekdayNames[d]).join('、');
-        return '每周 ${dayNames}';
+        return '每周 $dayNames';
       case 'custom':
         return '每月 ${_customDays.join('、')}日';
       default:

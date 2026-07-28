@@ -6,7 +6,7 @@ import '../theme/app_theme.dart';
 import 'database_service.dart';
 
 class TagService {
-  static final _uuid = const Uuid();
+  static const _uuid = Uuid();
 
   // 获取标签 Box
   static Box<Tag> get box => DatabaseService.tags;

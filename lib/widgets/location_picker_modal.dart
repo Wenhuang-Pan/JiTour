@@ -171,12 +171,12 @@ class _LocationPickerModalState extends State<LocationPickerModal> {
         child: Row(
           children: [
             const SizedBox(width: AppTheme.spaceMedium),
-            Icon(Icons.search_rounded, color: AppTheme.neutral500, size: 20),
+            const Icon(Icons.search_rounded, color: AppTheme.neutral500, size: 20),
             const SizedBox(width: AppTheme.spaceSmall),
             Expanded(
               child: TextField(
                 controller: _searchController,
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   hintText: '搜索位置...',
                   border: InputBorder.none,
                   isDense: true,
@@ -264,9 +264,9 @@ class _LocationPickerModalState extends State<LocationPickerModal> {
                           color: Colors.white,
                         ),
                       )
-                    : Row(
+                    : const Row(
                         mainAxisAlignment: MainAxisAlignment.center,
-                        children: const [
+                        children: [
                           Icon(Icons.my_location_rounded, size: 18),
                           SizedBox(width: AppTheme.spaceSmall),
                           Text('获取当前位置'),
@@ -367,7 +367,7 @@ class _LocationPickerModalState extends State<LocationPickerModal> {
               ),
             ),
             const SizedBox(width: AppTheme.spaceMedium),
-            Icon(
+            const Icon(
               Icons.chevron_right_rounded,
               color: AppTheme.neutral400,
             ),

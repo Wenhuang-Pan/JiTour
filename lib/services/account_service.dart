@@ -4,7 +4,7 @@ import '../models/account.dart';
 import 'database_service.dart';
 
 class AccountService {
-  static final _uuid = const Uuid();
+  static const _uuid = Uuid();
 
   static Box<Account> get box => DatabaseService.accounts;
 

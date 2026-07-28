@@ -14,7 +14,6 @@ import '../utils/uuid_util.dart';
 import '../widgets/numpad.dart';
 import '../widgets/location_picker_modal.dart';
 import 'photo_capture_screen.dart';
-import 'transfer_screen.dart';
 
 /// 快捷日期选项数据类
 class QuickDateOption {
@@ -32,13 +31,12 @@ class AddTransactionScreen extends StatefulWidget {
 }
 
 class _AddTransactionScreenState extends State<AddTransactionScreen> {
-  final _formKey = GlobalKey<FormState>();
   final _noteController = TextEditingController();
 
   int _currentTab = 0;
   Category? _selectedCategory;
   Account? _selectedAccount;
-  List<Tag> _selectedTags = [];
+  final List<Tag> _selectedTags = [];
   String _amountText = '0.0';
   DateTime _selectedDate = DateTime.now();
   bool _isReimbursed = false;
@@ -142,11 +140,6 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
             );
           },
           tooltip: '拍照记账',
-        ),
-        IconButton(
-          icon: const Icon(Icons.add_circle_rounded),
-          onPressed: _showMoreMenu,
-          tooltip: '更多',
         ),
       ],
       elevation: 0,
@@ -468,7 +461,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           children: [
             TextField(
               controller: couponController,
-              keyboardType: TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
               decoration: const InputDecoration(
                 labelText: '优惠券金额',
                 prefixText: '-¥',
@@ -480,7 +473,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
             const SizedBox(height: AppTheme.spaceMedium),
             TextField(
               controller: feeController,
-              keyboardType: TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
               decoration: const InputDecoration(
                 labelText: '手续费',
                 prefixText: '+¥',
@@ -674,123 +667,6 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         });
       }
     });
-  }
-
-  /// 显示更多菜单
-  void _showMoreMenu() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        return Container(
-          margin: const EdgeInsets.all(AppTheme.spaceLarge),
-          decoration: BoxDecoration(
-            color: AppTheme.getCardColor(context),
-            borderRadius: BorderRadius.circular(AppTheme.radiusXLarge),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(height: AppTheme.spaceSmall),
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppTheme.neutral300,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: AppTheme.spaceLarge),
-              _buildMoreMenuItem(
-                context,
-                icon: Icons.swap_horiz_rounded,
-                title: '转账',
-                subtitle: '账户之间转账',
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const TransferScreen(),
-                    ),
-                  );
-                },
-              ),
-              _buildMoreMenuItem(
-                context,
-                icon: Icons.camera_alt_rounded,
-                title: '拍照记账',
-                subtitle: '拍摄照片快速记账',
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const PhotoCaptureScreen(),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(height: AppTheme.spaceLarge),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  /// 构建更多菜单项
-  Widget _buildMoreMenuItem(
-    BuildContext context, {
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppTheme.spaceLarge,
-          vertical: AppTheme.spaceMedium,
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-              ),
-              child: Icon(icon,
-                  color: AppTheme.getPrimaryColor(context), size: 20),
-            ),
-            const SizedBox(width: AppTheme.spaceLarge),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                  ),
-                  Text(
-                    subtitle,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppTheme.neutral500,
-                        ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(Icons.chevron_right_rounded, color: AppTheme.neutral400),
-          ],
-        ),
-      ),
-    );
   }
 
   void _onNumberPressed(String text) {
@@ -1000,7 +876,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                             BorderRadius.circular(AppTheme.radiusMedium),
                       ),
                       child: DropdownButtonFormField<int>(
-                        value: _selectedDate.hour,
+                        initialValue: _selectedDate.hour,
                         decoration: const InputDecoration(
                           labelText: '小时',
                           contentPadding: EdgeInsets.symmetric(
@@ -1042,7 +918,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                             BorderRadius.circular(AppTheme.radiusMedium),
                       ),
                       child: DropdownButtonFormField<int>(
-                        value: _selectedDate.minute,
+                        initialValue: _selectedDate.minute,
                         decoration: const InputDecoration(
                           labelText: '分钟',
                           contentPadding: EdgeInsets.symmetric(

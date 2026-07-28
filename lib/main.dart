@@ -3,9 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/home_screen.dart';
-import 'screens/onboarding_screen.dart';
 import 'screens/data_management_screen.dart';
 import 'screens/settings_screen.dart' as settings;
 import 'services/database_service.dart';
@@ -14,11 +12,15 @@ import 'theme/app_theme.dart';
 import 'providers/theme_provider.dart';
 import 'providers/currency_provider.dart';
 import 'providers/reminder_provider.dart';
+import 'services/recurring_transaction_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Hive.initFlutter();
   await DatabaseService.init();
+  
+  // 检查并执行定期交易
+  await RecurringTransactionService.checkAndExecute();
 
   final themeProvider = ThemeProvider();
   await themeProvider.init();
@@ -28,12 +30,6 @@ void main() async {
 
   final reminderProvider = ReminderProvider();
   await reminderProvider.init();
-
-  final prefs = await SharedPreferences.getInstance();
-  final bool isFirstLaunch = prefs.getBool('is_first_launch') ?? true;
-  if (isFirstLaunch) {
-    await prefs.setBool('is_first_launch', false);
-  }
 
   if (!kIsWeb) {
     await AutoBackupService.initializeNotifications();
@@ -52,15 +48,13 @@ void main() async {
         ChangeNotifierProvider.value(value: currencyProvider),
         ChangeNotifierProvider.value(value: reminderProvider),
       ],
-      child: JituApp(isFirstLaunch: isFirstLaunch),
+      child: const JituApp(),
     ),
   );
 }
 
 class JituApp extends StatelessWidget {
-  final bool isFirstLaunch;
-
-  const JituApp({super.key, required this.isFirstLaunch});
+  const JituApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -80,10 +74,8 @@ class JituApp extends StatelessWidget {
             Locale('zh', 'CN'),
             Locale('en', 'US'),
           ],
-          initialRoute: isFirstLaunch ? '/onboarding' : '/home',
+          home: const HomeScreen(),
           routes: {
-            '/home': (context) => const HomeScreen(),
-            '/onboarding': (context) => const OnboardingScreen(),
             '/settings': (context) => const settings.SettingsScreen(),
             '/data': (context) => const DataManagementScreen(),
           },

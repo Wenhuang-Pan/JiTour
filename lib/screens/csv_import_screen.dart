@@ -1,7 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
 import '../services/csv_importer.dart';
+import '../services/database_service.dart';
+import '../models/transaction.dart';
 import '../theme/app_theme.dart';
 
+/// CSV导入页面
+///
+/// 支持从本地选择CSV文件并导入交易数据
+/// 支持多种格式：微信支付账单、支付宝账单、随手记、记途格式、通用CSV
 class CsvImportScreen extends StatefulWidget {
   const CsvImportScreen({super.key});
 
@@ -11,90 +18,112 @@ class CsvImportScreen extends StatefulWidget {
 
 class _CsvImportScreenState extends State<CsvImportScreen> {
   List<Map<String, String>>? _csvData;
-  List<String>? _detectedFormat;
   List<Map<String, String>>? _mappedData;
+  List<Transaction>? _transactions;
   bool _isLoading = false;
   String? _errorMessage;
+  String? _fileName;
+  String? _formatName;
+  int _successCount = 0;
+  int _failCount = 0;
 
+  /// 选择CSV文件
   Future<void> _pickFile() async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
+      _fileName = null;
+      _formatName = null;
+      _successCount = 0;
+      _failCount = 0;
     });
 
-    await Future.delayed(const Duration(seconds: 1));
-
-    final sampleCsv = '''时间,分类,二级分类,类型,金额,币种,账户1,账户2,备注,已报销,手续费,优惠券
-2026/6/27 19:17,三餐,,支出,40,CNY,,,,,,,
-2026/6/27 19:16,购物,,支出,3546,CNY,,,,,,,
-2026/6/27 17:22,零食,,支出,48,CNY,,,,周大生,,
-2026/6/26 12:30,停车费,,支出,13.5,CNY,,,,,,,
-2026/6/24 17:40,停车费,,支出,10,CNY,,,,,,,
-2026/6/24 12:43,三餐,,支出,13.5,CNY,,,,,,,
-2026/6/24 12:43,三餐,,支出,12,CNY,,,,,,,
-2026/6/23 12:42,停车费,,支出,14,CNY,,,,,,,
-2026/6/21 9:14,零食,,支出,200,CNY,,,,,,,
-2026/6/20 20:15,过路费,,支出,97,CNY,,,,,,,
-2026/6/20 20:15,过路费,,支出,160,CNY,,,,,,,
-2026/6/19 23:54,充电,,支出,18.57,CNY,,,,,,,
-2026/6/19 23:53,三餐,,支出,218,CNY,,,,,,,
-2026/6/19 23:53,彩票,,支出,36,CNY,,,,,,,
-2026/6/19 23:53,收红包,,收入,25,CNY,,,,,,,
-2026/6/19 23:53,收红包,,收入,25,CNY,,,,,,,
-2026/6/19 23:53,收红包,,收入,117.86,CNY,,,,,,,
-2026/6/19 23:53,请客送礼,,支出,200,CNY,,,,,,,
-2026/6/19 23:51,停车费,,支出,10,CNY,,,,,,,
-2026/6/19 23:51,零食,,支出,358,CNY,,,,,,,
-2026/6/19 13:15,彩票,,支出,36,CNY,,,,,,,
-2026/6/18 9:54,三餐,,支出,67.9,CNY,,,,,,,
-2026/6/18 19:35,住房,,支出,5400,CNY,,,,,,,
-2026/6/18 19:34,三餐,,支出,51,CNY,,,,,,,
-2026/6/18 11:18,购物,,支出,34.9,CNY,,,,,,,
-2026/6/18 11:18,购物,,支出,92.8,CNY,,,,,,,
-2026/6/18 11:17,购物,,支出,92.8,CNY,,,,,,,
-2026/6/18 11:17,购物,,支出,202.48,CNY,,,,,,,
-2026/6/18 11:17,购物,,支出,67.06,CNY,,,,,,,
-2026/6/17 11:17,零食,,支出,77.81,CNY,,,,,,,
-2026/6/17 11:15,充电,,支出,50,CNY,,,,,,,
-2026/6/17 17:07,彩票,,支出,36,CNY,,,,,,,
-2026/6/17 17:07,三餐,,支出,15,CNY,,,,,,,
-2026/6/16 22:13,三餐,,支出,33,CNY,,,,,,,
-2026/6/16 22:13,三餐,,支出,33,CNY,,,,,,,
-2026/6/16 22:13,水电煤,,支出,18.74,CNY,,,,,,,
-2026/6/16 22:13,水电煤,,支出,18.74,CNY,,,,,,,
-2026/6/15 23:32,日用品,,支出,280,CNY,,,,,,,
-''';
-
     try {
-      final rows = CsvImporter.parseCsv(sampleCsv);
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['csv'],
+        withData: true,
+      );
+
+      if (result == null || result.files.isEmpty) {
+        setState(() => _errorMessage = '未选择文件');
+        return;
+      }
+
+      final file = result.files.first;
+      if (file.bytes == null) {
+        setState(() => _errorMessage = '无法读取文件内容');
+        return;
+      }
+
+      final csvContent = String.fromCharCodes(file.bytes!);
+      _processCsv(csvContent, file.name);
+    } catch (e) {
+      setState(() => _errorMessage = '选择文件失败: $e');
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  /// 处理CSV内容
+  void _processCsv(String csvContent, String fileName) {
+    try {
+      final rows = CsvImporter.parseCsv(csvContent);
       if (rows.isEmpty) {
         setState(() => _errorMessage = '未解析到数据，请检查CSV格式');
         return;
       }
 
       final format = CsvImporter.detectCsvFormat(rows);
-      final mapped = rows.map((row) => CsvImporter.mapFields(format, row)).toList();
+      final formatName = CsvImporter.getFormatName(format);
+      final mapped =
+          rows.map((row) => CsvImporter.mapFields(format, row)).toList();
+
+      // 转换为交易对象
+      final transactions = <Transaction>[];
+      int failCount = 0;
+      for (final mapping in mapped) {
+        final transaction = CsvImporter.mappingToTransaction(mapping);
+        if (transaction != null) {
+          transactions.add(transaction);
+        } else {
+          failCount++;
+        }
+      }
 
       setState(() {
         _csvData = rows;
-        _detectedFormat = format;
         _mappedData = mapped;
+        _transactions = transactions;
+        _fileName = fileName;
+        _formatName = formatName;
+        _successCount = transactions.length;
+        _failCount = failCount;
       });
     } catch (e) {
       setState(() => _errorMessage = '解析失败: $e');
-    } finally {
-      setState(() => _isLoading = false);
     }
   }
 
+  /// 确认导入到数据库
   void _confirmImport() {
-    if (_mappedData == null || _mappedData!.isEmpty) return;
+    if (_transactions == null || _transactions!.isEmpty) return;
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('确认导入'),
-        content: Text('确认导入 ${_mappedData!.length} 条记录？'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('将导入 ${_transactions!.length} 条记录到数据库'),
+            const SizedBox(height: 8),
+            Text('格式: $_formatName'),
+            const SizedBox(height: 8),
+            Text('文件名: $_fileName'),
+          ],
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -103,7 +132,7 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              _showImportSuccess();
+              _doImport();
             },
             child: const Text('确认导入'),
           ),
@@ -112,12 +141,39 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
     );
   }
 
+  /// 执行导入操作
+  void _doImport() async {
+    if (_transactions == null || _transactions!.isEmpty) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      for (final transaction in _transactions!) {
+        await DatabaseService.addTransaction(transaction);
+      }
+
+      _showImportSuccess();
+    } catch (e) {
+      setState(() => _errorMessage = '导入失败: $e');
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  /// 显示导入成功提示
   void _showImportSuccess() {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('导入成功'),
-        content: Text('成功导入 ${_mappedData!.length} 条记录'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('成功导入 ${_transactions!.length} 条记录'),
+            if (_failCount > 0) Text('跳过 $_failCount 条无效记录'),
+          ],
+        ),
         actions: [
           ElevatedButton(
             onPressed: () {
@@ -156,6 +212,7 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
     );
   }
 
+  /// 构建上传区域
   Widget _buildUploadArea() {
     return Center(
       child: Column(
@@ -165,7 +222,7 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
             height: 200,
             decoration: BoxDecoration(
               border: Border.all(
-                color: AppTheme.primaryColor.withValues(alpha: 0.3),
+                color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.3),
                 width: 2,
               ),
               borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
@@ -175,7 +232,7 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
               children: [
                 Icon(
                   Icons.upload_file_rounded,
-                  color: AppTheme.primaryColor,
+                  color: AppTheme.getPrimaryColor(context),
                   size: 48,
                 ),
                 const SizedBox(height: AppTheme.spaceMedium),
@@ -187,7 +244,7 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
                 ),
                 const SizedBox(height: AppTheme.spaceXSmall),
                 Text(
-                  '支持微信、支付宝等账单格式',
+                  '支持微信、支付宝、随手记等账单格式',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: AppTheme.neutral500,
                       ),
@@ -212,7 +269,7 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
             const SizedBox(height: AppTheme.spaceMedium),
             Text(
               _errorMessage!,
-              style: TextStyle(color: AppTheme.errorColor),
+              style: const TextStyle(color: AppTheme.errorColor),
             ),
           ],
         ],
@@ -220,6 +277,7 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
     );
   }
 
+  /// 构建格式帮助区域
   Widget _buildFormatHelp() {
     return Container(
       padding: const EdgeInsets.all(AppTheme.spaceMedium),
@@ -231,10 +289,21 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'CSV格式说明',
+            '支持的导入格式',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w600,
                 ),
+          ),
+          const SizedBox(height: AppTheme.spaceSmall),
+          const Wrap(
+            spacing: AppTheme.spaceSmall,
+            children: [
+              Chip(label: Text('微信支付账单')),
+              Chip(label: Text('支付宝账单')),
+              Chip(label: Text('随手记')),
+              Chip(label: Text('记途格式')),
+              Chip(label: Text('通用CSV')),
+            ],
           ),
           const SizedBox(height: AppTheme.spaceSmall),
           Text(
@@ -251,44 +320,57 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
               borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
             ),
             child: const Text(
-              '时间,分类,二级分类,类型,金额,币种,账户1,账户2,备注,已报销,手续费,优惠券\n2026/6/27 19:17,三餐,,支出,40,CNY,,,,,,,',
+              '时间,分类,二级分类,类型,金额,币种,账户1,账户2,备注,已报销,手续费,优惠券',
               style: TextStyle(fontFamily: 'Monospace', fontSize: 11),
             ),
-          ),
-          const SizedBox(height: AppTheme.spaceSmall),
-          Text(
-            '支持的字段:',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-          ),
-          const SizedBox(height: AppTheme.spaceXSmall),
-          Wrap(
-            spacing: AppTheme.spaceSmall,
-            children: const [
-              Chip(label: Text('时间')),
-              Chip(label: Text('分类')),
-              Chip(label: Text('二级分类')),
-              Chip(label: Text('类型')),
-              Chip(label: Text('金额')),
-              Chip(label: Text('币种')),
-              Chip(label: Text('账户1')),
-              Chip(label: Text('账户2')),
-              Chip(label: Text('备注')),
-              Chip(label: Text('已报销')),
-              Chip(label: Text('手续费')),
-              Chip(label: Text('优惠券')),
-            ],
           ),
         ],
       ),
     );
   }
 
+  /// 构建预览区域
   Widget _buildPreviewSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // 文件信息
+        Container(
+          padding: const EdgeInsets.all(AppTheme.spaceMedium),
+          decoration: BoxDecoration(
+            color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.file_copy_rounded,
+                  color: AppTheme.getPrimaryColor(context)),
+              const SizedBox(width: AppTheme.spaceMedium),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _fileName ?? '',
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                    ),
+                    Text(
+                      '检测格式: $_formatName',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppTheme.neutral500,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppTheme.spaceLarge),
+
+        // 统计信息
         Row(
           children: [
             Text(
@@ -298,15 +380,30 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
                   ),
             ),
             const Spacer(),
-            Text(
-              '共 ${_mappedData?.length ?? 0} 条',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppTheme.neutral500,
+            Wrap(
+              spacing: AppTheme.spaceLarge,
+              children: [
+                Text(
+                  '有效: $_successCount',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppTheme.successColor,
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+                if (_failCount > 0)
+                  Text(
+                    '无效: $_failCount',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppTheme.errorColor,
+                        ),
                   ),
+              ],
             ),
           ],
         ),
         const SizedBox(height: AppTheme.spaceSmall),
+
+        // 数据表格预览
         Container(
           decoration: BoxDecoration(
             color: Colors.white,
@@ -334,7 +431,9 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
                       Text(
                         isIncome ? '收入' : '支出',
                         style: TextStyle(
-                          color: isIncome ? AppTheme.successColor : AppTheme.warningColor,
+                          color: isIncome
+                              ? AppTheme.successColor
+                              : AppTheme.warningColor,
                         ),
                       ),
                     ),
@@ -342,7 +441,9 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
                       Text(
                         '${isIncome ? '+' : '-'}${row['amount'] ?? ''}',
                         style: TextStyle(
-                          color: isIncome ? AppTheme.successColor : AppTheme.errorColor,
+                          color: isIncome
+                              ? AppTheme.successColor
+                              : AppTheme.errorColor,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -356,23 +457,31 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
           ),
         ),
         const SizedBox(height: AppTheme.spaceLarge),
+
+        // 操作按钮
         ElevatedButton(
-          onPressed: _confirmImport,
+          onPressed: _isLoading ? null : _confirmImport,
           style: ElevatedButton.styleFrom(
             padding: const EdgeInsets.symmetric(
               horizontal: AppTheme.spaceXXLarge,
               vertical: AppTheme.spaceLarge,
             ),
           ),
-          child: const Text('确认导入'),
+          child: _isLoading
+              ? const CircularProgressIndicator(color: Colors.white)
+              : const Text('确认导入'),
         ),
         const SizedBox(height: AppTheme.spaceSmall),
         TextButton(
           onPressed: () {
             setState(() {
               _csvData = null;
-              _detectedFormat = null;
               _mappedData = null;
+              _transactions = null;
+              _fileName = null;
+              _formatName = null;
+              _successCount = 0;
+              _failCount = 0;
             });
           },
           child: const Text('重新选择文件'),

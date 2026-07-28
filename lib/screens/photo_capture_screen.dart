@@ -144,8 +144,6 @@ class _PhotoCaptureScreenState extends State<PhotoCaptureScreen> {
               onSecondary: Colors.white,
               surface: Theme.of(context).colorScheme.surface,
               onSurface: Theme.of(context).colorScheme.onSurface,
-              background: Theme.of(context).colorScheme.background,
-              onBackground: Theme.of(context).colorScheme.onBackground,
               error: AppTheme.errorColor,
               onError: Colors.white,
               brightness: Theme.of(context).brightness,
@@ -687,7 +685,7 @@ class _PhotoCaptureScreenState extends State<PhotoCaptureScreen> {
                 ],
               ),
             ),
-            Icon(
+            const Icon(
               Icons.chevron_right_rounded,
               color: AppTheme.neutral400,
             ),
@@ -751,7 +749,7 @@ class _PhotoCaptureScreenState extends State<PhotoCaptureScreen> {
               _isReimbursed = value;
             });
           },
-          activeColor: AppTheme.getPrimaryColor(context),
+          activeThumbColor: AppTheme.getPrimaryColor(context),
         ),
       ],
     );

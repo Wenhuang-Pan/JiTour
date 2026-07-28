@@ -3,7 +3,6 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../theme/app_theme.dart';
 import '../models/transaction.dart';
-import '../models/account.dart';
 import '../services/database_service.dart';
 import '../services/account_service.dart';
 import '../services/tag_service.dart';
@@ -336,7 +335,7 @@ class StatsScreen extends StatelessWidget {
                       getTitlesWidget: (value, meta) {
                         return Text(
                           StatsService.formatAxisValue(value),
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 10,
                             color: AppTheme.neutral500,
                           ),
@@ -355,7 +354,7 @@ class StatsScreen extends StatelessWidget {
                           return Padding(
                             padding: const EdgeInsets.only(top: 8),
                             child: Text(
-                              '${month}月',
+                              '$month月',
                               style: const TextStyle(
                                 fontSize: 10,
                                 color: AppTheme.neutral500,
@@ -900,7 +899,7 @@ class StatsScreen extends StatelessWidget {
                 decoration: BoxDecoration(
                   border: isLast
                       ? null
-                      : Border(
+                      : const Border(
                           bottom: BorderSide(
                             color: AppTheme.neutral100,
                             width: 1,
@@ -941,7 +940,7 @@ class StatsScreen extends StatelessWidget {
                               ),
                               const SizedBox(width: 4),
                               Text(
-                                '${count}笔',
+                                '$count笔',
                                 style: Theme.of(context)
                                     .textTheme
                                     .bodySmall
@@ -1188,7 +1187,7 @@ class StatsScreen extends StatelessWidget {
                 ],
               ),
             );
-          }).toList(),
+          }),
         ],
       ),
     );

@@ -54,7 +54,7 @@ class _TagsManagementScreenState extends State<TagsManagementScreen> {
               color: AppTheme.neutral100,
               borderRadius: BorderRadius.circular(AppTheme.radiusXLarge),
             ),
-            child: Icon(
+            child: const Icon(
               Icons.local_offer_outlined,
               color: AppTheme.neutral400,
               size: 40,
@@ -68,7 +68,7 @@ class _TagsManagementScreenState extends State<TagsManagementScreen> {
                 ),
           ),
           const SizedBox(height: AppTheme.spaceSmall),
-          Text(
+          const Text(
             '点击下方按钮添加标签',
             style: TextStyle(
               color: AppTheme.neutral500,
@@ -116,7 +116,7 @@ class _TagsManagementScreenState extends State<TagsManagementScreen> {
         ),
         subtitle: Text(
           '排序: ${tag.sortOrder}',
-          style: TextStyle(
+          style: const TextStyle(
             color: AppTheme.neutral500,
             fontSize: 12,
           ),
@@ -163,13 +163,13 @@ class _TagsManagementScreenState extends State<TagsManagementScreen> {
                     controller: nameController,
                     decoration: InputDecoration(
                       labelText: '标签名称',
-                      labelStyle: TextStyle(color: AppTheme.neutral600),
+                      labelStyle: const TextStyle(color: AppTheme.neutral600),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                        borderSide: BorderSide(color: AppTheme.primaryColor, width: 2),
+                        borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2),
                       ),
                     ),
                   ),
@@ -348,13 +348,13 @@ class _TagsManagementScreenState extends State<TagsManagementScreen> {
                     controller: nameController,
                     decoration: InputDecoration(
                       labelText: '标签名称',
-                      labelStyle: TextStyle(color: AppTheme.neutral600),
+                      labelStyle: const TextStyle(color: AppTheme.neutral600),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                        borderSide: BorderSide(color: AppTheme.primaryColor, width: 2),
+                        borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2),
                       ),
                     ),
                   ),

@@ -6,11 +6,11 @@ import 'package:jitu/models/category.dart';
 
 void main() {
   group('CategoryService', () {
-    late Directory _tmpDir;
+    late Directory tmpDir;
 
     setUp(() async {
-      _tmpDir = await Directory.systemTemp.createTemp('hive_test_');
-      Hive.init(_tmpDir.path);
+      tmpDir = await Directory.systemTemp.createTemp('hive_test_');
+      Hive.init(tmpDir.path);
       await CategoryService.init();
       await Hive.box('categories').clear();
     });
@@ -19,7 +19,7 @@ void main() {
       await Hive.box('categories').clear();
       try {
         await Hive.close();
-        _tmpDir.delete(recursive: true);
+        tmpDir.delete(recursive: true);
       } catch (_) {}
     });
 

@@ -46,14 +46,14 @@ class _TransferScreenState extends State<TransferScreen> {
                 color: AppTheme.primaryColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
               ),
-              child: Row(
+              child: const Row(
                 children: [
                   Icon(
                     Icons.info_outline_rounded,
                     color: AppTheme.primaryColor,
                     size: 20,
                   ),
-                  const SizedBox(width: AppTheme.spaceSmall),
+                  SizedBox(width: AppTheme.spaceSmall),
                   Expanded(
                     child: Text(
                       '转账会在账户间移动资金，不会影响总资产',
@@ -132,13 +132,13 @@ class _TransferScreenState extends State<TransferScreen> {
               ),
               decoration: InputDecoration(
                 prefixText: '¥ ',
-                prefixStyle: TextStyle(
+                prefixStyle: const TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.w700,
                   color: AppTheme.neutral800,
                 ),
                 hintText: '0.00',
-                hintStyle: TextStyle(
+                hintStyle: const TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.w700,
                   color: AppTheme.neutral300,
@@ -151,7 +151,7 @@ class _TransferScreenState extends State<TransferScreen> {
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                  borderSide: BorderSide(
+                  borderSide: const BorderSide(
                     color: AppTheme.primaryColor,
                     width: 2,
                   ),
@@ -163,7 +163,7 @@ class _TransferScreenState extends State<TransferScreen> {
               const SizedBox(height: AppTheme.spaceXSmall),
               Text(
                 '可用余额: ¥${_fromAccount!.currentBalance.toStringAsFixed(2)}',
-                style: TextStyle(
+                style: const TextStyle(
                   color: AppTheme.neutral500,
                   fontSize: 12,
                 ),
@@ -184,7 +184,7 @@ class _TransferScreenState extends State<TransferScreen> {
               maxLines: 2,
               decoration: InputDecoration(
                 hintText: '添加备注...',
-                hintStyle: TextStyle(color: AppTheme.neutral400),
+                hintStyle: const TextStyle(color: AppTheme.neutral400),
                 filled: true,
                 fillColor: AppTheme.neutral50,
                 border: OutlineInputBorder(
@@ -193,7 +193,7 @@ class _TransferScreenState extends State<TransferScreen> {
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                  borderSide: BorderSide(
+                  borderSide: const BorderSide(
                     color: AppTheme.primaryColor,
                     width: 2,
                   ),
@@ -257,7 +257,7 @@ class _TransferScreenState extends State<TransferScreen> {
             color: AppTheme.primaryColor.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
           ),
-          child: Icon(
+          child: const Icon(
             Icons.arrow_forward_rounded,
             color: AppTheme.primaryColor,
             size: 20,
@@ -334,7 +334,7 @@ class _TransferScreenState extends State<TransferScreen> {
           borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
           border: Border.all(color: AppTheme.neutral200),
         ),
-        child: Text(
+        child: const Text(
           '请先添加至少两个账户',
           style: TextStyle(color: AppTheme.neutral500),
         ),
@@ -342,10 +342,10 @@ class _TransferScreenState extends State<TransferScreen> {
     }
 
     return DropdownButtonFormField<Account>(
-      value: selectedAccount,
+      initialValue: selectedAccount,
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: TextStyle(color: AppTheme.neutral400),
+        hintStyle: const TextStyle(color: AppTheme.neutral400),
         filled: true,
         fillColor: AppTheme.neutral50,
         border: OutlineInputBorder(
@@ -354,7 +354,7 @@ class _TransferScreenState extends State<TransferScreen> {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-          borderSide: BorderSide(
+          borderSide: const BorderSide(
             color: AppTheme.primaryColor,
             width: 2,
           ),
@@ -383,7 +383,7 @@ class _TransferScreenState extends State<TransferScreen> {
               const Spacer(),
               Text(
                 '¥${account.currentBalance.toStringAsFixed(2)}',
-                style: TextStyle(
+                style: const TextStyle(
                   color: AppTheme.neutral500,
                   fontSize: 13,
                 ),

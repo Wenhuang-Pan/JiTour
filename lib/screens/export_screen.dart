@@ -88,7 +88,7 @@ class _ExportScreenState extends State<ExportScreen> {
                     color: AppTheme.primaryColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                   ),
-                  child: Icon(
+                  child: const Icon(
                     Icons.date_range_rounded,
                     color: AppTheme.primaryColor,
                     size: 20,
@@ -167,7 +167,7 @@ class _ExportScreenState extends State<ExportScreen> {
           children: [
             Text(
               label,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 12,
                 color: AppTheme.neutral600,
                 fontWeight: FontWeight.w500,
@@ -199,7 +199,7 @@ class _ExportScreenState extends State<ExportScreen> {
         style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
       ),
       backgroundColor: AppTheme.neutral100,
-      side: BorderSide(
+      side: const BorderSide(
         color: AppTheme.neutral200,
         width: 1,
       ),
@@ -248,7 +248,7 @@ class _ExportScreenState extends State<ExportScreen> {
                     color: AppTheme.primaryColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                   ),
-                  child: Icon(
+                  child: const Icon(
                     Icons.file_present_rounded,
                     color: AppTheme.primaryColor,
                     size: 20,
@@ -342,7 +342,7 @@ class _ExportScreenState extends State<ExportScreen> {
                   const SizedBox(height: AppTheme.spaceXSmall),
                   Text(
                     subtitle,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 12,
                       color: AppTheme.neutral600,
                     ),
@@ -392,7 +392,7 @@ class _ExportScreenState extends State<ExportScreen> {
                         color: AppTheme.primaryColor.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                       ),
-                      child: Icon(
+                      child: const Icon(
                         Icons.preview_rounded,
                         color: AppTheme.primaryColor,
                         size: 20,
@@ -419,7 +419,7 @@ class _ExportScreenState extends State<ExportScreen> {
                   ),
                   child: Text(
                     '共 ${_filteredTransactions.length} 条',
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                       color: AppTheme.neutral600,
@@ -450,14 +450,14 @@ class _ExportScreenState extends State<ExportScreen> {
           width: 1,
         ),
       ),
-      child: Column(
+      child: const Column(
         children: [
           Icon(
             Icons.inbox_rounded,
             size: 48,
             color: AppTheme.neutral400,
           ),
-          const SizedBox(height: AppTheme.spaceMedium),
+          SizedBox(height: AppTheme.spaceMedium),
           Text(
             '该时间段内没有交易记录',
             style: TextStyle(
@@ -502,7 +502,7 @@ class _ExportScreenState extends State<ExportScreen> {
                       flex: 2,
                       child: Text(
                         dateFormat.format(t.date),
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 12,
                           color: AppTheme.neutral600,
                         ),
@@ -533,7 +533,7 @@ class _ExportScreenState extends State<ExportScreen> {
                       flex: 2,
                       child: Text(
                         '${t.category} ¥${t.amount.toStringAsFixed(2)}',
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                           color: AppTheme.neutral900,
@@ -551,7 +551,7 @@ class _ExportScreenState extends State<ExportScreen> {
             padding: const EdgeInsets.only(top: AppTheme.spaceSmall),
             child: Text(
               '... 还有 ${_filteredTransactions.length - 10} 条记录',
-              style: TextStyle(
+              style: const TextStyle(
                 color: AppTheme.neutral500,
                 fontSize: 12,
               ),
@@ -582,7 +582,7 @@ class _ExportScreenState extends State<ExportScreen> {
         child: InkWell(
           onTap: _filteredTransactions.isEmpty ? null : _exportData,
           borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-          child: Center(
+          child: const Center(
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -591,7 +591,7 @@ class _ExportScreenState extends State<ExportScreen> {
                   color: Colors.white,
                   size: 24,
                 ),
-                const SizedBox(width: AppTheme.spaceSmall),
+                SizedBox(width: AppTheme.spaceSmall),
                 Text(
                   '导出数据',
                   style: TextStyle(

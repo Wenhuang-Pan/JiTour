@@ -142,10 +142,10 @@ class _FilterModalState extends State<FilterModal> {
         TextField(
           controller: _keywordController,
           onChanged: (value) => _conditions.keyword = value,
-          decoration: InputDecoration(
+          decoration: const InputDecoration(
             hintText: '搜索备注、分类或账户',
-            prefixIcon: const Icon(Icons.search_rounded),
-            contentPadding: const EdgeInsets.symmetric(
+            prefixIcon: Icon(Icons.search_rounded),
+            contentPadding: EdgeInsets.symmetric(
               horizontal: AppTheme.spaceMedium,
               vertical: AppTheme.spaceMedium,
             ),
@@ -456,7 +456,7 @@ class _FilterModalState extends State<FilterModal> {
             Expanded(
               child: TextField(
                 controller: _minAmountController,
-                keyboardType: TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 onChanged: (value) {
                   _conditions.minAmount = double.tryParse(value);
                 },
@@ -476,7 +476,7 @@ class _FilterModalState extends State<FilterModal> {
             Expanded(
               child: TextField(
                 controller: _maxAmountController,
-                keyboardType: TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 onChanged: (value) {
                   _conditions.maxAmount = double.tryParse(value);
                 },

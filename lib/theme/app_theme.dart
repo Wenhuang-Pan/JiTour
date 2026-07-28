@@ -352,8 +352,8 @@ class AppTheme {
           borderRadius: BorderRadius.circular(radiusMedium),
           borderSide: const BorderSide(color: errorColor, width: 2),
         ),
-        hintStyle: TextStyle(color: neutral400, fontSize: textBodyMedium),
-        labelStyle: TextStyle(color: neutral500, fontSize: textBodyMedium),
+        hintStyle: const TextStyle(color: neutral400, fontSize: textBodyMedium),
+        labelStyle: const TextStyle(color: neutral500, fontSize: textBodyMedium),
         floatingLabelStyle:
             TextStyle(color: primaryColor, fontSize: textBodyMedium),
       ),
@@ -417,7 +417,7 @@ class AppTheme {
               letterSpacing: 0.1,
             );
           }
-          return TextStyle(
+          return const TextStyle(
             fontSize: textLabelMedium,
             fontWeight: FontWeight.w500,
             color: neutral400,
@@ -428,7 +428,7 @@ class AppTheme {
           if (states.contains(WidgetState.selected)) {
             return IconThemeData(color: primaryColor, size: 24);
           }
-          return IconThemeData(color: neutral400, size: 24);
+          return const IconThemeData(color: neutral400, size: 24);
         }),
         height: 64,
       ),

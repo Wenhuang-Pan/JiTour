@@ -5,7 +5,7 @@ import '../models/budget.dart';
 import '../services/database_service.dart';
 
 class TestDataService {
-  static final _uuid = const Uuid();
+  static const _uuid = Uuid();
   static final _random = Random();
 
   static final List<String> _expenseCategories = ['餐饮', '交通', '购物', '娱乐', '居住', '医疗', '其他'];

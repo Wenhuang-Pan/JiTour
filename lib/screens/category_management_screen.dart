@@ -5,7 +5,7 @@ import '../utils/icon_library.dart';
 import '../theme/app_theme.dart';
 
 class CategoryManagementScreen extends StatefulWidget {
-  const CategoryManagementScreen({Key? key}) : super(key: key);
+  const CategoryManagementScreen({super.key});
 
   @override
   State<CategoryManagementScreen> createState() => _CategoryManagementScreenState();
@@ -399,7 +399,7 @@ class _CategoryCard extends StatelessWidget {
                 ),
                 IconButton(
                   onPressed: onDelete,
-                  icon: Icon(
+                  icon: const Icon(
                     Icons.delete_outline_rounded,
                     color: AppTheme.errorColor,
                   ),
@@ -522,9 +522,9 @@ class _CategoryDialogState extends State<_CategoryDialog> {
   Widget _buildHeader() {
     return Container(
       padding: const EdgeInsets.all(AppTheme.spaceLarge),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         gradient: AppTheme.primaryGradient,
-        borderRadius: const BorderRadius.only(
+        borderRadius: BorderRadius.only(
           topLeft: Radius.circular(AppTheme.radiusXLarge),
           topRight: Radius.circular(AppTheme.radiusXLarge),
         ),

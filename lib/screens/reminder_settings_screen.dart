@@ -87,7 +87,7 @@ class ReminderSettingsScreen extends StatelessWidget {
             Switch(
               value: provider.isEnabled,
               onChanged: (value) => provider.setEnabled(value),
-              activeColor: AppTheme.getPrimaryColor(context),
+              activeThumbColor: AppTheme.getPrimaryColor(context),
               activeTrackColor:
                   AppTheme.getPrimaryColor(context).withValues(alpha: 0.25),
             ),
@@ -171,8 +171,6 @@ class ReminderSettingsScreen extends StatelessWidget {
               onSecondary: Colors.white,
               surface: AppTheme.getCardColor(context),
               onSurface: Theme.of(context).colorScheme.onSurface,
-              background: Theme.of(context).colorScheme.background,
-              onBackground: Theme.of(context).colorScheme.onBackground,
               error: AppTheme.errorColor,
               onError: Colors.white,
               brightness: Theme.of(context).brightness,

@@ -6,6 +6,7 @@ import '../models/account.dart';
 import '../models/tag.dart';
 import '../models/savings_goal.dart';
 import '../models/debt.dart';
+import '../models/recurring_transaction.dart';
 import 'category_service.dart';
 import 'account_service.dart';
 import 'tag_service.dart';
@@ -19,6 +20,7 @@ class DatabaseService {
   static const String _savingsGoalBoxName = 'savings_goals';
   static const String _categoryBoxName = 'categories';
   static const String _debtBoxName = 'debts';
+  static const String _recurringTransactionBoxName = 'recurring_transactions';
   static late Box<Transaction> _transactionBox;
   static late Box<Budget> _budgetBox;
   static late Box<Account> _accountBox;
@@ -26,6 +28,7 @@ class DatabaseService {
   static late Box<SavingsGoal> _savingsGoalBox;
   static late Box<Category> _categoryBox;
   static late Box<Debt> _debtBox;
+  static late Box<RecurringTransaction> _recurringTransactionBox;
 
   static Future<void> init() async {
     if (!Hive.isAdapterRegistered(0)) {
@@ -49,6 +52,9 @@ class DatabaseService {
     if (!Hive.isAdapterRegistered(6)) {
       Hive.registerAdapter(DebtAdapter());
     }
+    if (!Hive.isAdapterRegistered(7)) {
+      Hive.registerAdapter(RecurringTransactionAdapter());
+    }
 
     _transactionBox = await Hive.openBox<Transaction>(_transactionBoxName);
     _budgetBox = await Hive.openBox<Budget>(_budgetBoxName);
@@ -57,6 +63,8 @@ class DatabaseService {
     _savingsGoalBox = await Hive.openBox<SavingsGoal>(_savingsGoalBoxName);
     _categoryBox = await Hive.openBox<Category>(_categoryBoxName);
     _debtBox = await Hive.openBox<Debt>(_debtBoxName);
+    _recurringTransactionBox =
+        await Hive.openBox<RecurringTransaction>(_recurringTransactionBoxName);
 
     // 初始化分类服务
     await CategoryService.init();
@@ -78,6 +86,8 @@ class DatabaseService {
   static Box<SavingsGoal> get savingsGoals => _savingsGoalBox;
   static Box<Category> get categories => _categoryBox;
   static Box<Debt> get debts => _debtBox;
+  static Box<RecurringTransaction> get recurringTransactions =>
+      _recurringTransactionBox;
 
   static Future<void> addTransaction(Transaction transaction) async {
     await _transactionBox.put(transaction.id, transaction);

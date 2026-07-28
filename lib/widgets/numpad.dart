@@ -116,12 +116,12 @@ class _NumpadState extends State<Numpad> {
       ),
       child: Row(
         children: [
-          Icon(Icons.edit_note_rounded, color: AppTheme.neutral500, size: 20),
+          const Icon(Icons.edit_note_rounded, color: AppTheme.neutral500, size: 20),
           const SizedBox(width: AppTheme.spaceSmall),
           Expanded(
             child: TextField(
               controller: widget.noteController,
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 hintText: '添加备注...',
                 hintStyle: TextStyle(
                   color: AppTheme.neutral400,
@@ -306,7 +306,7 @@ class _NumpadState extends State<Numpad> {
         widget.onDeletePressed();
       },
       backgroundColor: AppTheme.getSecondaryBackground(context),
-      child: Icon(
+      child: const Icon(
         Icons.backspace_outlined,
         size: 22,
         color: AppTheme.neutral600,
@@ -364,7 +364,7 @@ class _NumpadState extends State<Numpad> {
         widget.onSaveAndAddPressed?.call();
       },
       backgroundColor: AppTheme.getSecondaryBackground(context),
-      child: Column(
+      child: const Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
