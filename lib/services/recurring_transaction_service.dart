@@ -103,11 +103,25 @@ class RecurringTransactionService {
   }
 
   /// 执行定期交易（生成普通交易）
-  /// 
+  ///
+  /// WHY: 添加当天执行次数限制，防止用户同一天内多次点击"立即执行"
+  /// 导致生成重复交易记录。通过 lastExecutedDate 判断今天是否已执行。
+  ///
   /// @param recurringTransaction 定期交易对象
-  /// @return 生成的交易对象
-  static Future<Transaction> executeRecurringTransaction(
+  /// @return 生成的交易对象，如果当天已执行过则返回 null
+  static Future<Transaction?> executeRecurringTransaction(
       RecurringTransaction recurringTransaction) async {
+    // 检查今天是否已经执行过
+    if (recurringTransaction.lastExecutedDate != null) {
+      final lastExecuted = recurringTransaction.lastExecutedDate!;
+      final now = DateTime.now();
+      if (lastExecuted.year == now.year &&
+          lastExecuted.month == now.month &&
+          lastExecuted.day == now.day) {
+        return null;
+      }
+    }
+
     final transaction = Transaction(
       id: UuidUtil.generate(),
       amount: recurringTransaction.amount,
@@ -125,12 +139,25 @@ class RecurringTransactionService {
     );
 
     await DatabaseService.addTransaction(transaction);
-    
+
     // 更新定期交易的执行记录
     recurringTransaction.markAsExecuted();
     await updateRecurringTransaction(recurringTransaction);
-    
+
     return transaction;
+  }
+
+  /// 检查定期交易今天是否已执行
+  ///
+  /// @param recurringTransaction 定期交易对象
+  /// @return 如果今天已执行返回 true，否则返回 false
+  static bool isExecutedToday(RecurringTransaction recurringTransaction) {
+    if (recurringTransaction.lastExecutedDate == null) return false;
+    final last = recurringTransaction.lastExecutedDate!;
+    final now = DateTime.now();
+    return last.year == now.year &&
+        last.month == now.month &&
+        last.day == now.day;
   }
 
   /// 批量执行所有待执行的定期交易

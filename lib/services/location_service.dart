@@ -1,12 +1,26 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
+import 'package:flutter/foundation.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:hive/hive.dart';
+import 'package:http/http.dart' as http;
+import 'database_service.dart';
 
 /// 位置服务
 /// 管理常用位置列表和位置记录功能
 class LocationService {
   /// Hive box 名称
   static const String _boxName = 'locations';
+
+  /// 获取位置 Box
+  static Box<Map<String, dynamic>> get _box {
+    try {
+      return DatabaseService.locations;
+    } catch (_) {
+      return Hive.box<Map<String, dynamic>>(_boxName);
+    }
+  }
 
   /// 位置数据模型
   /// @param id 位置ID
@@ -38,9 +52,7 @@ class LocationService {
   /// 获取所有常用位置
   /// @return 位置列表，按使用次数降序排列
   static List<Map<String, dynamic>> getFavoriteLocations() {
-    final box = Hive.box(_boxName);
-    final locations = box.values.toList().cast<Map<String, dynamic>>();
-    // 按使用次数降序排列
+    final locations = _box.values.toList().cast<Map<String, dynamic>>();
     locations.sort((a, b) => (b['usageCount'] ?? 0) - (a['usageCount'] ?? 0));
     return locations;
   }
@@ -57,11 +69,9 @@ class LocationService {
       required double latitude,
       required double longitude,
       String? address}) async {
-    final box = await Hive.openBox(_boxName);
-    final existing = box.get(id);
+    final existing = _box.get(id);
     if (existing != null) {
-      // 更新现有位置
-      await box.put(id, {
+      await _box.put(id, {
         ...existing,
         'name': name,
         'latitude': latitude,
@@ -71,8 +81,7 @@ class LocationService {
         'lastUsedAt': DateTime.now().toIso8601String(),
       });
     } else {
-      // 添加新位置
-      await box.put(
+      await _box.put(
           id,
           createLocation(
             id: id,
@@ -89,8 +98,7 @@ class LocationService {
   /// 删除常用位置
   /// @param id 位置ID
   static Future<void> removeLocation(String id) async {
-    final box = await Hive.openBox(_boxName);
-    await box.delete(id);
+    await _box.delete(id);
   }
 
   /// 搜索位置（模拟搜索，实际应用中调用地图API）
@@ -139,25 +147,102 @@ class LocationService {
       },
     ];
 
-    return mockResults
-        .where((loc) =>
-            (loc['name'] as String).toLowerCase().contains(query.toLowerCase()) ||
-            (loc['address'] as String).toLowerCase().contains(query.toLowerCase()))
-        .toList();
+    return mockResults.where((loc) {
+      // WHY: 使用 null 安全访问，防止字段缺失时类型转换崩溃
+      final name = loc['name'] as String? ?? '';
+      final address = loc['address'] as String? ?? '';
+      return name.toLowerCase().contains(query.toLowerCase()) ||
+          address.toLowerCase().contains(query.toLowerCase());
+    }).toList();
   }
 
-  /// 获取当前位置（模拟）
-  /// @return 当前位置信息
+  /// 获取当前位置（使用 geolocator 真实定位 + Nominatim 反向地理编码）
+  ///
+  /// 先获取设备 GPS 经纬度，再调用 OpenStreetMap Nominatim 免费 API
+  /// 解析出具体地址（国家/省/市/区/街道），避免只显示经纬度数字。
+  ///
+  /// @return 当前位置信息，包含经纬度、名称和详细地址
+  /// @throws Exception 如果权限被拒绝或定位失败
   static Future<Map<String, dynamic>?> getCurrentLocation() async {
-    // 模拟获取当前位置，实际应用中应使用 geolocator 插件
-    await Future.delayed(const Duration(milliseconds: 1000));
+    // 1. 检查定位服务是否开启
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      throw Exception('定位服务未开启，请在系统设置中开启定位');
+    }
 
-    // 模拟位置：北京市中心
+    // 2. 检查并请求定位权限
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+
+    if (permission == LocationPermission.denied) {
+      throw Exception('定位权限被拒绝');
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      throw Exception('定位权限被永久拒绝，请在系统设置中授予权限');
+    }
+
+    // 3. 获取当前位置经纬度
+    final position = await Geolocator.getCurrentPosition(
+      desiredAccuracy: LocationAccuracy.high,
+      timeLimit: const Duration(seconds: 10),
+    );
+
+    debugPrint('当前位置: ${position.latitude}, ${position.longitude}');
+
+    // 4. 反向地理编码：将经纬度转换为具体地址
+    // WHY: 使用 OpenStreetMap Nominatim 免费公共服务，无需 API Key，
+    // 遵守其使用政策（单次请求、标识 User-Agent）
+    String address =
+        '${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}';
+    String name = '当前位置';
+
+    try {
+      final url = Uri.parse(
+        'https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${position.latitude}&lon=${position.longitude}&zoom=18&addressdetails=1&accept-language=zh-CN',
+      );
+      final response = await http.get(url, headers: {
+        'User-Agent': 'JiTuLedger/2.0 (simple-ledger-app)',
+      }).timeout(const Duration(seconds: 8));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final addr = data['address'] as Map<String, dynamic>?;
+
+        if (addr != null) {
+          // WHY: 按中文地址习惯拼接：省+市+区+街道+门牌号
+          final parts = <String>[
+            addr['province'] as String? ?? '',
+            addr['city'] as String? ?? addr['town'] as String? ?? '',
+            addr['district'] as String? ??
+                addr['county'] as String? ??
+                addr['suburb'] as String? ??
+                '',
+            addr['road'] as String? ?? addr['street'] as String? ?? '',
+            addr['house_number'] as String? ?? '',
+          ].where((s) => s.isNotEmpty).toList();
+
+          if (parts.isNotEmpty) {
+            address = parts.join('');
+            // 取最后两级作为短名称显示（如"朝阳区建国路93号"）
+            name = parts.length >= 2
+                ? parts.sublist(parts.length - 2).join('')
+                : parts.first;
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('反向地理编码失败，使用经纬度兜底: $e');
+      // WHY: 编码失败时不抛错，地址仍保留经纬度，保证主流程可用
+    }
+
     return {
-      'latitude': 39.9042,
-      'longitude': 116.4074,
-      'name': '北京市中心',
-      'address': '北京市东城区',
+      'latitude': position.latitude,
+      'longitude': position.longitude,
+      'name': name,
+      'address': address,
     };
   }
 
@@ -204,12 +289,15 @@ class LocationService {
   /// @return 按距离排序的位置列表
   static List<Map<String, dynamic>> getNearbyLocations(
       double currentLat, double currentLon, int limit) {
-    final locations = getFavoriteLocations();
+    final locations = _box.values.toList().cast<Map<String, dynamic>>();
     locations.sort((a, b) {
-      final distA = calculateDistance(
-          currentLat, currentLon, a['latitude'], a['longitude']);
-      final distB = calculateDistance(
-          currentLat, currentLon, b['latitude'], b['longitude']);
+      // WHY: 使用 null 安全访问，防止字段为 null 时传入 calculateDistance 崩溃
+      final latA = a['latitude'] ?? 0.0;
+      final lonA = a['longitude'] ?? 0.0;
+      final latB = b['latitude'] ?? 0.0;
+      final lonB = b['longitude'] ?? 0.0;
+      final distA = calculateDistance(currentLat, currentLon, latA, lonA);
+      final distB = calculateDistance(currentLat, currentLon, latB, lonB);
       return distA.compareTo(distB);
     });
     return locations.take(limit).toList();

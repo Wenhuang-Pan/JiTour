@@ -10,39 +10,123 @@ import '../services/stats_service.dart';
 import '../utils/icon_library.dart';
 import '../widgets/comparison_card.dart';
 
-class StatsScreen extends StatelessWidget {
+class StatsScreen extends StatefulWidget {
   const StatsScreen({super.key});
+
+  @override
+  State<StatsScreen> createState() => _StatsScreenState();
+}
+
+class _StatsScreenState extends State<StatsScreen> {
+  /// 当前选中的年份
+  late int _selectedYear;
+
+  /// 当前选中的月份（1-12）
+  late int _selectedMonth;
+
+  /// 视图模式（月/年）
+  bool _isYearView = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    _selectedYear = now.year;
+    _selectedMonth = now.month;
+  }
+
+  /// 切换到上一月
+  void _prevMonth() {
+    setState(() {
+      if (_selectedMonth == 1) {
+        _selectedMonth = 12;
+        _selectedYear--;
+      } else {
+        _selectedMonth--;
+      }
+    });
+  }
+
+  /// 切换到下一月
+  void _nextMonth() {
+    final now = DateTime.now();
+    setState(() {
+      if (_selectedMonth == 12) {
+        _selectedMonth = 1;
+        _selectedYear++;
+      } else {
+        _selectedMonth++;
+      }
+      // 限制不能超过当前月
+      if (_selectedYear == now.year && _selectedMonth > now.month) {
+        _selectedYear = now.year;
+        _selectedMonth = now.month;
+      }
+    });
+  }
+
+  /// 切换到上一年
+  void _prevYear() {
+    setState(() {
+      _selectedYear--;
+    });
+  }
+
+  /// 切换到下一年
+  void _nextYear() {
+    final now = DateTime.now();
+    setState(() {
+      if (_selectedYear < now.year) {
+        _selectedYear++;
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('统计'),
         elevation: 0,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(56),
+          child: _buildTimeSelector(context),
+        ),
       ),
       body: ValueListenableBuilder(
         valueListenable: DatabaseService.transactions.listenable(),
         builder: (context, Box<Transaction> box, _) {
           final allTransactions = box.values.toList()
             ..sort((a, b) => a.date.compareTo(b.date));
-          final monthTransactions =
-              StatsService.getMonthTransactions(allTransactions);
+
+          // 根据视图模式获取交易数据
+          final periodTransactions = _isYearView
+              ? StatsService.getTransactionsForYear(
+                  allTransactions, _selectedYear)
+              : StatsService.getTransactionsForMonth(
+                  allTransactions, _selectedYear, _selectedMonth);
+
           final totalIncome =
-              StatsService.calculateTotal(monthTransactions, true);
+              StatsService.calculateTotal(periodTransactions, true);
           final totalExpense =
-              StatsService.calculateTotal(monthTransactions, false);
+              StatsService.calculateTotal(periodTransactions, false);
           final balance = totalIncome - totalExpense;
           final expenseStats =
-              StatsService.calculateCategoryStats(monthTransactions, false);
+              StatsService.calculateCategoryStats(periodTransactions, false);
           final incomeStats =
-              StatsService.calculateCategoryStats(monthTransactions, true);
+              StatsService.calculateCategoryStats(periodTransactions, true);
+
+          // 趋势数据始终基于全量交易计算（近6月）
           final trendData = StatsService.calculateTrendData(allTransactions);
 
-          // 计算对比分析数据
-          final monthComparison =
-              StatsService.calculateMonthComparison(allTransactions);
-          final yearComparison =
-              StatsService.calculateYearComparison(allTransactions);
+          // 对比分析数据
+          final monthComparison = _isYearView
+              ? _calculateYearComparison(allTransactions)
+              : StatsService.calculateMonthComparisonForMonth(
+                  allTransactions, _selectedYear, _selectedMonth);
+          final yearComparison = _isYearView
+              ? _calculateYearComparison2(allTransactions)
+              : StatsService.calculateYearComparisonForMonth(
+                  allTransactions, _selectedYear, _selectedMonth);
 
           if (allTransactions.isEmpty) {
             return Center(
@@ -92,12 +176,14 @@ class StatsScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // KPI 概览卡片
-                _buildKpiSection(context, totalIncome, totalExpense, balance),
+                _buildKpiSection(context, totalIncome, totalExpense, balance,
+                    isYearView: _isYearView),
                 const SizedBox(height: AppTheme.spaceXLarge),
 
                 // 对比分析区域
                 _buildComparisonSection(
-                    context, monthComparison, yearComparison),
+                    context, monthComparison, yearComparison,
+                    isYearView: _isYearView),
                 const SizedBox(height: AppTheme.spaceXLarge),
 
                 // 收支趋势图
@@ -114,7 +200,8 @@ class StatsScreen extends StatelessWidget {
 
                 // 支出分类
                 if (expenseStats.isNotEmpty) ...[
-                  _buildSectionTitle(context, '支出分类', '本月支出构成'),
+                  _buildSectionTitle(
+                      context, '支出分类', _isYearView ? '年度支出构成' : '本月支出构成'),
                   const SizedBox(height: AppTheme.spaceMedium),
                   _buildDonutChart(
                     context,
@@ -130,7 +217,8 @@ class StatsScreen extends StatelessWidget {
 
                 // 收入分类
                 if (incomeStats.isNotEmpty) ...[
-                  _buildSectionTitle(context, '收入分类', '本月收入构成'),
+                  _buildSectionTitle(
+                      context, '收入分类', _isYearView ? '年度收入构成' : '本月收入构成'),
                   const SizedBox(height: AppTheme.spaceMedium),
                   _buildDonutChart(
                     context,
@@ -145,11 +233,12 @@ class StatsScreen extends StatelessWidget {
                 ],
 
                 // 标签统计
-                _buildTagStats(context, monthTransactions),
+                _buildTagStats(context, periodTransactions),
                 const SizedBox(height: AppTheme.spaceXLarge),
 
                 // TOP N 排行榜
-                _buildTopRankingSection(context, monthTransactions),
+                _buildTopRankingSection(context, periodTransactions,
+                    isYearView: _isYearView),
                 const SizedBox(height: AppTheme.spaceXLarge),
 
                 const SizedBox(height: AppTheme.spaceXXXLarge),
@@ -161,8 +250,213 @@ class StatsScreen extends StatelessWidget {
     );
   }
 
+  /// 构建时间选择器（月/年切换 + 导航）
+  Widget _buildTimeSelector(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppTheme.spaceMedium,
+        vertical: AppTheme.spaceSmall,
+      ),
+      decoration: BoxDecoration(
+        color: AppTheme.getCardColor(context),
+        border: Border(
+          bottom: BorderSide(
+            color: AppTheme.getDividerColor(context),
+            width: 0.5,
+          ),
+        ),
+      ),
+      child: Column(
+        children: [
+          // 月/年视图切换
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              GestureDetector(
+                onTap: () => setState(() => _isYearView = false),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppTheme.spaceMedium,
+                    vertical: AppTheme.spaceXSmall,
+                  ),
+                  decoration: BoxDecoration(
+                    color: !_isYearView
+                        ? AppTheme.getPrimaryColor(context)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                  ),
+                  child: Text(
+                    '月',
+                    style: TextStyle(
+                      color: !_isYearView ? Colors.white : AppTheme.neutral500,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppTheme.spaceSmall),
+              GestureDetector(
+                onTap: () => setState(() => _isYearView = true),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppTheme.spaceMedium,
+                    vertical: AppTheme.spaceXSmall,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _isYearView
+                        ? AppTheme.getPrimaryColor(context)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                  ),
+                  child: Text(
+                    '年',
+                    style: TextStyle(
+                      color: _isYearView ? Colors.white : AppTheme.neutral500,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppTheme.spaceSmall),
+          // 日期导航
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // 上一月/上一年
+              GestureDetector(
+                onTap: _isYearView ? _prevYear : _prevMonth,
+                child: Container(
+                  padding: const EdgeInsets.all(AppTheme.spaceSmall),
+                  decoration: BoxDecoration(
+                    color: AppTheme.getSecondaryBackground(context),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.chevron_left_rounded,
+                    size: 20,
+                    color: AppTheme.neutral600,
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppTheme.spaceMedium),
+              // 日期显示
+              GestureDetector(
+                onTap: _selectDatePicker,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppTheme.spaceLarge,
+                    vertical: AppTheme.spaceXSmall,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppTheme.getSecondaryBackground(context),
+                    borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                  ),
+                  child: Text(
+                    _isYearView
+                        ? '${_selectedYear}年'
+                        : '$_selectedYear年$_selectedMonth月',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 15,
+                      color: AppTheme.getPrimaryColor(context),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppTheme.spaceMedium),
+              // 下一月/下一年
+              GestureDetector(
+                onTap: _isYearView ? _nextYear : _nextMonth,
+                child: Container(
+                  padding: const EdgeInsets.all(AppTheme.spaceSmall),
+                  decoration: BoxDecoration(
+                    color: AppTheme.getSecondaryBackground(context),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.chevron_right_rounded,
+                    size: 20,
+                    color: AppTheme.neutral600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 选择日期的日期选择器弹窗
+  Future<void> _selectDatePicker() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime(_selectedYear, _selectedMonth),
+      firstDate: DateTime(2020),
+      lastDate: DateTime(now.year, now.month),
+      builder: (context, child) {
+        if (child == null) return const SizedBox();
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme(
+              primary: AppTheme.getPrimaryColor(context),
+              onPrimary: Colors.white,
+              secondary: AppTheme.getPrimaryColor(context),
+              onSecondary: Colors.white,
+              surface: Theme.of(context).colorScheme.surface,
+              onSurface: Theme.of(context).colorScheme.onSurface,
+              error: AppTheme.errorColor,
+              onError: Colors.white,
+              brightness: Theme.of(context).brightness,
+            ),
+          ),
+          child: child,
+        );
+      },
+    );
+
+    if (picked != null) {
+      setState(() {
+        _selectedYear = picked.year;
+        _selectedMonth = picked.month;
+      });
+    }
+  }
+
+  /// 年度对比：当前年 vs 上一年
+  Map<String, Map<String, double>> _calculateYearComparison(
+      List<Transaction> allTransactions) {
+    final currentYearTransactions =
+        StatsService.getTransactionsForYear(allTransactions, _selectedYear);
+    final previousYearTransactions =
+        StatsService.getTransactionsForYear(allTransactions, _selectedYear - 1);
+
+    return {
+      'current': {
+        'income': StatsService.calculateTotal(currentYearTransactions, true),
+        'expense': StatsService.calculateTotal(currentYearTransactions, false),
+      },
+      'previous': {
+        'income': StatsService.calculateTotal(previousYearTransactions, true),
+        'expense': StatsService.calculateTotal(previousYearTransactions, false),
+      },
+    };
+  }
+
+  /// 年度同比：当前年 vs 去年同期
+  Map<String, Map<String, double>> _calculateYearComparison2(
+      List<Transaction> allTransactions) {
+    return _calculateYearComparison(allTransactions);
+  }
+
   Widget _buildKpiSection(
-      BuildContext context, double income, double expense, double balance) {
+      BuildContext context, double income, double expense, double balance,
+      {bool isYearView = false}) {
     return Container(
       padding: const EdgeInsets.all(AppTheme.spaceXXLarge),
       decoration: BoxDecoration(
@@ -173,9 +467,9 @@ class StatsScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            '本月概览',
-            style: TextStyle(
+          Text(
+            _isYearView ? '年度概览' : '本月概览',
+            style: const TextStyle(
               fontSize: AppTheme.textBodyMedium,
               fontWeight: FontWeight.w600,
               color: Colors.white,
@@ -256,7 +550,7 @@ class StatsScreen extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  '本月结余',
+                  isYearView ? '年度结余' : '本月结余',
                   style: TextStyle(
                     fontSize: AppTheme.textBodySmall,
                     color: Colors.white.withValues(alpha: 0.85),
@@ -999,29 +1293,30 @@ class StatsScreen extends StatelessWidget {
   Widget _buildComparisonSection(
     BuildContext context,
     Map<String, Map<String, double>> monthComparison,
-    Map<String, Map<String, double>> yearComparison,
-  ) {
+    Map<String, Map<String, double>> yearComparison, {
+    bool isYearView = false,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionTitle(context, '对比分析', '月度同比'),
+        _buildSectionTitle(context, '对比分析', isYearView ? '年度对比' : '月度对比'),
         const SizedBox(height: AppTheme.spaceMedium),
         Column(
           children: [
-            // 月度对比（本月 vs 上月）
+            // 环比对比
             ComparisonCard(
-              title: '月度对比',
-              compareTitle: 'vs 上月',
+              title: isYearView ? '年度环比' : '月度对比',
+              compareTitle: isYearView ? 'vs 上年' : 'vs 上月',
               currentIncome: monthComparison['current']?['income'] ?? 0,
               currentExpense: monthComparison['current']?['expense'] ?? 0,
               compareIncome: monthComparison['previous']?['income'] ?? 0,
               compareExpense: monthComparison['previous']?['expense'] ?? 0,
             ),
             const SizedBox(height: AppTheme.spaceMedium),
-            // 同比对比（本月 vs 去年同月）
+            // 同比对比
             ComparisonCard(
-              title: '同比分析',
-              compareTitle: 'vs 去年同月',
+              title: isYearView ? '年度同比' : '同比分析',
+              compareTitle: isYearView ? 'vs 去年' : 'vs 去年同月',
               currentIncome: yearComparison['current']?['income'] ?? 0,
               currentExpense: yearComparison['current']?['expense'] ?? 0,
               compareIncome: yearComparison['yearAgo']?['income'] ?? 0,
@@ -1035,7 +1330,8 @@ class StatsScreen extends StatelessWidget {
 
   /// 构建 TOP N 排行榜区域
   Widget _buildTopRankingSection(
-      BuildContext context, List<Transaction> transactions) {
+      BuildContext context, List<Transaction> transactions,
+      {bool isYearView = false}) {
     final topExpenseCategories =
         StatsService.getTopExpenseCategories(transactions, 5);
     final topIncomeCategories =
@@ -1051,7 +1347,7 @@ class StatsScreen extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionTitle(context, 'TOP N 排行榜', '本月'),
+        _buildSectionTitle(context, 'TOP N 排行榜', isYearView ? '年度' : '本月'),
         const SizedBox(height: AppTheme.spaceMedium),
 
         // 支出分类 TOP 5

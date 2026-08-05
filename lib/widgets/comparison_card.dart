@@ -118,12 +118,16 @@ class ComparisonCard extends StatelessWidget {
         // 当前值
         Expanded(
           flex: 3,
-          child: Text(
-            '¥${currentValue.toStringAsFixed(2)}',
-            textAlign: TextAlign.right,
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerRight,
+            child: Text(
+              '¥${currentValue.toStringAsFixed(2)}',
+              textAlign: TextAlign.right,
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
           ),
         ),
 
@@ -132,12 +136,16 @@ class ComparisonCard extends StatelessWidget {
         // 对比值
         Expanded(
           flex: 3,
-          child: Text(
-            '¥${compareValue.toStringAsFixed(2)}',
-            textAlign: TextAlign.right,
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: AppTheme.neutral400,
-                ),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerRight,
+            child: Text(
+              '¥${compareValue.toStringAsFixed(2)}',
+              textAlign: TextAlign.right,
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: AppTheme.neutral400,
+                  ),
+            ),
           ),
         ),
 
@@ -148,21 +156,36 @@ class ComparisonCard extends StatelessWidget {
           flex: 2,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.end,
+            mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
                 changeRate != null && changeRate >= 0
-                    ? (isIncome ? Icons.trending_up_rounded : Icons.trending_down_rounded)
-                    : (isIncome ? Icons.trending_down_rounded : Icons.trending_up_rounded),
+                    ? (isIncome
+                        ? Icons.trending_up_rounded
+                        : Icons.trending_down_rounded)
+                    : (isIncome
+                        ? Icons.trending_down_rounded
+                        : Icons.trending_up_rounded),
                 size: 16,
                 color: StatsService.getChangeRateColor(changeRate, isIncome),
               ),
               const SizedBox(width: 2),
-              Text(
-                StatsService.formatChangeRate(changeRate),
-                style: TextStyle(
-                  fontSize: AppTheme.textBodySmall,
-                  fontWeight: FontWeight.w600,
-                  color: StatsService.getChangeRateColor(changeRate, isIncome),
+              // WHY: 使用 Flexible + FittedBox 防止百分比文本过长导致横向溢出
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    StatsService.formatChangeRate(changeRate),
+                    style: TextStyle(
+                      fontSize: AppTheme.textBodySmall,
+                      fontWeight: FontWeight.w600,
+                      color:
+                          StatsService.getChangeRateColor(changeRate, isIncome),
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                  ),
                 ),
               ),
             ],
@@ -225,12 +248,16 @@ class CompactComparisonCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      '¥${currentIncome.toStringAsFixed(0)}',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.w700,
-                            color: AppTheme.successColor,
-                          ),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        '¥${currentIncome.toStringAsFixed(0)}',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.successColor,
+                            ),
+                      ),
                     ),
                     Row(
                       children: [
@@ -239,15 +266,22 @@ class CompactComparisonCard extends StatelessWidget {
                               ? Icons.trending_up_rounded
                               : Icons.trending_down_rounded,
                           size: 14,
-                          color: StatsService.getChangeRateColor(incomeChangeRate, true),
+                          color: StatsService.getChangeRateColor(
+                              incomeChangeRate, true),
                         ),
                         const SizedBox(width: 2),
-                        Text(
-                          StatsService.formatChangeRate(incomeChangeRate),
-                          style: TextStyle(
-                            fontSize: AppTheme.textLabelSmall,
-                            fontWeight: FontWeight.w500,
-                            color: StatsService.getChangeRateColor(incomeChangeRate, true),
+                        // WHY: 使用 Flexible 防止百分比文本过长导致横向溢出
+                        Flexible(
+                          child: Text(
+                            StatsService.formatChangeRate(incomeChangeRate),
+                            style: TextStyle(
+                              fontSize: AppTheme.textLabelSmall,
+                              fontWeight: FontWeight.w500,
+                              color: StatsService.getChangeRateColor(
+                                  incomeChangeRate, true),
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
                           ),
                         ),
                       ],
@@ -261,12 +295,16 @@ class CompactComparisonCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text(
-                      '¥${currentExpense.toStringAsFixed(0)}',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.w700,
-                            color: AppTheme.errorColor,
-                          ),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerRight,
+                      child: Text(
+                        '¥${currentExpense.toStringAsFixed(0)}',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.errorColor,
+                            ),
+                      ),
                     ),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
@@ -276,15 +314,22 @@ class CompactComparisonCard extends StatelessWidget {
                               ? Icons.trending_up_rounded
                               : Icons.trending_down_rounded,
                           size: 14,
-                          color: StatsService.getChangeRateColor(expenseChangeRate, false),
+                          color: StatsService.getChangeRateColor(
+                              expenseChangeRate, false),
                         ),
                         const SizedBox(width: 2),
-                        Text(
-                          StatsService.formatChangeRate(expenseChangeRate),
-                          style: TextStyle(
-                            fontSize: AppTheme.textLabelSmall,
-                            fontWeight: FontWeight.w500,
-                            color: StatsService.getChangeRateColor(expenseChangeRate, false),
+                        // WHY: 使用 Flexible 防止百分比文本过长导致横向溢出
+                        Flexible(
+                          child: Text(
+                            StatsService.formatChangeRate(expenseChangeRate),
+                            style: TextStyle(
+                              fontSize: AppTheme.textLabelSmall,
+                              fontWeight: FontWeight.w500,
+                              color: StatsService.getChangeRateColor(
+                                  expenseChangeRate, false),
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
                           ),
                         ),
                       ],

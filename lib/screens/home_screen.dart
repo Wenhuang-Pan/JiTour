@@ -43,7 +43,17 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _screens[_currentIndex],
+      body: Stack(
+        children: [
+          _screens[_currentIndex],
+          if (_currentIndex == 0)
+            Positioned(
+              right: AppTheme.spaceMedium,
+              bottom: 16,
+              child: _buildFAB(context),
+            ),
+        ],
+      ),
       appBar: _currentIndex == 0
           ? AppBar(
               leading: Builder(
@@ -77,101 +87,110 @@ class _HomeScreenState extends State<HomeScreen> {
               HapticFeedback.selectionClick();
               setState(() => _currentIndex = index);
             },
+            // WHY: Material 3 规范 NavigationBar 推荐高度 80dp，
+            // 保证每个图标的触摸目标 ≥48dp，提升点击舒适度
+            height: 72,
+            labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
             destinations: const [
               NavigationDestination(
-                icon: Icon(Icons.receipt_long_outlined),
-                selectedIcon: Icon(Icons.receipt_long_rounded),
+                icon: Icon(Icons.receipt_long_outlined, size: 24),
+                selectedIcon: Icon(Icons.receipt_long_rounded, size: 26),
                 label: '账单',
               ),
               NavigationDestination(
-                icon: Icon(Icons.pie_chart_outline_rounded),
-                selectedIcon: Icon(Icons.pie_chart_rounded),
+                icon: Icon(Icons.pie_chart_outline_rounded, size: 24),
+                selectedIcon: Icon(Icons.pie_chart_rounded, size: 26),
                 label: '统计',
               ),
               NavigationDestination(
-                icon: Icon(Icons.account_balance_wallet_outlined),
-                selectedIcon: Icon(Icons.account_balance_wallet_rounded),
+                icon: Icon(Icons.account_balance_wallet_outlined, size: 24),
+                selectedIcon:
+                    Icon(Icons.account_balance_wallet_rounded, size: 26),
                 label: '预算',
               ),
               NavigationDestination(
-                icon: Icon(Icons.account_balance_outlined),
-                selectedIcon: Icon(Icons.account_balance_rounded),
+                icon: Icon(Icons.account_balance_outlined, size: 24),
+                selectedIcon: Icon(Icons.account_balance_rounded, size: 26),
                 label: '账户',
               ),
             ],
           ),
         ),
       ),
-      floatingActionButton: _currentIndex == 0
-          ? Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: ScaleOnTap(
-                onTap: () {
-                  HapticFeedback.mediumImpact();
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const AddTransactionScreen(),
-                    ),
-                  );
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppTheme.spaceXLarge,
-                    vertical: AppTheme.spaceMedium,
-                  ),
-                  decoration: BoxDecoration(
-                    gradient: AppTheme.getPrimaryGradient(context),
-                    borderRadius: BorderRadius.circular(AppTheme.radiusXXLarge),
-                    boxShadow:
-                        AppTheme.glowShadow(AppTheme.getPrimaryColor(context)),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.add_rounded, color: Colors.white, size: 22),
-                      SizedBox(width: AppTheme.spaceSmall),
-                      Text(
-                        '记一笔',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: AppTheme.textBodyLarge,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: -0.3,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+    );
+  }
+
+  Widget _buildFAB(BuildContext context) {
+    return ScaleOnTap(
+      onTap: () {
+        HapticFeedback.mediumImpact();
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const AddTransactionScreen(),
+          ),
+        );
+      },
+      child: Container(
+        // WHY: 增大内边距使按钮触摸区域 ≥56dp（Material 3 FAB 标准），
+        // 提升拇指点击舒适度，避免误触
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppTheme.spaceXLarge,
+          vertical: AppTheme.spaceMedium,
+        ),
+        decoration: BoxDecoration(
+          gradient: AppTheme.getPrimaryGradient(context),
+          borderRadius: BorderRadius.circular(AppTheme.radiusXXLarge),
+          boxShadow: AppTheme.glowShadow(AppTheme.getPrimaryColor(context)),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.add_rounded, color: Colors.white, size: 24),
+            SizedBox(width: AppTheme.spaceSmall),
+            Text(
+              '记一笔',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: AppTheme.textBodyLarge,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.3,
               ),
-            )
-          : null,
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+            ),
+          ],
+        ),
+      ),
     );
   }
 
   Widget _buildDrawer(BuildContext context) {
-    return Drawer(
-      width: MediaQuery.of(context).size.width * 0.85,
-      backgroundColor: AppTheme.getCardColor(context),
-      elevation: 0,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.zero,
+    final statusBarHeight = MediaQuery.of(context).padding.top;
+    final primaryColor = AppTheme.getPrimaryColor(context);
+
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light.copyWith(
+        statusBarColor: primaryColor,
+        statusBarIconBrightness: Brightness.light,
       ),
-      child: MediaQuery.removePadding(
-        context: context,
-        removeTop: true,
+      child: Drawer(
+        width: MediaQuery.of(context).size.width * 0.85,
+        backgroundColor: primaryColor,
+        elevation: 0,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.zero,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            SizedBox(height: statusBarHeight),
             Container(
-              padding: EdgeInsets.only(
-                top: MediaQuery.of(context).padding.top + 20,
+              padding: const EdgeInsets.only(
                 left: AppTheme.spaceXLarge,
                 right: AppTheme.spaceXLarge,
+                top: 20,
                 bottom: AppTheme.spaceXLarge,
               ),
-              color: AppTheme.getPrimaryColor(context),
+              color: primaryColor,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -211,130 +230,145 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: AppTheme.spaceSmall),
-            _buildDrawerItem(
-              context,
-              icon: Icons.category_rounded,
-              title: '分类管理',
-              subtitle: '管理收入和支出分类',
-              color: AppTheme.getPrimaryColor(context),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const CategoryManagementScreen(),
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: AppTheme.getCardColor(context),
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(AppTheme.radiusXLarge),
                   ),
-                );
-              },
-            ),
-            _buildDrawerItem(
-              context,
-              icon: Icons.label_rounded,
-              title: '标签管理',
-              subtitle: '管理交易标签',
-              color: const Color(0xFF8B5CF6),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const TagsManagementScreen(),
-                  ),
-                );
-              },
-            ),
-            _buildDrawerItem(
-              context,
-              icon: Icons.account_balance_rounded,
-              title: '负债管理',
-              subtitle: '管理欠款和还款',
-              color: AppTheme.errorColor,
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const DebtScreen(),
-                  ),
-                );
-              },
-            ),
-            _buildDrawerItem(
-              context,
-              icon: Icons.repeat_rounded,
-              title: '定期交易',
-              subtitle: '自动记账（工资、房租等）',
-              color: const Color(0xFF10B981),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const RecurringTransactionScreen(),
-                  ),
-                );
-              },
-            ),
-            const Divider(height: 1, indent: 20, endIndent: 20),
-            _buildDrawerItem(
-              context,
-              icon: Icons.settings_rounded,
-              title: '设置',
-              subtitle: '主题、币种、备份等',
-              color: AppTheme.neutral600,
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.pushNamed(context, '/settings');
-              },
-            ),
-            _buildDrawerItem(
-              context,
-              icon: Icons.import_export_rounded,
-              title: '导入导出',
-              subtitle: 'CSV导入与数据管理',
-              color: AppTheme.warningColor,
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.pushNamed(context, '/data');
-              },
-            ),
-            const Spacer(),
-            _buildDrawerItem(
-              context,
-              icon: Icons.info_outline_rounded,
-              title: '关于记途',
-              subtitle: 'V1.2.0 · 一起记账吧',
-              color: AppTheme.neutral500,
-              onTap: () {
-                Navigator.pop(context);
-                showAboutDialog(
-                  context: context,
-                  applicationName: '记途',
-                  applicationVersion: 'V1.2.0',
-                  applicationIcon: Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      gradient: AppTheme.getPrimaryGradient(context),
-                      borderRadius:
-                          BorderRadius.circular(AppTheme.radiusMedium),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: AppTheme.spaceSmall),
+                    _buildDrawerItem(
+                      context,
+                      icon: Icons.category_rounded,
+                      title: '分类管理',
+                      subtitle: '管理收入和支出分类',
+                      color: AppTheme.getPrimaryColor(context),
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const CategoryManagementScreen(),
+                          ),
+                        );
+                      },
                     ),
-                    child: const Icon(
-                      Icons.account_balance_wallet_rounded,
-                      color: Colors.white,
-                      size: 24,
+                    _buildDrawerItem(
+                      context,
+                      icon: Icons.label_rounded,
+                      title: '标签管理',
+                      subtitle: '管理交易标签',
+                      color: const Color(0xFF8B5CF6),
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const TagsManagementScreen(),
+                          ),
+                        );
+                      },
                     ),
-                  ),
-                  children: const [
-                    Text('一款简洁好用的个人记账应用'),
-                    SizedBox(height: 8),
-                    Text('帮助你轻松管理日常收支'),
+                    _buildDrawerItem(
+                      context,
+                      icon: Icons.account_balance_rounded,
+                      title: '负债管理',
+                      subtitle: '管理欠款和还款',
+                      color: AppTheme.errorColor,
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const DebtScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                    _buildDrawerItem(
+                      context,
+                      icon: Icons.repeat_rounded,
+                      title: '定期交易',
+                      subtitle: '自动记账（工资、房租等）',
+                      color: const Color(0xFF10B981),
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const RecurringTransactionScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                    const Divider(height: 1, indent: 20, endIndent: 20),
+                    _buildDrawerItem(
+                      context,
+                      icon: Icons.settings_rounded,
+                      title: '设置',
+                      subtitle: '主题、币种、备份等',
+                      color: AppTheme.neutral600,
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.pushNamed(context, '/settings');
+                      },
+                    ),
+                    _buildDrawerItem(
+                      context,
+                      icon: Icons.import_export_rounded,
+                      title: '导入导出',
+                      subtitle: 'CSV导入与数据管理',
+                      color: AppTheme.warningColor,
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.pushNamed(context, '/data');
+                      },
+                    ),
+                    const Spacer(),
+                    _buildDrawerItem(
+                      context,
+                      icon: Icons.info_outline_rounded,
+                      title: '关于记途',
+                      subtitle: 'V1.2.0 · 一起记账吧',
+                      color: AppTheme.neutral500,
+                      onTap: () {
+                        Navigator.pop(context);
+                        showAboutDialog(
+                          context: context,
+                          applicationName: '记途',
+                          applicationVersion: 'V1.2.0',
+                          applicationIcon: Container(
+                            width: 48,
+                            height: 48,
+                            decoration: BoxDecoration(
+                              gradient: AppTheme.getPrimaryGradient(context),
+                              borderRadius:
+                                  BorderRadius.circular(AppTheme.radiusMedium),
+                            ),
+                            child: const Icon(
+                              Icons.account_balance_wallet_rounded,
+                              color: Colors.white,
+                              size: 24,
+                            ),
+                          ),
+                          children: const [
+                            Text('一款简洁好用的个人记账应用'),
+                            SizedBox(height: 8),
+                            Text('帮助你轻松管理日常收支'),
+                          ],
+                        );
+                      },
+                    ),
+                    const SizedBox(height: AppTheme.spaceLarge),
                   ],
-                );
-              },
+                ),
+              ),
             ),
-            const SizedBox(height: AppTheme.spaceLarge),
           ],
         ),
       ),
@@ -509,9 +543,10 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
                 SliverToBoxAdapter(
                   child: _buildSearchSection(context),
                 ),
-                SliverToBoxAdapter(
-                  child: _buildSavingsSection(context),
-                ),
+                // WHY: 用户要求隐藏储蓄进度区域，不在首页显示
+                // SliverToBoxAdapter(
+                //   child: _buildSavingsSection(context),
+                // ),
                 SliverToBoxAdapter(
                   child: _buildRecurringTransactionReminder(context),
                 ),
@@ -521,9 +556,9 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
                   ),
                 SliverPadding(
                   padding: const EdgeInsets.fromLTRB(
-                    AppTheme.spaceLarge,
-                    AppTheme.spaceSmall,
-                    AppTheme.spaceLarge,
+                    AppTheme.spaceMedium,
+                    AppTheme.spaceXSmall,
+                    AppTheme.spaceMedium,
                     120,
                   ),
                   sliver: SliverList(
@@ -540,8 +575,8 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
                             if (isFirstOfDay)
                               Padding(
                                 padding: const EdgeInsets.only(
-                                  top: AppTheme.spaceXXLarge,
-                                  bottom: AppTheme.spaceLarge,
+                                  top: AppTheme.spaceMedium,
+                                  bottom: AppTheme.spaceXSmall,
                                 ),
                                 child: Row(
                                   children: [
@@ -585,12 +620,12 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
   /// 构建搜索和筛选区域
   Widget _buildSearchSection(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceLarge),
+      padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceMedium),
       child: Row(
         children: [
           Expanded(
             child: Container(
-              height: 44,
+              height: 40,
               decoration: BoxDecoration(
                 color: AppTheme.getSecondaryBackground(context),
                 borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
@@ -639,8 +674,8 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
             onTap: () => _showFilterModal(context),
             borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
             child: Container(
-              width: 44,
-              height: 44,
+              width: 40,
+              height: 40,
               decoration: BoxDecoration(
                 color: AppTheme.getSecondaryBackground(context),
                 borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
@@ -762,7 +797,7 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
                 color: AppTheme.getPrimaryColor(context),
               ),
             ),
-            const SizedBox(height: AppTheme.spaceXXLarge),
+            const SizedBox(height: AppTheme.spaceLarge),
             Text(
               '暂无账单',
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
@@ -790,16 +825,16 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
   ) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-        AppTheme.spaceLarge,
-        AppTheme.spaceLarge,
-        AppTheme.spaceLarge,
-        AppTheme.spaceSmall,
+        AppTheme.spaceMedium,
+        AppTheme.spaceMedium,
+        AppTheme.spaceMedium,
+        AppTheme.spaceXSmall,
       ),
       child: Container(
-        padding: const EdgeInsets.all(AppTheme.spaceXXLarge),
+        padding: const EdgeInsets.all(AppTheme.spaceLarge),
         decoration: BoxDecoration(
           gradient: AppTheme.getPrimaryGradient(context),
-          borderRadius: BorderRadius.circular(AppTheme.radiusXLarge),
+          borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
           boxShadow: AppTheme.glowShadow(AppTheme.getPrimaryColor(context)),
         ),
         child: Column(
@@ -827,7 +862,7 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: AppTheme.spaceXXLarge),
+            const SizedBox(height: AppTheme.spaceLarge),
             Row(
               children: [
                 Expanded(
@@ -936,8 +971,8 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
         }
         return Padding(
           padding: const EdgeInsets.symmetric(
-            horizontal: AppTheme.spaceLarge,
-            vertical: AppTheme.spaceSmall,
+            horizontal: AppTheme.spaceMedium,
+            vertical: AppTheme.spaceXSmall,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -945,7 +980,7 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
               Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: AppTheme.spaceXSmall,
-                  vertical: AppTheme.spaceSmall,
+                  vertical: AppTheme.spaceXSmall,
                 ),
                 child: Row(
                   children: [
@@ -965,7 +1000,7 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
                 ),
               ),
               SizedBox(
-                height: 110,
+                height: 100,
                 child: ListView.builder(
                   scrollDirection: Axis.horizontal,
                   itemCount: goals.length,
@@ -976,9 +1011,10 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
                             .clamp(0.0, 1.0)
                         : 0.0;
                     return Container(
-                      width: 170,
-                      margin: const EdgeInsets.only(right: AppTheme.spaceSmall),
-                      padding: const EdgeInsets.all(AppTheme.spaceMedium),
+                      width: 160,
+                      margin:
+                          const EdgeInsets.only(right: AppTheme.spaceXSmall),
+                      padding: const EdgeInsets.all(AppTheme.spaceSmall),
                       decoration: BoxDecoration(
                         color: AppTheme.getCardColor(context),
                         borderRadius:
@@ -1234,34 +1270,34 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
   Widget _buildTransactionCard(BuildContext context, Transaction transaction) {
     final categoryColor = _getCategoryColor(transaction.category);
     return Container(
-      margin: const EdgeInsets.only(bottom: AppTheme.spaceSmall),
+      margin: const EdgeInsets.only(bottom: 2),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: () {},
           onLongPress: () => _showDeleteDialog(context, transaction),
-          borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
           child: Padding(
             padding: const EdgeInsets.symmetric(
-              horizontal: AppTheme.spaceLarge,
-              vertical: AppTheme.spaceLarge,
+              horizontal: AppTheme.spaceSmall,
+              vertical: AppTheme.spaceSmall,
             ),
             child: Row(
               children: [
                 Container(
-                  width: 44,
-                  height: 44,
+                  width: 36,
+                  height: 36,
                   decoration: BoxDecoration(
                     color: categoryColor.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                    borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                   ),
                   child: Icon(
                     _getCategoryIcon(transaction.category),
                     color: categoryColor,
-                    size: 22,
+                    size: 18,
                   ),
                 ),
-                const SizedBox(width: AppTheme.spaceLarge),
+                const SizedBox(width: AppTheme.spaceSmall),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1295,14 +1331,19 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
                               ),
                             ),
                             const SizedBox(width: AppTheme.spaceSmall),
-                            Text(
-                              transaction.note!,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall
-                                  ?.copyWith(
-                                    color: AppTheme.neutral400,
-                                  ),
+                            // WHY: 使用 Flexible 包裹防止备注过长导致横向溢出
+                            Flexible(
+                              child: Text(
+                                transaction.note!,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(
+                                      color: AppTheme.neutral400,
+                                    ),
+                              ),
                             ),
                           ],
                         ],
@@ -1310,13 +1351,13 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(width: AppTheme.spaceLarge),
+                const SizedBox(width: AppTheme.spaceSmall),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
                       '${transaction.isIncome ? '+' : '-'}¥${transaction.amount.toStringAsFixed(2)}',
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             fontWeight: FontWeight.w700,
                             color: transaction.isIncome
                                 ? AppTheme.successColor

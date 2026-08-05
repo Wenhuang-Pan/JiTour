@@ -109,13 +109,28 @@ class _RecurringTransactionScreenState
           ),
           ElevatedButton(
             onPressed: () async {
-              await RecurringTransactionService.executeRecurringTransaction(
-                  transaction);
+              // WHY: 执行前检查今天是否已执行，避免重复生成交易
+              if (RecurringTransactionService.isExecutedToday(transaction)) {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('今天已执行过该定期交易，请明天再试')),
+                );
+                return;
+              }
+              final result =
+                  await RecurringTransactionService.executeRecurringTransaction(
+                      transaction);
               Navigator.pop(context);
               _loadTransactions();
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('已生成交易: ${transaction.amountText}')),
-              );
+              if (result != null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('已生成交易: ${transaction.amountText}')),
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('今天已执行过该定期交易，请明天再试')),
+                );
+              }
             },
             child: const Text('执行'),
           ),
@@ -650,13 +665,41 @@ class _TransactionFormModalState extends State<_TransactionFormModal> {
               const SizedBox(height: AppTheme.spaceXXLarge),
 
               // 保存按钮
-              ElevatedButton(
-                onPressed: _save,
-                style: ElevatedButton.styleFrom(
-                  padding:
-                      const EdgeInsets.symmetric(vertical: AppTheme.spaceLarge),
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: AppTheme.primaryGradient,
+                    borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppTheme.getPrimaryColor(context)
+                            .withValues(alpha: 0.3),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: _save,
+                      borderRadius:
+                          BorderRadius.circular(AppTheme.radiusMedium),
+                      child: const Center(
+                        child: Text(
+                          '保存',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
-                child: const Text('保存'),
               ),
 
               const SizedBox(height: AppTheme.spaceLarge),
@@ -720,6 +763,12 @@ class _TransactionFormModalState extends State<_TransactionFormModal> {
     String? Function(String?)? validator,
     void Function(String?)? onChanged,
   }) {
+    // WHY: 当 items 为空或 value 不在 items 中时，使用 null 防止 DropdownButtonFormField 断言失败
+    final safeValue =
+        (value != null && value.isNotEmpty && items.contains(value))
+            ? value
+            : null;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -732,7 +781,7 @@ class _TransactionFormModalState extends State<_TransactionFormModal> {
         ),
         const SizedBox(height: AppTheme.spaceSmall),
         DropdownButtonFormField<String>(
-          initialValue: value,
+          initialValue: safeValue,
           hint: Text(hintText),
           items: items.map((item) {
             return DropdownMenuItem(

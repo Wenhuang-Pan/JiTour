@@ -62,18 +62,18 @@ class _BudgetScreenState extends State<BudgetScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildMonthSelector(),
-                const SizedBox(height: AppTheme.spaceLarge),
+                const SizedBox(height: AppTheme.spaceMedium),
                 _buildBudgetModeSelector(),
-                const SizedBox(height: AppTheme.spaceLarge),
+                const SizedBox(height: AppTheme.spaceMedium),
                 if (_selectedTab == 1)
                   _buildTotalBudgetCard(budgets, transactions)
                 else if (_selectedTab == 2)
                   _buildSavingsSection()
                 else ...[
                   _buildCategoryBudgetOverview(budgets, transactions),
-                  const SizedBox(height: AppTheme.spaceLarge),
-                  _buildSectionTitle(context, '分类预算', '点击分类设置预算'),
                   const SizedBox(height: AppTheme.spaceMedium),
+                  _buildSectionTitle(context, '分类预算', '点击分类设置预算'),
+                  const SizedBox(height: AppTheme.spaceSmall),
                   ..._expenseCategories.map((category) {
                     final budget = budgets.firstWhere(
                       (b) => b.category == category,
@@ -90,12 +90,12 @@ class _BudgetScreenState extends State<BudgetScreen> {
                         .fold(0.0, (sum, t) => sum + t.amount);
                     return Padding(
                       padding:
-                          const EdgeInsets.only(bottom: AppTheme.spaceSmall),
+                          const EdgeInsets.only(bottom: AppTheme.spaceXSmall),
                       child: _buildBudgetItem(context, category, budget, spent),
                     );
                   }),
                 ],
-                const SizedBox(height: AppTheme.spaceXXXLarge),
+                const SizedBox(height: AppTheme.spaceXLarge),
               ],
             ),
           );
@@ -387,9 +387,19 @@ class _BudgetScreenState extends State<BudgetScreen> {
 
   Widget _buildCategoryBudgetOverview(
       List<Budget> budgets, List<Transaction> transactions) {
-    final totalBudget = budgets.fold(0.0, (sum, b) => sum + b.amount);
+    // 获取分类预算总和（排除特殊的 __TOTAL__ 分类）
+    final categoryBudgetSum = budgets
+        .where((b) => b.category != '__TOTAL__')
+        .fold(0.0, (sum, b) => sum + b.amount);
+
+    // 获取总预算（如果设置了的话）
+    final totalBudget = budgets
+        .where((b) => b.category == '__TOTAL__')
+        .fold(0.0, (sum, b) => sum + b.amount);
+
+    final displayBudget = totalBudget > 0 ? totalBudget : categoryBudgetSum;
     final totalSpent = transactions.fold(0.0, (sum, t) => sum + t.amount);
-    final progress = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
+    final progress = displayBudget > 0 ? (totalSpent / displayBudget) * 100 : 0;
     final isOverBudget = progress > 100;
 
     return Container(
@@ -458,7 +468,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '¥${totalBudget.toStringAsFixed(0)}',
+                        '¥${displayBudget.toStringAsFixed(0)}',
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w700,
@@ -556,9 +566,19 @@ class _BudgetScreenState extends State<BudgetScreen> {
         .where((b) => b.category == '__TOTAL__')
         .fold(0.0, (sum, b) => sum + b.amount);
 
+    // 获取分类预算总和
+    final categoryBudgetSum = budgets
+        .where((b) => b.category != '__TOTAL__')
+        .fold(0.0, (sum, b) => sum + b.amount);
+
     final totalSpent = transactions.fold(0.0, (sum, t) => sum + t.amount);
-    final remaining = totalBudget - totalSpent;
-    final progress = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
+    final remaining = totalBudget > 0
+        ? totalBudget - totalSpent
+        : categoryBudgetSum - totalSpent;
+    final progress = (totalBudget > 0 ? totalBudget : categoryBudgetSum) > 0
+        ? (totalSpent / (totalBudget > 0 ? totalBudget : categoryBudgetSum)) *
+            100
+        : 0;
     final isOverBudget = progress > 100;
 
     return Container(
@@ -662,6 +682,19 @@ class _BudgetScreenState extends State<BudgetScreen> {
                       style: TextStyle(
                         fontSize: 12,
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  if (categoryBudgetSum > 0)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        '分类预算汇总: ¥${categoryBudgetSum.toStringAsFixed(0)}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: totalBudget > 0
+                              ? Colors.white.withValues(alpha: 0.8)
+                              : AppTheme.neutral500,
+                        ),
                       ),
                     ),
                 ],
@@ -1032,6 +1065,9 @@ class _BudgetScreenState extends State<BudgetScreen> {
   void _showTotalBudgetDialog(List<Budget> budgets) {
     final existingTotal =
         budgets.where((b) => b.category == '__TOTAL__').firstOrNull;
+    final categoryBudgetSum = budgets
+        .where((b) => b.category != '__TOTAL__')
+        .fold(0.0, (sum, b) => sum + b.amount);
     final controller = TextEditingController(
       text:
           existingTotal != null ? existingTotal.amount.toStringAsFixed(2) : '',
@@ -1090,6 +1126,23 @@ class _BudgetScreenState extends State<BudgetScreen> {
               ),
               autofocus: true,
             ),
+            if (categoryBudgetSum > 0)
+              Padding(
+                padding: const EdgeInsets.only(top: AppTheme.spaceSmall),
+                child: TextButton(
+                  onPressed: () {
+                    controller.text = categoryBudgetSum.toStringAsFixed(2);
+                  },
+                  child: Text(
+                    '使用分类预算总和 (¥${categoryBudgetSum.toStringAsFixed(0)})',
+                    style: TextStyle(
+                      color: AppTheme.getPrimaryColor(context),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
         actions: [
@@ -1571,116 +1624,171 @@ class _BudgetScreenState extends State<BudgetScreen> {
         borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
         boxShadow: AppTheme.cardShadow,
       ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () => _showSavingsGoalDetailDialog(goal),
-          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-          child: Padding(
-            padding: const EdgeInsets.all(AppTheme.spaceMedium),
-            child: Column(
-              children: [
-                Row(
+      child: Column(
+        children: [
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => _showSavingsGoalDetailDialog(goal),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(AppTheme.radiusMedium),
+                topRight: Radius.circular(AppTheme.radiusMedium),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(AppTheme.spaceMedium),
+                child: Column(
                   children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: color.withValues(alpha: 0.1),
-                        borderRadius:
-                            BorderRadius.circular(AppTheme.radiusSmall),
-                      ),
-                      child: Icon(
-                        IconLibrary.getIconByName(goal.iconName),
-                        color: color,
-                        size: 20,
-                      ),
-                    ),
-                    const SizedBox(width: AppTheme.spaceSmall),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            goal.name,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                            ),
+                    Row(
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: color.withValues(alpha: 0.1),
+                            borderRadius:
+                                BorderRadius.circular(AppTheme.radiusSmall),
                           ),
-                          if (goal.description != null)
+                          child: Icon(
+                            IconLibrary.getIconByName(goal.iconName),
+                            color: color,
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: AppTheme.spaceSmall),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                goal.name,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              if (goal.description != null)
+                                Text(
+                                  goal.description!,
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: AppTheme.neutral500,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                            ],
+                          ),
+                        ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
                             Text(
-                              goal.description!,
+                              '¥${goal.currentAmount.toStringAsFixed(0)}',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: color,
+                              ),
+                            ),
+                            Text(
+                              '/ ¥${goal.targetAmount.toStringAsFixed(0)}',
                               style: const TextStyle(
                                 fontSize: 11,
                                 color: AppTheme.neutral500,
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
                             ),
-                        ],
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppTheme.spaceSmall),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: goal.progressPercent / 100,
+                        backgroundColor: AppTheme.neutral100,
+                        valueColor: AlwaysStoppedAnimation<Color>(color),
+                        minHeight: 6,
                       ),
                     ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
+                    const SizedBox(height: AppTheme.spaceXSmall),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          '¥${goal.currentAmount.toStringAsFixed(0)}',
+                          '${goal.progressPercent.toStringAsFixed(1)}%',
                           style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
                             color: color,
                           ),
                         ),
-                        Text(
-                          '/ ¥${goal.targetAmount.toStringAsFixed(0)}',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: AppTheme.neutral500,
+                        if (goal.targetDate != null)
+                          Text(
+                            goal.isOverdue
+                                ? '已逾期'
+                                : '剩余${goal.daysToTargetDate}天',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: goal.isOverdue
+                                  ? AppTheme.errorColor
+                                  : AppTheme.neutral500,
+                            ),
                           ),
-                        ),
                       ],
                     ),
                   ],
                 ),
-                const SizedBox(height: AppTheme.spaceSmall),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: goal.progressPercent / 100,
-                    backgroundColor: AppTheme.neutral100,
-                    valueColor: AlwaysStoppedAnimation<Color>(color),
-                    minHeight: 6,
+              ),
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(
+                horizontal: AppTheme.spaceMedium,
+                vertical: AppTheme.spaceXSmall),
+            decoration: const BoxDecoration(
+              color: AppTheme.neutral50,
+              borderRadius: BorderRadius.only(
+                bottomLeft: Radius.circular(AppTheme.radiusMedium),
+                bottomRight: Radius.circular(AppTheme.radiusMedium),
+              ),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextButton(
+                    onPressed: () => _showSavingsGoalDetailDialog(goal),
+                    child: const Text('存款'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppTheme.successColor,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                    ),
                   ),
                 ),
-                const SizedBox(height: AppTheme.spaceXSmall),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      '${goal.progressPercent.toStringAsFixed(1)}%',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: color,
-                      ),
+                Expanded(
+                  child: TextButton(
+                    onPressed: () => _showWithdrawSavingsDialog(goal),
+                    child: const Text('提取'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppTheme.warningColor,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
                     ),
-                    if (goal.targetDate != null)
-                      Text(
-                        goal.isOverdue ? '已逾期' : '剩余${goal.daysToTargetDate}天',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: goal.isOverdue
-                              ? AppTheme.errorColor
-                              : AppTheme.neutral500,
-                        ),
-                      ),
-                  ],
+                  ),
+                ),
+                Expanded(
+                  child: TextButton(
+                    onPressed: () => _showDeleteSavingsGoalDialog(goal),
+                    child: const Text('删除'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppTheme.errorColor,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                    ),
+                  ),
                 ),
               ],
             ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -1927,6 +2035,20 @@ class _BudgetScreenState extends State<BudgetScreen> {
                     );
                   },
                 ),
+                const SizedBox(height: AppTheme.spaceSmall),
+                Wrap(
+                  spacing: AppTheme.spaceSmall,
+                  children: [
+                    _buildQuickAmountButton(context, '100', amountController),
+                    _buildQuickAmountButton(context, '500', amountController),
+                    _buildQuickAmountButton(context, '1000', amountController),
+                    _buildQuickAmountButton(context, '5000', amountController),
+                    _buildQuickAmountButton(context, '1万', amountController),
+                    _buildQuickAmountButton(context, '5万', amountController),
+                    _buildQuickAmountButton(context, '10万', amountController),
+                    _buildQuickAmountButton(context, '100万', amountController),
+                  ],
+                ),
                 const SizedBox(height: AppTheme.spaceLarge),
                 Row(
                   children: [
@@ -2016,18 +2138,39 @@ class _BudgetScreenState extends State<BudgetScreen> {
             Text('提取存款'),
           ],
         ),
-        content: TextField(
-          controller: amountController,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          autofocus: true,
-          decoration: InputDecoration(
-            labelText: '提取金额',
-            prefixText: '¥ ',
-            hintText: '可用余额: ¥${goal.currentAmount.toStringAsFixed(2)}',
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: amountController,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              autofocus: true,
+              decoration: InputDecoration(
+                labelText: '提取金额',
+                prefixText: '¥ ',
+                hintText: '可用余额: ¥${goal.currentAmount.toStringAsFixed(2)}',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                ),
+              ),
             ),
-          ),
+            const SizedBox(height: AppTheme.spaceSmall),
+            Wrap(
+              spacing: AppTheme.spaceSmall,
+              children: [
+                _buildQuickAmountButton(context, '100', amountController),
+                _buildQuickAmountButton(context, '500', amountController),
+                _buildQuickAmountButton(context, '1000', amountController),
+                _buildQuickAmountButton(context, '5000', amountController),
+                _buildQuickAmountButton(context, '1万', amountController),
+                _buildQuickAmountButton(context, '5万', amountController),
+                _buildQuickAmountButton(context, '10万', amountController),
+                _buildQuickAmountButton(context, '全部', amountController,
+                    amount: goal.currentAmount),
+              ],
+            ),
+          ],
         ),
         actions: [
           TextButton(
@@ -2071,6 +2214,122 @@ class _BudgetScreenState extends State<BudgetScreen> {
             child: const Text('确认提取'),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showDeleteSavingsGoalDialog(SavingsGoal goal) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.delete_rounded, color: AppTheme.errorColor),
+            SizedBox(width: 8),
+            Text('删除储蓄目标'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '确定要删除目标 "${goal.name}" 吗？',
+              style: const TextStyle(fontSize: 14),
+            ),
+            const SizedBox(height: AppTheme.spaceSmall),
+            if (goal.currentAmount > 0)
+              Text(
+                '该目标当前有 ¥${goal.currentAmount.toStringAsFixed(2)} 存款，删除后余额将返还到关联账户。',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppTheme.neutral500,
+                ),
+              ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              // 如果有余额，返还到关联账户
+              if (goal.currentAmount > 0 && goal.accountId != null) {
+                final account = AccountService.getAccountById(goal.accountId!);
+                if (account != null) {
+                  await AccountService.updateAccountBalance(
+                      account.id, account.currentBalance + goal.currentAmount);
+                }
+              }
+
+              await SavingsGoalService.deleteGoal(goal.id);
+              Navigator.pop(context);
+              setState(() {});
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('已删除储蓄目标 "${goal.name}"'),
+                  backgroundColor: AppTheme.successColor,
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.errorColor,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('确认删除'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuickAmountButton(
+      BuildContext context, String label, TextEditingController controller,
+      {double? amount}) {
+    return ElevatedButton(
+      onPressed: () {
+        double value;
+        switch (label) {
+          case '1万':
+            value = 10000;
+            break;
+          case '5万':
+            value = 50000;
+            break;
+          case '10万':
+            value = 100000;
+            break;
+          case '50万':
+            value = 500000;
+            break;
+          case '100万':
+            value = 1000000;
+            break;
+          case '500万':
+            value = 5000000;
+            break;
+          case '全部':
+            value = amount ?? 0;
+            break;
+          default:
+            value = double.tryParse(label) ?? 0;
+        }
+        controller.text = value.toStringAsFixed(2);
+      },
+      style: ElevatedButton.styleFrom(
+        backgroundColor: AppTheme.getSecondaryBackground(context),
+        foregroundColor: AppTheme.getPrimaryColor(context),
+        padding: const EdgeInsets.symmetric(
+            horizontal: AppTheme.spaceMedium, vertical: AppTheme.spaceXSmall),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+        ),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
       ),
     );
   }
@@ -2161,6 +2420,20 @@ class _BudgetScreenState extends State<BudgetScreen> {
                             BorderRadius.circular(AppTheme.radiusMedium),
                       ),
                     ),
+                  ),
+                  const SizedBox(height: AppTheme.spaceSmall),
+                  Wrap(
+                    spacing: AppTheme.spaceSmall,
+                    children: [
+                      _buildQuickAmountButton(context, '1万', amountController),
+                      _buildQuickAmountButton(context, '5万', amountController),
+                      _buildQuickAmountButton(context, '10万', amountController),
+                      _buildQuickAmountButton(context, '50万', amountController),
+                      _buildQuickAmountButton(
+                          context, '100万', amountController),
+                      _buildQuickAmountButton(
+                          context, '500万', amountController),
+                    ],
                   ),
                   const SizedBox(height: AppTheme.spaceMedium),
                   // 选择账户

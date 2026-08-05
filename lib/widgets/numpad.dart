@@ -116,7 +116,8 @@ class _NumpadState extends State<Numpad> {
       ),
       child: Row(
         children: [
-          const Icon(Icons.edit_note_rounded, color: AppTheme.neutral500, size: 20),
+          const Icon(Icons.edit_note_rounded,
+              color: AppTheme.neutral500, size: 20),
           const SizedBox(width: AppTheme.spaceSmall),
           Expanded(
             child: TextField(
@@ -147,23 +148,23 @@ class _NumpadState extends State<Numpad> {
 
   Widget _buildOptionsRow() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceLarge),
-      height: 40,
-      child: Row(
+      height: 30,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceMedium),
         children: [
           _buildOptionButton(
             icon: Icons.account_balance_wallet_rounded,
             label: widget.selectedAccountName ?? '账户',
             onTap: widget.onAccountTap,
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 4),
           _buildOptionButton(
             icon: Icons.access_time_rounded,
             label: widget.timeText ?? '今天',
             onTap: widget.onDateTap,
-            flex: 2,
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 4),
           _buildOptionButton(
             icon: Icons.receipt_rounded,
             label: widget.isReimbursed ? '已报销' : '报销',
@@ -171,12 +172,25 @@ class _NumpadState extends State<Numpad> {
             activeColor: AppTheme.successColor,
             onTap: widget.onReimbursedTap,
           ),
-          const Spacer(),
+          const SizedBox(width: 4),
           _buildOptionButton(
-            icon: Icons.more_horiz_rounded,
-            label: '更多',
+            icon: Icons.tag_rounded,
+            label: widget.tagText ?? '标签',
             onTap: widget.onTagTap,
           ),
+          const SizedBox(width: 4),
+          _buildOptionButton(
+            icon: Icons.percent_rounded,
+            label: widget.couponText ?? '优惠',
+            onTap: widget.onCouponTap,
+          ),
+          const SizedBox(width: 4),
+          _buildOptionButton(
+            icon: Icons.location_on_rounded,
+            label: widget.locationText ?? '位置',
+            onTap: widget.onLocationTap,
+          ),
+          const SizedBox(width: 4),
         ],
       ),
     );
@@ -188,42 +202,40 @@ class _NumpadState extends State<Numpad> {
     bool isActive = false,
     Color activeColor = AppTheme.primaryColor,
     VoidCallback? onTap,
-    int flex = 1,
   }) {
-    return Expanded(
-      flex: flex,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
-          child: Container(
-            alignment: Alignment.center,
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  icon,
-                  size: 14,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(6),
+        child: Container(
+          alignment: Alignment.center,
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+          decoration: BoxDecoration(
+            color: isActive ? activeColor.withValues(alpha: 0.1) : null,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 11,
+                color: isActive ? activeColor : AppTheme.neutral500,
+              ),
+              const SizedBox(width: 2),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 10.5,
                   color: isActive ? activeColor : AppTheme.neutral500,
+                  fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
                 ),
-                const SizedBox(width: 4),
-                Flexible(
-                  child: Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: AppTheme.textLabelMedium,
-                      color: isActive ? activeColor : AppTheme.neutral500,
-                      fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
-                  ),
-                ),
-              ],
-            ),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+              ),
+            ],
           ),
         ),
       ),

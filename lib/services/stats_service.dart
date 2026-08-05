@@ -10,8 +10,33 @@ class StatsService {
   static List<Transaction> getMonthTransactions(
       List<Transaction> allTransactions) {
     final now = DateTime.now();
-    final startOfMonth = DateTime(now.year, now.month, 1);
-    return allTransactions.where((t) => t.date.isAfter(startOfMonth)).toList();
+    return getTransactionsForMonth(allTransactions, now.year, now.month);
+  }
+
+  /// 获取指定年月的交易记录
+  ///
+  /// @param allTransactions 所有交易记录
+  /// @param year 年份
+  /// @param month 月份 (1-12)
+  /// @return 指定年月的交易列表
+  static List<Transaction> getTransactionsForMonth(
+      List<Transaction> allTransactions, int year, int month) {
+    final startOfMonth = DateTime(year, month, 1);
+    final endOfMonth = DateTime(year, month + 1, 0, 23, 59, 59);
+    return allTransactions
+        .where((t) =>
+            !t.date.isBefore(startOfMonth) && !t.date.isAfter(endOfMonth))
+        .toList();
+  }
+
+  /// 获取指定年份的交易记录
+  ///
+  /// @param allTransactions 所有交易记录
+  /// @param year 年份
+  /// @return 指定年份的交易列表
+  static List<Transaction> getTransactionsForYear(
+      List<Transaction> allTransactions, int year) {
+    return allTransactions.where((t) => t.date.year == year).toList();
   }
 
   /// 计算总收入或总支出
@@ -101,25 +126,28 @@ class StatsService {
     return amount.toStringAsFixed(0);
   }
 
-  /// 计算月度对比数据（本月 vs 上月）
+  /// 计算月度对比数据（指定月 vs 上月）
   /// @return Map 包含 'current' 和 'previous' 的收支数据
   static Map<String, Map<String, double>> calculateMonthComparison(
       List<Transaction> allTransactions) {
     final now = DateTime.now();
-    final currentMonth = DateTime(now.year, now.month, 1);
-    final previousMonth = DateTime(now.year, now.month - 1, 1);
+    return calculateMonthComparisonForMonth(
+        allTransactions, now.year, now.month);
+  }
 
-    final currentTransactions = allTransactions
-        .where((t) =>
-            t.date.year == currentMonth.year &&
-            t.date.month == currentMonth.month)
-        .toList();
-
-    final previousTransactions = allTransactions
-        .where((t) =>
-            t.date.year == previousMonth.year &&
-            t.date.month == previousMonth.month)
-        .toList();
+  /// 计算指定月份的对比数据（当月 vs 上月）
+  ///
+  /// @param allTransactions 所有交易
+  /// @param year 年份
+  /// @param month 月份
+  /// @return Map 包含 'current' 和 'previous' 的收支数据
+  static Map<String, Map<String, double>> calculateMonthComparisonForMonth(
+      List<Transaction> allTransactions, int year, int month) {
+    final currentTransactions =
+        getTransactionsForMonth(allTransactions, year, month);
+    final previousMonthDate = DateTime(year, month - 1);
+    final previousTransactions = getTransactionsForMonth(
+        allTransactions, previousMonthDate.year, previousMonthDate.month);
 
     return {
       'current': {
@@ -138,20 +166,22 @@ class StatsService {
   static Map<String, Map<String, double>> calculateYearComparison(
       List<Transaction> allTransactions) {
     final now = DateTime.now();
-    final currentMonth = DateTime(now.year, now.month, 1);
-    final yearAgoMonth = DateTime(now.year - 1, now.month, 1);
+    return calculateYearComparisonForMonth(
+        allTransactions, now.year, now.month);
+  }
 
-    final currentTransactions = allTransactions
-        .where((t) =>
-            t.date.year == currentMonth.year &&
-            t.date.month == currentMonth.month)
-        .toList();
-
-    final yearAgoTransactions = allTransactions
-        .where((t) =>
-            t.date.year == yearAgoMonth.year &&
-            t.date.month == yearAgoMonth.month)
-        .toList();
+  /// 计算指定月份的同比数据（当月 vs 去年同月）
+  ///
+  /// @param allTransactions 所有交易
+  /// @param year 年份
+  /// @param month 月份
+  /// @return Map 包含 'current' 和 'yearAgo' 的收支数据
+  static Map<String, Map<String, double>> calculateYearComparisonForMonth(
+      List<Transaction> allTransactions, int year, int month) {
+    final currentTransactions =
+        getTransactionsForMonth(allTransactions, year, month);
+    final yearAgoTransactions =
+        getTransactionsForMonth(allTransactions, year - 1, month);
 
     return {
       'current': {

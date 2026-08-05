@@ -21,6 +21,7 @@ class DatabaseService {
   static const String _categoryBoxName = 'categories';
   static const String _debtBoxName = 'debts';
   static const String _recurringTransactionBoxName = 'recurring_transactions';
+  static const String _locationBoxName = 'locations';
   static late Box<Transaction> _transactionBox;
   static late Box<Budget> _budgetBox;
   static late Box<Account> _accountBox;
@@ -29,6 +30,7 @@ class DatabaseService {
   static late Box<Category> _categoryBox;
   static late Box<Debt> _debtBox;
   static late Box<RecurringTransaction> _recurringTransactionBox;
+  static late Box<Map<String, dynamic>> _locationBox;
 
   static Future<void> init() async {
     if (!Hive.isAdapterRegistered(0)) {
@@ -65,6 +67,7 @@ class DatabaseService {
     _debtBox = await Hive.openBox<Debt>(_debtBoxName);
     _recurringTransactionBox =
         await Hive.openBox<RecurringTransaction>(_recurringTransactionBoxName);
+    _locationBox = await Hive.openBox<Map<String, dynamic>>(_locationBoxName);
 
     // 初始化分类服务
     await CategoryService.init();
@@ -88,6 +91,7 @@ class DatabaseService {
   static Box<Debt> get debts => _debtBox;
   static Box<RecurringTransaction> get recurringTransactions =>
       _recurringTransactionBox;
+  static Box<Map<String, dynamic>> get locations => _locationBox;
 
   static Future<void> addTransaction(Transaction transaction) async {
     await _transactionBox.put(transaction.id, transaction);

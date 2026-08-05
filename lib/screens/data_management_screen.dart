@@ -17,16 +17,18 @@ class DataManagementScreen extends StatefulWidget {
   State<DataManagementScreen> createState() => _DataManagementScreenState();
 }
 
-class _DataManagementScreenState extends State<DataManagementScreen> with SingleTickerProviderStateMixin {
+class _DataManagementScreenState extends State<DataManagementScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  
+
   // 导入相关状态
   List<Map<String, String>>? _csvData;
   List<Map<String, String>>? _mappedData;
   bool _isLoading = false;
   String? _errorMessage;
   String? _successMessage;
-  
+  String? _detectedFormatName;
+
   // 导出相关状态
   DateTime _exportStartDate = DateTime.now().subtract(const Duration(days: 30));
   DateTime _exportEndDate = DateTime.now();
@@ -75,7 +77,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> with Single
 
       final content = String.fromCharCodes(bytes);
       final rows = CsvImporter.parseCsv(content);
-      
+
       if (rows.isEmpty) {
         setState(() {
           _errorMessage = '未解析到数据，请检查CSV格式';
@@ -84,7 +86,16 @@ class _DataManagementScreenState extends State<DataManagementScreen> with Single
         return;
       }
 
-      final mapped = rows.map((row) => CsvImporter.mapFields(rows.first.keys.toList(), row)).toList();
+      final detectedFormat = CsvImporter.detectCsvFormat(rows);
+      final formatName = CsvImporter.getFormatName(detectedFormat);
+
+      setState(() {
+        _detectedFormatName = formatName;
+      });
+
+      final mapped = rows
+          .map((row) => CsvImporter.mapFields(detectedFormat, row))
+          .toList();
 
       setState(() {
         _csvData = rows;
@@ -112,7 +123,9 @@ class _DataManagementScreenState extends State<DataManagementScreen> with Single
         setState(() => _errorMessage = '未解析到数据');
         return;
       }
-      final mapped = rows.map((row) => CsvImporter.mapFields(rows.first.keys.toList(), row)).toList();
+      final mapped = rows
+          .map((row) => CsvImporter.mapFields(rows.first.keys.toList(), row))
+          .toList();
       setState(() {
         _csvData = rows;
         _mappedData = mapped;
@@ -149,42 +162,61 @@ class _DataManagementScreenState extends State<DataManagementScreen> with Single
 
   void _doImport() {
     if (_mappedData == null) return;
-    
+
     int imported = 0;
+    int skipped = 0;
     for (var row in _mappedData!) {
       try {
         final amount = double.tryParse(row['amount'] ?? '');
-        if (amount == null || amount <= 0) continue;
-        
+        if (amount == null || amount <= 0) {
+          skipped++;
+          continue;
+        }
+
         final dateStr = row['date'];
-        if (dateStr == null || dateStr.isEmpty) continue;
-        
+        if (dateStr == null || dateStr.isEmpty) {
+          skipped++;
+          continue;
+        }
+
         final date = _parseDate(dateStr);
         final isIncome = row['isIncome'] == 'true';
-        
+
         final transaction = Transaction(
-          id: DateTime.now().millisecondsSinceEpoch.toString() + imported.toString(),
+          id: DateTime.now().millisecondsSinceEpoch.toString() +
+              imported.toString(),
           amount: amount,
           isIncome: isIncome,
           category: row['category'] ?? '其他',
-          account: row['account']?.isNotEmpty == true ? row['account']! : '默认账户',
+          account:
+              row['account']?.isNotEmpty == true ? row['account']! : '默认账户',
           date: date,
           note: row['note'],
         );
-        
+
         DatabaseService.addTransaction(transaction);
         imported++;
       } catch (e) {
-        // 跳过无效行
+        skipped++;
         continue;
       }
     }
 
     setState(() {
-      _successMessage = '成功导入 $imported 条记录';
+      _successMessage =
+          '成功导入 $imported 条记录${skipped > 0 ? '，跳过 $skipped 条无效数据' : ''}';
       _csvData = null;
       _mappedData = null;
+      _detectedFormatName = null;
     });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(_successMessage!),
+        backgroundColor: AppTheme.successColor,
+        duration: const Duration(seconds: 3),
+      ),
+    );
   }
 
   DateTime _parseDate(String dateStr) {
@@ -198,7 +230,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> with Single
         'yyyy/M/d',
         'yyyy-M-d',
       ];
-      
+
       for (var format in formats) {
         try {
           return DateFormat(format).parse(dateStr);
@@ -227,7 +259,8 @@ class _DataManagementScreenState extends State<DataManagementScreen> with Single
       context: context,
       firstDate: DateTime(2020),
       lastDate: DateTime.now().add(const Duration(days: 30)),
-      initialDateRange: DateTimeRange(start: _exportStartDate, end: _exportEndDate),
+      initialDateRange:
+          DateTimeRange(start: _exportStartDate, end: _exportEndDate),
       locale: const Locale('zh', 'CN'),
       builder: (context, child) {
         return Theme(
@@ -255,8 +288,11 @@ class _DataManagementScreenState extends State<DataManagementScreen> with Single
 
   void _generateExportPreview() {
     final currency = Provider.of<CurrencyProvider>(context, listen: false).code;
-    final transactions = DatabaseService.getTransactionsInRange(_exportStartDate, _exportEndDate);
-    final csv = ExportService.exportToCsv(transactions, _exportStartDate, _exportEndDate, currency: currency);
+    final transactions = DatabaseService.getTransactionsInRange(
+        _exportStartDate, _exportEndDate);
+    final csv = ExportService.exportToCsv(
+        transactions, _exportStartDate, _exportEndDate,
+        currency: currency);
     setState(() => _exportPreview = csv);
   }
 
@@ -264,11 +300,14 @@ class _DataManagementScreenState extends State<DataManagementScreen> with Single
     if (_exportPreview == null) {
       _generateExportPreview();
     }
-    
+
     final currency = Provider.of<CurrencyProvider>(context, listen: false).code;
-    final transactions = DatabaseService.getTransactionsInRange(_exportStartDate, _exportEndDate);
-    final csv = ExportService.exportToCsv(transactions, _exportStartDate, _exportEndDate, currency: currency);
-    
+    final transactions = DatabaseService.getTransactionsInRange(
+        _exportStartDate, _exportEndDate);
+    final csv = ExportService.exportToCsv(
+        transactions, _exportStartDate, _exportEndDate,
+        currency: currency);
+
     try {
       final dateStr = DateFormat('yyyyMMdd').format(DateTime.now());
       final result = await FilePicker.platform.saveFile(
@@ -331,15 +370,16 @@ class _DataManagementScreenState extends State<DataManagementScreen> with Single
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.check_circle_rounded, color: AppTheme.successColor),
+                  const Icon(Icons.check_circle_rounded,
+                      color: AppTheme.successColor),
                   const SizedBox(width: AppTheme.spaceSmall),
-                  Text(_successMessage!, style: const TextStyle(color: AppTheme.successColor)),
+                  Text(_successMessage!,
+                      style: const TextStyle(color: AppTheme.successColor)),
                 ],
               ),
             ),
             const SizedBox(height: AppTheme.spaceMedium),
           ],
-          
           if (_csvData == null) ...[
             _buildUploadArea(),
             const SizedBox(height: AppTheme.spaceLarge),
@@ -494,6 +534,28 @@ class _DataManagementScreenState extends State<DataManagementScreen> with Single
                     fontWeight: FontWeight.w600,
                   ),
             ),
+            if (_detectedFormatName != null) ...[
+              const SizedBox(width: AppTheme.spaceSmall),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppTheme.spaceXSmall,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color:
+                      AppTheme.getPrimaryColor(context).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                ),
+                child: Text(
+                  _detectedFormatName!,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppTheme.getPrimaryColor(context),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
             const Spacer(),
             Text(
               '共 ${_mappedData?.length ?? 0} 条',
@@ -526,13 +588,17 @@ class _DataManagementScreenState extends State<DataManagementScreen> with Single
                 final isIncome = row['isIncome'] == 'true';
                 return DataRow(
                   cells: [
-                    DataCell(Text(row['date'] ?? '', style: const TextStyle(fontSize: 12))),
-                    DataCell(Text(row['category'] ?? '', style: const TextStyle(fontSize: 12))),
+                    DataCell(Text(row['date'] ?? '',
+                        style: const TextStyle(fontSize: 12))),
+                    DataCell(Text(row['category'] ?? '',
+                        style: const TextStyle(fontSize: 12))),
                     DataCell(
                       Text(
                         isIncome ? '收入' : '支出',
                         style: TextStyle(
-                          color: isIncome ? AppTheme.successColor : AppTheme.warningColor,
+                          color: isIncome
+                              ? AppTheme.successColor
+                              : AppTheme.warningColor,
                           fontSize: 12,
                         ),
                       ),
@@ -541,14 +607,18 @@ class _DataManagementScreenState extends State<DataManagementScreen> with Single
                       Text(
                         '${isIncome ? '+' : '-'}${row['amount'] ?? ''}',
                         style: TextStyle(
-                          color: isIncome ? AppTheme.successColor : AppTheme.errorColor,
+                          color: isIncome
+                              ? AppTheme.successColor
+                              : AppTheme.errorColor,
                           fontWeight: FontWeight.w600,
                           fontSize: 12,
                         ),
                       ),
                     ),
-                    DataCell(Text(row['account'] ?? '', style: const TextStyle(fontSize: 12))),
-                    DataCell(Text(row['note'] ?? '', style: const TextStyle(fontSize: 12))),
+                    DataCell(Text(row['account'] ?? '',
+                        style: const TextStyle(fontSize: 12))),
+                    DataCell(Text(row['note'] ?? '',
+                        style: const TextStyle(fontSize: 12))),
                   ],
                 );
               }).toList(),
@@ -570,7 +640,8 @@ class _DataManagementScreenState extends State<DataManagementScreen> with Single
               child: ElevatedButton(
                 onPressed: _confirmImport,
                 style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: AppTheme.spaceLarge),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: AppTheme.spaceLarge),
                 ),
                 child: const Text('确认导入'),
               ),
@@ -579,7 +650,8 @@ class _DataManagementScreenState extends State<DataManagementScreen> with Single
             OutlinedButton(
               onPressed: _resetImport,
               style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: AppTheme.spaceLarge),
+                padding:
+                    const EdgeInsets.symmetric(vertical: AppTheme.spaceLarge),
               ),
               child: const Text('重新选择'),
             ),
@@ -604,9 +676,13 @@ class _DataManagementScreenState extends State<DataManagementScreen> with Single
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.check_circle_rounded, color: AppTheme.successColor),
+                  const Icon(Icons.check_circle_rounded,
+                      color: AppTheme.successColor),
                   const SizedBox(width: AppTheme.spaceSmall),
-                  Expanded(child: Text(_successMessage!, style: const TextStyle(color: AppTheme.successColor))),
+                  Expanded(
+                      child: Text(_successMessage!,
+                          style:
+                              const TextStyle(color: AppTheme.successColor))),
                 ],
               ),
             ),
@@ -638,18 +714,21 @@ class _DataManagementScreenState extends State<DataManagementScreen> with Single
                     padding: const EdgeInsets.all(AppTheme.spaceMedium),
                     decoration: BoxDecoration(
                       border: Border.all(color: AppTheme.neutral200),
-                      borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                      borderRadius:
+                          BorderRadius.circular(AppTheme.radiusMedium),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.date_range_rounded, color: AppTheme.primaryColor),
+                        const Icon(Icons.date_range_rounded,
+                            color: AppTheme.primaryColor),
                         const SizedBox(width: AppTheme.spaceMedium),
                         Text(
                           '${DateFormat('yyyy/MM/dd').format(_exportStartDate)} - ${DateFormat('yyyy/MM/dd').format(_exportEndDate)}',
                           style: const TextStyle(fontSize: 16),
                         ),
                         const Spacer(),
-                        const Icon(Icons.chevron_right_rounded, color: AppTheme.neutral400),
+                        const Icon(Icons.chevron_right_rounded,
+                            color: AppTheme.neutral400),
                       ],
                     ),
                   ),
@@ -659,7 +738,8 @@ class _DataManagementScreenState extends State<DataManagementScreen> with Single
                   children: [
                     TextButton(
                       onPressed: () {
-                        final transactions = DatabaseService.getAllTransactions();
+                        final transactions =
+                            DatabaseService.getAllTransactions();
                         if (transactions.isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(content: Text('暂无数据')),
@@ -678,7 +758,8 @@ class _DataManagementScreenState extends State<DataManagementScreen> with Single
                     TextButton(
                       onPressed: () {
                         setState(() {
-                          _exportStartDate = DateTime.now().subtract(const Duration(days: 30));
+                          _exportStartDate =
+                              DateTime.now().subtract(const Duration(days: 30));
                           _exportEndDate = DateTime.now();
                         });
                       },
@@ -688,7 +769,8 @@ class _DataManagementScreenState extends State<DataManagementScreen> with Single
                     TextButton(
                       onPressed: () {
                         setState(() {
-                          _exportStartDate = DateTime(DateTime.now().year, DateTime.now().month, 1);
+                          _exportStartDate = DateTime(
+                              DateTime.now().year, DateTime.now().month, 1);
                           _exportEndDate = DateTime.now();
                         });
                       },
@@ -699,9 +781,9 @@ class _DataManagementScreenState extends State<DataManagementScreen> with Single
               ],
             ),
           ),
-          
+
           const SizedBox(height: AppTheme.spaceMedium),
-          
+
           // 导出按钮
           SizedBox(
             width: double.infinity,
@@ -710,11 +792,12 @@ class _DataManagementScreenState extends State<DataManagementScreen> with Single
               icon: const Icon(Icons.download_rounded),
               label: const Text('导出CSV文件'),
               style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: AppTheme.spaceLarge),
+                padding:
+                    const EdgeInsets.symmetric(vertical: AppTheme.spaceLarge),
               ),
             ),
           ),
-          
+
           if (_errorMessage != null) ...[
             const SizedBox(height: AppTheme.spaceMedium),
             Text(
@@ -722,9 +805,9 @@ class _DataManagementScreenState extends State<DataManagementScreen> with Single
               style: const TextStyle(color: AppTheme.errorColor),
             ),
           ],
-          
+
           const SizedBox(height: AppTheme.spaceLarge),
-          
+
           // 格式说明
           Container(
             padding: const EdgeInsets.all(AppTheme.spaceMedium),

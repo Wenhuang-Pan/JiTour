@@ -47,12 +47,14 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
           ],
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _buildActiveGoalsList(),
-          _buildCompletedGoalsList(),
-        ],
+      body: SafeArea(
+        child: TabBarView(
+          controller: _tabController,
+          children: [
+            _buildActiveGoalsList(),
+            _buildCompletedGoalsList(),
+          ],
+        ),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddGoalDialog(context),
@@ -74,11 +76,12 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.all(AppTheme.spaceLarge),
+      padding: const EdgeInsets.symmetric(
+          horizontal: AppTheme.spaceMedium, vertical: AppTheme.spaceSmall),
       itemCount: goals.length,
       itemBuilder: (context, index) {
         return Padding(
-          padding: const EdgeInsets.only(bottom: AppTheme.spaceMedium),
+          padding: const EdgeInsets.only(bottom: AppTheme.spaceSmall),
           child: _buildGoalCard(context, goals[index]),
         );
       },
@@ -97,11 +100,12 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.all(AppTheme.spaceLarge),
+      padding: const EdgeInsets.symmetric(
+          horizontal: AppTheme.spaceMedium, vertical: AppTheme.spaceSmall),
       itemCount: goals.length,
       itemBuilder: (context, index) {
         return Padding(
-          padding: const EdgeInsets.only(bottom: AppTheme.spaceMedium),
+          padding: const EdgeInsets.only(bottom: AppTheme.spaceSmall),
           child: _buildGoalCard(context, goals[index], isCompleted: true),
         );
       },
@@ -335,7 +339,9 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
 
           // 操作按钮
           Container(
-            padding: const EdgeInsets.all(AppTheme.spaceSmall),
+            padding: const EdgeInsets.symmetric(
+                horizontal: AppTheme.spaceSmall,
+                vertical: AppTheme.spaceXSmall),
             decoration: const BoxDecoration(
               color: AppTheme.neutral50,
               borderRadius: BorderRadius.vertical(
@@ -345,81 +351,90 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
             child: Row(
               children: [
                 Expanded(
-                  child: TextButton.icon(
+                  child: TextButton(
                     onPressed: () => _showAddSavingsDialog(context, goal),
-                    icon: const Icon(Icons.add_rounded, size: 18),
-                    label: const Text('存款'),
+                    child: const Text('存款'),
                     style: TextButton.styleFrom(
                       foregroundColor: AppTheme.successColor,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
                     ),
                   ),
                 ),
                 if (!isCompleted)
                   Expanded(
-                    child: TextButton.icon(
+                    child: TextButton(
                       onPressed: () => _showWithdrawDialog(context, goal),
-                      icon: const Icon(Icons.remove_rounded, size: 18),
-                      label: const Text('提取'),
+                      child: const Text('提取'),
                       style: TextButton.styleFrom(
                         foregroundColor: AppTheme.warningColor,
+                        padding: const EdgeInsets.symmetric(vertical: 8),
                       ),
                     ),
                   ),
                 Expanded(
-                  child: PopupMenuButton<String>(
-                    icon: const Icon(
-                      Icons.more_vert_rounded,
-                      color: AppTheme.neutral500,
+                  child: TextButton(
+                    onPressed: () => _showDeleteConfirmDialog(context, goal),
+                    child: const Text('删除'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppTheme.errorColor,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
                     ),
-                    onSelected: (value) {
-                      switch (value) {
-                        case 'edit':
-                          _showEditGoalDialog(context, goal);
-                          break;
-                        case 'reset':
-                          _showResetConfirmDialog(context, goal);
-                          break;
-                        case 'delete':
-                          _showDeleteConfirmDialog(context, goal);
-                          break;
-                      }
-                    },
-                    itemBuilder: (context) => [
-                      const PopupMenuItem(
-                        value: 'edit',
-                        child: Row(
-                          children: [
-                            Icon(Icons.edit_rounded, size: 18),
-                            SizedBox(width: 8),
-                            Text('编辑'),
-                          ],
-                        ),
-                      ),
-                      if (!isCompleted)
-                        const PopupMenuItem(
-                          value: 'reset',
-                          child: Row(
-                            children: [
-                              Icon(Icons.refresh_rounded, size: 18),
-                              SizedBox(width: 8),
-                              Text('重置'),
-                            ],
-                          ),
-                        ),
-                      const PopupMenuItem(
-                        value: 'delete',
-                        child: Row(
-                          children: [
-                            Icon(Icons.delete_rounded,
-                                size: 18, color: AppTheme.errorColor),
-                            SizedBox(width: 8),
-                            Text('删除',
-                                style: TextStyle(color: AppTheme.errorColor)),
-                          ],
-                        ),
-                      ),
-                    ],
                   ),
+                ),
+                PopupMenuButton<String>(
+                  icon: const Icon(
+                    Icons.more_vert_rounded,
+                    color: AppTheme.neutral500,
+                    size: 20,
+                  ),
+                  onSelected: (value) {
+                    switch (value) {
+                      case 'edit':
+                        _showEditGoalDialog(context, goal);
+                        break;
+                      case 'reset':
+                        _showResetConfirmDialog(context, goal);
+                        break;
+                      case 'delete':
+                        _showDeleteConfirmDialog(context, goal);
+                        break;
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(
+                      value: 'edit',
+                      child: Row(
+                        children: [
+                          Icon(Icons.edit_rounded, size: 18),
+                          SizedBox(width: 8),
+                          Text('编辑'),
+                        ],
+                      ),
+                    ),
+                    if (!isCompleted)
+                      const PopupMenuItem(
+                        value: 'reset',
+                        child: Row(
+                          children: [
+                            Icon(Icons.refresh_rounded, size: 18),
+                            SizedBox(width: 8),
+                            Text('重置'),
+                          ],
+                        ),
+                      ),
+                    const PopupMenuItem(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          Icon(Icons.delete_rounded,
+                              size: 18, color: AppTheme.errorColor),
+                          SizedBox(width: 8),
+                          Text('删除',
+                              style: TextStyle(color: AppTheme.errorColor)),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -485,6 +500,36 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
                             BorderRadius.circular(AppTheme.radiusMedium),
                       ),
                     ),
+                  ),
+                  const SizedBox(height: AppTheme.spaceMedium),
+                  Wrap(
+                    spacing: AppTheme.spaceSmall,
+                    children: [
+                      _buildQuickAmountButton(
+                          '1万',
+                          () => setDialogState(
+                              () => amountController.text = '10000')),
+                      _buildQuickAmountButton(
+                          '5万',
+                          () => setDialogState(
+                              () => amountController.text = '50000')),
+                      _buildQuickAmountButton(
+                          '10万',
+                          () => setDialogState(
+                              () => amountController.text = '100000')),
+                      _buildQuickAmountButton(
+                          '50万',
+                          () => setDialogState(
+                              () => amountController.text = '500000')),
+                      _buildQuickAmountButton(
+                          '100万',
+                          () => setDialogState(
+                              () => amountController.text = '1000000')),
+                      _buildQuickAmountButton(
+                          '500万',
+                          () => setDialogState(
+                              () => amountController.text = '5000000')),
+                    ],
                   ),
                   const SizedBox(height: AppTheme.spaceMedium),
                   InkWell(
@@ -796,17 +841,74 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
             Text('存入 ${goal.name}'),
           ],
         ),
-        content: TextField(
-          controller: amountController,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          autofocus: true,
-          decoration: InputDecoration(
-            labelText: '存入金额',
-            prefixText: '¥ ',
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-            ),
-          ),
+        content: StatefulBuilder(
+          builder: (context, setDialogState) {
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: amountController,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    labelText: '存入金额',
+                    prefixText: '¥ ',
+                    border: OutlineInputBorder(
+                      borderRadius:
+                          BorderRadius.circular(AppTheme.radiusMedium),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: AppTheme.spaceMedium),
+                Text(
+                  '快捷输入',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppTheme.neutral600,
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+                const SizedBox(height: AppTheme.spaceSmall),
+                Wrap(
+                  spacing: AppTheme.spaceSmall,
+                  children: [
+                    _buildQuickAmountButton(
+                        '100',
+                        () => setDialogState(
+                            () => amountController.text = '100')),
+                    _buildQuickAmountButton(
+                        '500',
+                        () => setDialogState(
+                            () => amountController.text = '500')),
+                    _buildQuickAmountButton(
+                        '1000',
+                        () => setDialogState(
+                            () => amountController.text = '1000')),
+                    _buildQuickAmountButton(
+                        '5000',
+                        () => setDialogState(
+                            () => amountController.text = '5000')),
+                    _buildQuickAmountButton(
+                        '1万',
+                        () => setDialogState(
+                            () => amountController.text = '10000')),
+                    _buildQuickAmountButton(
+                        '5万',
+                        () => setDialogState(
+                            () => amountController.text = '50000')),
+                    _buildQuickAmountButton(
+                        '10万',
+                        () => setDialogState(
+                            () => amountController.text = '100000')),
+                    _buildQuickAmountButton(
+                        '100万',
+                        () => setDialogState(
+                            () => amountController.text = '1000000')),
+                  ],
+                ),
+              ],
+            );
+          },
         ),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppTheme.radiusXLarge),
@@ -829,6 +931,12 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
               await SavingsGoalService.addSavings(goal.id, amount);
               Navigator.pop(context);
               setState(() {});
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('成功存入 ¥${amount.toStringAsFixed(2)}'),
+                  backgroundColor: AppTheme.successColor,
+                ),
+              );
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.successColor,
@@ -841,6 +949,25 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
     );
   }
 
+  Widget _buildQuickAmountButton(String label, VoidCallback onTap) {
+    return ElevatedButton(
+      onPressed: onTap,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: AppTheme.getSecondaryBackground(context),
+        foregroundColor: AppTheme.getPrimaryColor(context),
+        padding: const EdgeInsets.symmetric(
+            horizontal: AppTheme.spaceMedium, vertical: AppTheme.spaceXSmall),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+        ),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+
   void _showWithdrawDialog(BuildContext context, SavingsGoal goal) {
     final amountController = TextEditingController();
 
@@ -849,23 +976,77 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
       builder: (context) => AlertDialog(
         title: Row(
           children: [
-            const Icon(Icons.remove_circle_rounded, color: AppTheme.warningColor),
+            const Icon(Icons.remove_circle_rounded,
+                color: AppTheme.warningColor),
             const SizedBox(width: 8),
             Text('提取 ${goal.name}'),
           ],
         ),
-        content: TextField(
-          controller: amountController,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          autofocus: true,
-          decoration: InputDecoration(
-            labelText: '提取金额',
-            prefixText: '¥ ',
-            hintText: '可用余额: ¥${goal.currentAmount.toStringAsFixed(2)}',
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-            ),
-          ),
+        content: StatefulBuilder(
+          builder: (context, setDialogState) {
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: amountController,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    labelText: '提取金额',
+                    prefixText: '¥ ',
+                    hintText: '可用余额: ¥${goal.currentAmount.toStringAsFixed(2)}',
+                    border: OutlineInputBorder(
+                      borderRadius:
+                          BorderRadius.circular(AppTheme.radiusMedium),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: AppTheme.spaceMedium),
+                Text(
+                  '快捷输入',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppTheme.neutral600,
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+                const SizedBox(height: AppTheme.spaceSmall),
+                Wrap(
+                  spacing: AppTheme.spaceSmall,
+                  children: [
+                    _buildQuickAmountButton(
+                        '100',
+                        () => setDialogState(
+                            () => amountController.text = '100')),
+                    _buildQuickAmountButton(
+                        '500',
+                        () => setDialogState(
+                            () => amountController.text = '500')),
+                    _buildQuickAmountButton(
+                        '1000',
+                        () => setDialogState(
+                            () => amountController.text = '1000')),
+                    _buildQuickAmountButton(
+                        '5000',
+                        () => setDialogState(
+                            () => amountController.text = '5000')),
+                    _buildQuickAmountButton(
+                        '1万',
+                        () => setDialogState(
+                            () => amountController.text = '10000')),
+                    _buildQuickAmountButton(
+                        '5万',
+                        () => setDialogState(
+                            () => amountController.text = '50000')),
+                    _buildQuickAmountButton(
+                        '全部',
+                        () => setDialogState(() => amountController.text =
+                            goal.currentAmount.toStringAsFixed(2))),
+                  ],
+                ),
+              ],
+            );
+          },
         ),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppTheme.radiusXLarge),
@@ -895,6 +1076,12 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
               await SavingsGoalService.withdrawSavings(goal.id, amount);
               Navigator.pop(context);
               setState(() {});
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('成功提取 ¥${amount.toStringAsFixed(2)}'),
+                  backgroundColor: AppTheme.warningColor,
+                ),
+              );
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.warningColor,

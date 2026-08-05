@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import '../theme/app_theme.dart';
 import '../models/transaction.dart';
 import '../models/category.dart';
@@ -25,6 +26,7 @@ class _PhotoCaptureScreenState extends State<PhotoCaptureScreen> {
   final _formKey = GlobalKey<FormState>();
   final _amountController = TextEditingController();
   final _noteController = TextEditingController();
+  final _ocrController = TextEditingController();
 
   /// 选中的图片文件
   XFile? _selectedImage;
@@ -49,6 +51,18 @@ class _PhotoCaptureScreenState extends State<PhotoCaptureScreen> {
 
   /// 是否正在处理
   bool _isProcessing = false;
+
+  /// 是否正在执行OCR识别
+  bool _isRecognizing = false;
+
+  /// OCR识别文本
+  String _ocrText = '';
+
+  /// OCR提取的金额
+  String _extractedAmount = '';
+
+  /// OCR提取的项目
+  String _extractedItem = '';
 
   @override
   void initState() {
@@ -83,6 +97,7 @@ class _PhotoCaptureScreenState extends State<PhotoCaptureScreen> {
   void dispose() {
     _amountController.dispose();
     _noteController.dispose();
+    _ocrController.dispose();
     super.dispose();
   }
 
@@ -99,6 +114,8 @@ class _PhotoCaptureScreenState extends State<PhotoCaptureScreen> {
           fit: BoxFit.contain,
         );
       });
+      // 自动执行OCR识别
+      await _recognizeTextFromImage(pickedFile.path);
     }
   }
 
@@ -115,6 +132,75 @@ class _PhotoCaptureScreenState extends State<PhotoCaptureScreen> {
           fit: BoxFit.contain,
         );
       });
+      // 自动执行OCR识别
+      await _recognizeTextFromImage(pickedFile.path);
+    }
+  }
+
+  /// 使用 ML Kit 自动识别图片中的文字
+  ///
+  /// @param imagePath 图片文件路径
+  /// @return Future<void> 无返回值，识别结果会更新 _ocrText 并触发 _extractOcrInfo
+  /// @throws Exception 当OCR识别失败时弹出 SnackBar 提示
+  Future<void> _recognizeTextFromImage(String imagePath) async {
+    setState(() {
+      _isRecognizing = true;
+      _ocrText = '';
+      _extractedAmount = '';
+      _extractedItem = '';
+      _ocrController.clear();
+    });
+
+    try {
+      final InputImage inputImage = InputImage.fromFilePath(imagePath);
+      // WHY: 使用默认的 LatinTextRecognizer，对中英文小票识别效果最佳；
+      // 若需纯中文识别可切换为 ChineseTextRecognizer
+      final TextRecognizer textRecognizer = TextRecognizer();
+      final RecognizedText recognizedText =
+          await textRecognizer.processImage(inputImage);
+      await textRecognizer.close();
+
+      final String recognizedString = recognizedText.text;
+
+      if (recognizedString.trim().isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('未识别到文字，请拍摄更清晰的小票或手动输入'),
+              backgroundColor: AppTheme.warningColor,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+        return;
+      }
+
+      // WHY: 识别到文字后，同步更新 controller 和 _ocrText，再自动调用提取逻辑
+      // 填入金额/分类/备注
+      if (mounted) {
+        setState(() {
+          _ocrText = recognizedString;
+          _ocrController.text = recognizedString;
+        });
+        _extractOcrInfo();
+      }
+    } catch (e) {
+      debugPrint('OCR识别失败: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('图片识别失败，请手动输入小票内容'),
+            backgroundColor: AppTheme.errorColor,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isRecognizing = false;
+        });
+      }
     }
   }
 
@@ -123,6 +209,10 @@ class _PhotoCaptureScreenState extends State<PhotoCaptureScreen> {
     setState(() {
       _selectedImage = null;
       _imagePreview = null;
+      _ocrText = '';
+      _extractedAmount = '';
+      _extractedItem = '';
+      _ocrController.clear();
     });
   }
 
@@ -194,9 +284,13 @@ class _PhotoCaptureScreenState extends State<PhotoCaptureScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('记账成功')),
+          const SnackBar(
+            content: Text('记账成功'),
+            duration: Duration(milliseconds: 800),
+          ),
         );
-        Navigator.pop(context);
+        // 直接返回主页，弹出所有路由直到第一个
+        Navigator.of(context).popUntil((route) => route.isFirst);
       }
     } catch (e) {
       if (mounted) {
@@ -224,7 +318,11 @@ class _PhotoCaptureScreenState extends State<PhotoCaptureScreen> {
             children: [
               // 图片选择区域
               _buildImageSection(context),
-              const SizedBox(height: AppTheme.spaceXLarge),
+              const SizedBox(height: AppTheme.spaceLarge),
+
+              // OCR识别区域
+              _buildOcrSection(context),
+              const SizedBox(height: AppTheme.spaceLarge),
 
               // 收支类型切换
               _buildTypeTabs(context),
@@ -273,6 +371,365 @@ class _PhotoCaptureScreenState extends State<PhotoCaptureScreen> {
     );
   }
 
+  /// 构建OCR识别区域
+  Widget _buildOcrSection(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '小票识别',
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+        ),
+        const SizedBox(height: AppTheme.spaceSmall),
+        Container(
+          padding: const EdgeInsets.all(AppTheme.spaceMedium),
+          decoration: BoxDecoration(
+            color: AppTheme.getSecondaryBackground(context),
+            borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+            border: Border.all(
+              color: AppTheme.getDividerColor(context),
+              width: 1,
+            ),
+          ),
+          child: Column(
+            children: [
+              TextFormField(
+                controller: _ocrController,
+                onChanged: (value) {
+                  setState(() {
+                    _ocrText = value;
+                  });
+                },
+                onFieldSubmitted: (_) {
+                  _extractOcrInfo();
+                },
+                decoration: InputDecoration(
+                  hintText: '输入小票识别内容，系统会自动提取金额和项目...',
+                  border: InputBorder.none,
+                  filled: false,
+                ),
+                maxLines: 4,
+                style: const TextStyle(fontSize: 14),
+              ),
+              const SizedBox(height: AppTheme.spaceSmall),
+              Row(
+                children: [
+                  ElevatedButton(
+                    onPressed: _ocrText.isNotEmpty ? _extractOcrInfo : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.getPrimaryColor(context),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppTheme.spaceMedium,
+                        vertical: AppTheme.spaceXSmall,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius:
+                            BorderRadius.circular(AppTheme.radiusSmall),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.lightbulb_outline, size: 16),
+                        const SizedBox(width: 4),
+                        const Text('智能提取'),
+                      ],
+                    ),
+                  ),
+                  const Spacer(),
+                  if (_extractedAmount.isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppTheme.spaceSmall,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppTheme.errorColor.withValues(alpha: 0.1),
+                        borderRadius:
+                            BorderRadius.circular(AppTheme.radiusSmall),
+                      ),
+                      child: Text(
+                        '提取金额: ¥$_extractedAmount',
+                        style: TextStyle(
+                          color: AppTheme.errorColor,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  if (_extractedItem.isNotEmpty)
+                    const SizedBox(width: AppTheme.spaceSmall),
+                  if (_extractedItem.isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppTheme.spaceSmall,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppTheme.successColor.withValues(alpha: 0.1),
+                        borderRadius:
+                            BorderRadius.circular(AppTheme.radiusSmall),
+                      ),
+                      child: Text(
+                        '项目: $_extractedItem',
+                        style: TextStyle(
+                          color: AppTheme.successColor,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 从OCR文本中提取金额和项目信息
+  void _extractOcrInfo() {
+    final text = _ocrText;
+    String processedText = text;
+
+    // ========== 1. 金额识别（增强版，支持多种模式） ==========
+    final List<Pattern> amountPatterns = [
+      // ¥100, ￥100.50, ¥ 1,234.56
+      RegExp(r'[¥￥]\s*([\d,]+\.?\d{0,2})'),
+      // 100元, 50.50块, 99块钱, 1234.5元, 100圆
+      RegExp(r'([\d,]+\.?\d{0,2})\s*[元块圆]'),
+      // 合计:100, 总计 200.50, 金额 ￥300
+      RegExp(
+          r'(?:合计|总计|共计|应收|实收|实付|应付|金额|消费|支出|存入|收款)[^¥￥\d]{0,5}[¥￥]?\s*([\d,]+\.?\d{0,2})'),
+      // 银行卡消费：100.00
+      RegExp(r'消费[^¥￥\d]{0,10}[¥￥]?\s*([\d,]+\.?\d{0,2})'),
+      RegExp(r'支出[^¥￥\d]{0,10}[¥￥]?\s*([\d,]+\.?\d{0,2})'),
+      // 小票底部金额（总xxx:）
+      RegExp(r'总[^¥￥\d]{0,3}[¥￥]?\s*([\d,]+\.?\d{0,2})'),
+      // RMB 100.00
+      RegExp(r'(?:RMB|人民币)\s*[¥￥]?\s*([\d,]+\.?\d{0,2})'),
+    ];
+
+    String extractedAmount = '';
+    for (final pattern in amountPatterns) {
+      final match = RegExp(pattern.toString()).firstMatch(processedText);
+      if (match != null) {
+        final amountRaw = match.group(1) ?? '';
+        if (amountRaw.isNotEmpty) {
+          final cleaned = amountRaw.replaceAll(',', '');
+          final value = double.tryParse(cleaned);
+          if (value != null && value > 0 && value < 100000000) {
+            extractedAmount = cleaned;
+            break;
+          }
+        }
+      }
+    }
+
+    // 如果还是没找到，找最大的两位小数数字（通常是总金额）
+    if (extractedAmount.isEmpty) {
+      final allNumbers = RegExp(r'[\d,]+\.\d{1,2}').allMatches(processedText);
+      double maxAmount = 0;
+      for (final match in allNumbers) {
+        final numStr = match.group(0)?.replaceAll(',', '') ?? '';
+        final value = double.tryParse(numStr);
+        if (value != null && value > maxAmount && value < 1000000) {
+          maxAmount = value;
+        }
+      }
+      if (maxAmount > 0) {
+        extractedAmount = maxAmount
+            .toStringAsFixed(maxAmount.truncateToDouble() == maxAmount ? 0 : 2);
+      }
+    }
+
+    // 最后兜底：找任何数字
+    if (extractedAmount.isEmpty) {
+      final anyNumber = RegExp(r'[\d,]+\.?\d*').firstMatch(processedText);
+      if (anyNumber != null) {
+        final numStr = anyNumber.group(0)?.replaceAll(',', '') ?? '';
+        final value = double.tryParse(numStr);
+        if (value != null && value > 0 && value < 100000000) {
+          extractedAmount = numStr;
+        }
+      }
+    }
+
+    // ========== 2. 分类识别 ==========
+    final Map<String, List<String>> categoryKeywords = {
+      '餐饮': [
+        '餐',
+        '饭',
+        '吃',
+        '喝',
+        '美食',
+        '餐厅',
+        '饭店',
+        '外卖',
+        '早茶',
+        '午餐',
+        '晚餐',
+        '早餐',
+        '夜宵',
+        '餐饮',
+        '酒楼'
+      ],
+      '交通': [
+        '车',
+        '交通',
+        '油',
+        '打车',
+        '出租',
+        '滴滴',
+        '地铁',
+        '公交',
+        '火车',
+        '高铁',
+        '机票',
+        '加油',
+        '停车',
+        '高速',
+        '出行'
+      ],
+      '购物': ['购物', '买', '超市', '商场', '淘宝', '京东', '网购', '快递', '便利店', '商店', '零售'],
+      '娱乐': ['娱乐', '玩', '电影', '游戏', 'KTV', '旅游', '景区', '门票', '健身', '运动'],
+      '居家': ['水电', '房租', '物业', '燃气', '网络', '电话', '手机', '家电', '家具', '维修', '生活'],
+      '医疗': ['医院', '看病', '药', '体检', '挂号', '医疗', '诊所', '药店'],
+      '教育': ['书', '学习', '课程', '培训', '学费', '考试', '教育'],
+      '通讯': ['话费', '充值', '流量', '宽带', '通讯'],
+      '人情': ['红包', '送礼', '份子', '礼物'],
+      '投资': ['股票', '基金', '理财', '投资'],
+      '工资': ['工资', '收入', '奖金', '薪资', '月薪', '年薪'],
+      '奖金': ['奖金', '提成', '奖励', '分红'],
+      '红包': ['红包', '转账收入', '收款'],
+      '兼职': ['兼职', '外快', '副业'],
+    };
+
+    final expenseCategories = CategoryService.getExpenseCategories();
+    final incomeCategories = CategoryService.getIncomeCategories();
+    final allCategories = [...expenseCategories, ...incomeCategories];
+
+    String matchedCategory = '';
+    for (final category in allCategories) {
+      if (processedText.contains(category.name)) {
+        matchedCategory = category.name;
+        break;
+      }
+    }
+    if (matchedCategory.isEmpty) {
+      for (final entry in categoryKeywords.entries) {
+        for (final keyword in entry.value) {
+          if (processedText.contains(keyword)) {
+            final exists = allCategories.any((c) => c.name == entry.key);
+            if (exists) {
+              matchedCategory = entry.key;
+              break;
+            }
+          }
+        }
+        if (matchedCategory.isNotEmpty) break;
+      }
+    }
+
+    // 判断收支类型并更新分类
+    if (matchedCategory.isNotEmpty) {
+      final category = allCategories.firstWhere(
+        (c) => c.name == matchedCategory,
+        orElse: () => allCategories.first,
+      );
+      setState(() {
+        _selectedCategory = category;
+        _currentTab = category.isIncome ? 1 : 0;
+      });
+    }
+
+    // ========== 3. 备注/项目提取 ==========
+    String noteText = processedText;
+    noteText = noteText.replaceAll(RegExp(r'[¥￥]'), '');
+    noteText = noteText.replaceAll(RegExp(r'[\d,]+\.?\d*'), '');
+    noteText = noteText.replaceAll(RegExp(r'[元块角分整圆RMB人民币]'), '');
+    final removeKeywords = [
+      '合计',
+      '总计',
+      '共计',
+      '应收',
+      '实收',
+      '实付',
+      '应付',
+      '金额',
+      '消费',
+      '支出',
+      '存入',
+      '收款',
+      '付款',
+      '支付',
+      '花费',
+      '花了',
+      '小票',
+      '发票',
+      '收据',
+      '单号',
+      '编号',
+      '时间',
+      '日期',
+      '欢迎光临',
+      '谢谢惠顾',
+      '商品',
+      '数量',
+      '单价',
+      '小计',
+    ];
+    for (final kw in removeKeywords) {
+      noteText = noteText.replaceAll(kw, '');
+    }
+    if (matchedCategory.isNotEmpty) {
+      noteText = noteText.replaceAll(matchedCategory, '');
+      final keywords = categoryKeywords[matchedCategory] ?? [];
+      for (final kw in keywords) {
+        noteText = noteText.replaceAll(kw, '');
+      }
+    }
+    noteText = noteText.replaceAll(RegExp(r'\s+'), ' ').trim();
+    noteText = noteText
+        .replaceAll(
+            RegExp(r'[，。！？、；：""' '【】《》（）()\[\]{}<>/\\|@#\$%^&*\-_=+`~]+'), ' ')
+        .trim();
+    if (noteText.length > 50) {
+      noteText = noteText.substring(0, 50);
+    }
+
+    setState(() {
+      _extractedAmount = extractedAmount;
+      _extractedItem = noteText.length >= 2 ? noteText : '';
+
+      if (extractedAmount.isNotEmpty && _amountController.text.isEmpty) {
+        _amountController.text = extractedAmount;
+      }
+
+      if (_extractedItem.isNotEmpty && _noteController.text.isEmpty) {
+        _noteController.text = _extractedItem;
+      }
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          extractedAmount.isNotEmpty
+              ? '已提取金额 ¥$extractedAmount${_extractedItem.isNotEmpty ? ' 和备注 "$_extractedItem"' : ''}${matchedCategory.isNotEmpty ? '，分类：$matchedCategory' : ''}'
+              : '未识别到金额，请手动输入或检查OCR文本',
+        ),
+        backgroundColor: extractedAmount.isNotEmpty
+            ? AppTheme.successColor
+            : AppTheme.warningColor,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
   /// 构建图片选择区域
   Widget _buildImageSection(BuildContext context) {
     return Container(
@@ -290,12 +747,37 @@ class _PhotoCaptureScreenState extends State<PhotoCaptureScreen> {
           ? Stack(
               children: [
                 _imagePreview ?? const SizedBox(),
+                // WHY: OCR识别中时显示半透明遮罩和加载指示器，提升用户感知
+                if (_isRecognizing)
+                  Container(
+                    color: Colors.black.withValues(alpha: 0.4),
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 3,
+                          ),
+                          const SizedBox(height: AppTheme.spaceSmall),
+                          const Text(
+                            '正在识别小票内容...',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 Positioned(
                   top: AppTheme.spaceSmall,
                   right: AppTheme.spaceSmall,
                   child: IconButton(
                     icon: const Icon(Icons.close_rounded),
-                    onPressed: _removeImage,
+                    onPressed: _isRecognizing ? null : _removeImage,
                     style: IconButton.styleFrom(
                       backgroundColor: Colors.black.withValues(alpha: 0.5),
                       foregroundColor: Colors.white,

@@ -3,7 +3,7 @@ import '../models/transaction.dart';
 import '../utils/uuid_util.dart';
 
 /// CSV 导入器
-/// 
+///
 /// 支持多种格式的CSV文件导入，包括：
 /// - 记途格式（时间,分类,二级分类,类型,金额,币种,账户1,账户2,备注,已报销,手续费,优惠券）
 /// - 微信支付账单格式
@@ -12,7 +12,7 @@ import '../utils/uuid_util.dart';
 /// - 通用CSV格式
 class CsvImporter {
   /// 解析CSV文件内容
-  /// 
+  ///
   /// @param csvContent CSV文件内容字符串
   /// @return 解析后的行数据列表，每行是字段名到值的映射
   static List<Map<String, String>> parseCsv(String csvContent) {
@@ -38,7 +38,7 @@ class CsvImporter {
   }
 
   /// 解析日期字符串
-  /// 
+  ///
   /// @param dateString 日期字符串
   /// @return 解析后的DateTime对象，解析失败返回null
   static DateTime? parseDate(String dateString) {
@@ -71,7 +71,7 @@ class CsvImporter {
   }
 
   /// 解析CSV行
-  /// 
+  ///
   /// @param line CSV行字符串
   /// @return 解析后的字段值列表
   static List<String> _parseLine(String line) {
@@ -102,32 +102,61 @@ class CsvImporter {
   }
 
   /// 检测CSV格式类型
-  /// 
+  ///
   /// @param rows 解析后的行数据
   /// @return 检测到的格式字段列表
   static List<String> detectCsvFormat(List<Map<String, String>> rows) {
     if (rows.isEmpty) return [];
 
     final headers = rows[0].keys.toList();
-    
-    // 检测微信支付格式
+    final headerLower = headers.map((h) => h.toLowerCase()).toList();
+
+    // 检测微信支付格式（新版）
+    if (_isWeChatFormatV2(headers)) {
+      return ['交易时间', '交易类型', '商品', '金额', '收/支', '微信红包', '备注'];
+    }
+
+    // 检测微信支付格式（旧版）
     if (_isWeChatFormat(headers)) {
       return ['交易时间', '交易类型', '商品', '金额', '收/支', '备注'];
     }
-    
+
     // 检测支付宝格式
     if (_isAlipayFormat(headers)) {
       return ['交易时间', '交易类型', '商品名称', '金额', '收/支', '备注'];
     }
-    
+
+    // 检测支付宝格式（简化版）
+    if (_isAlipayFormatSimple(headers)) {
+      return ['交易时间', '交易类型', '商品名称', '金额', '收/支', '备注'];
+    }
+
     // 检测记途格式
     if (_isJituFormat(headers)) {
-      return ['时间', '分类', '二级分类', '类型', '金额', '币种', '账户1', '账户2', '备注', '已报销', '手续费', '优惠券'];
+      return [
+        '时间',
+        '分类',
+        '二级分类',
+        '类型',
+        '金额',
+        '币种',
+        '账户1',
+        '账户2',
+        '备注',
+        '已报销',
+        '手续费',
+        '优惠券'
+      ];
     }
-    
+
     // 检测随手记格式
     if (_isSuishoujiFormat(headers)) {
       return ['日期', '分类', '子分类', '金额', '账户', '备注', '收支类型'];
+    }
+
+    // 检测通用格式（包含日期、金额）
+    if (_isGenericFormat(headers)) {
+      return headers;
     }
 
     // 默认返回所有表头
@@ -137,32 +166,56 @@ class CsvImporter {
   /// 判断是否为微信支付格式
   static bool _isWeChatFormat(List<String> headers) {
     return headers.any((h) => h.contains('交易时间')) &&
-           headers.any((h) => h.contains('收/支')) &&
-           headers.any((h) => h.contains('金额'));
+        headers.any((h) => h.contains('收/支')) &&
+        headers.any((h) => h.contains('金额'));
   }
 
   /// 判断是否为支付宝格式
   static bool _isAlipayFormat(List<String> headers) {
     return headers.any((h) => h.contains('交易时间')) &&
-           headers.any((h) => h.contains('收/支')) &&
-           headers.any((h) => h.contains('金额')) &&
-           headers.any((h) => h.contains('商品名称'));
+        headers.any((h) => h.contains('收/支')) &&
+        headers.any((h) => h.contains('金额')) &&
+        headers.any((h) => h.contains('商品名称'));
   }
 
   /// 判断是否为记途格式
   static bool _isJituFormat(List<String> headers) {
     return headers.any((h) => h.contains('时间')) &&
-           headers.any((h) => h.contains('分类')) &&
-           headers.any((h) => h.contains('类型')) &&
-           headers.any((h) => h.contains('金额'));
+        headers.any((h) => h.contains('分类')) &&
+        headers.any((h) => h.contains('类型')) &&
+        headers.any((h) => h.contains('金额'));
   }
 
   /// 判断是否为随手记格式
   static bool _isSuishoujiFormat(List<String> headers) {
     return headers.any((h) => h.contains('日期')) &&
-           headers.any((h) => h.contains('分类')) &&
-           headers.any((h) => h.contains('金额')) &&
-           headers.any((h) => h.contains('账户'));
+        headers.any((h) => h.contains('分类')) &&
+        headers.any((h) => h.contains('金额')) &&
+        headers.any((h) => h.contains('账户'));
+  }
+
+  /// 判断是否为微信支付格式（新版）
+  static bool _isWeChatFormatV2(List<String> headers) {
+    return headers.any((h) => h.contains('交易时间')) &&
+        headers.any((h) => h.contains('收/支')) &&
+        headers.any((h) => h.contains('金额')) &&
+        headers.any((h) => h.contains('微信红包'));
+  }
+
+  /// 判断是否为支付宝格式（简化版）
+  static bool _isAlipayFormatSimple(List<String> headers) {
+    return headers.any((h) => h.contains('交易时间')) &&
+        headers.any((h) => h.contains('金额')) &&
+        headers.any((h) => h.contains('收/支'));
+  }
+
+  /// 判断是否为通用格式
+  static bool _isGenericFormat(List<String> headers) {
+    final headerLower = headers.map((h) => h.toLowerCase()).toList();
+    return headerLower.any((h) =>
+            h.contains('date') || h.contains('日期') || h.contains('时间')) &&
+        headerLower.any((h) =>
+            h.contains('amount') || h.contains('金额') || h.contains('price'));
   }
 
   /// 获取格式名称
@@ -171,9 +224,14 @@ class CsvImporter {
       if (format.contains('商品名称')) {
         return '支付宝账单';
       }
+      if (format.contains('微信红包')) {
+        return '微信支付账单';
+      }
       return '微信支付账单';
     }
-    if (format.contains('时间') && format.contains('分类') && format.contains('类型')) {
+    if (format.contains('时间') &&
+        format.contains('分类') &&
+        format.contains('类型')) {
       return '记途格式';
     }
     if (format.contains('日期') && format.contains('子分类')) {
@@ -183,7 +241,7 @@ class CsvImporter {
   }
 
   /// 映射CSV字段到交易模型字段
-  /// 
+  ///
   /// @param detectedFormat 检测到的格式字段列表
   /// @param row CSV行数据
   /// @return 映射后的字段数据
@@ -218,18 +276,37 @@ class CsvImporter {
         }
       }
 
+      if (matchedKey == null) {
+        for (final key in rowKeys) {
+          if (_fieldMatches(key, formatField)) {
+            matchedKey = key;
+            break;
+          }
+        }
+      }
+
       if (matchedKey != null) {
+        final value = row[matchedKey]?.trim() ?? '';
+
         switch (formatField.toLowerCase()) {
           case 'date':
           case '时间':
           case '日期':
           case '交易时间':
-            mapping['date'] = row[matchedKey] ?? '';
+          case '交易日期':
+          case '发生时间':
+            mapping['date'] = value;
             break;
           case 'category':
           case '分类':
           case '交易类型':
-            mapping['category'] = row[matchedKey] ?? '';
+          case '类型':
+          case '收支类型':
+            if (mapping['category']!.isEmpty) {
+              mapping['category'] = value;
+            } else if (mapping['subCategory']!.isEmpty) {
+              mapping['subCategory'] = value;
+            }
             break;
           case '二级分类':
           case 'subcategory':
@@ -237,48 +314,64 @@ class CsvImporter {
           case '子分类':
           case '商品':
           case '商品名称':
-            mapping['subCategory'] = row[matchedKey] ?? '';
+          case '商品说明':
+          case '交易对象':
+          case '商户名称':
+          case '对方':
+            if (mapping['subCategory']!.isEmpty) {
+              mapping['subCategory'] = value;
+            } else if (mapping['note']!.isEmpty) {
+              mapping['note'] = value;
+            }
             break;
           case 'amount':
           case '金额':
-            mapping['amount'] = row[matchedKey] ?? '';
+          case '交易金额':
+            mapping['amount'] = value;
             break;
           case 'currency':
           case '币种':
-            mapping['currency'] = row[matchedKey] ?? 'CNY';
+            mapping['currency'] = value.isNotEmpty ? value : 'CNY';
             break;
           case 'account':
           case '账户':
-            if ((mapping['account'] ?? '').isEmpty) {
-              mapping['account'] = row[matchedKey] ?? '';
+          case '账户名称':
+          case '支付方式':
+          case '支付渠道':
+          case '来源':
+            if (mapping['account']!.isEmpty) {
+              mapping['account'] = value;
             } else {
-              mapping['account2'] = row[matchedKey] ?? '';
+              mapping['account2'] = value;
             }
             break;
           case '账户1':
-            mapping['account'] = row[matchedKey] ?? '';
+            mapping['account'] = value;
             break;
           case '账户2':
-            mapping['account2'] = row[matchedKey] ?? '';
+            mapping['account2'] = value;
             break;
           case 'note':
           case '备注':
-            mapping['note'] = row[matchedKey] ?? '';
+          case '说明':
+          case '附言':
+            if (mapping['note']!.isEmpty) {
+              mapping['note'] = value;
+            }
             break;
           case 'type':
-          case '类型':
           case '收支类型':
-            final type = row[matchedKey] ?? '';
-            mapping['isIncome'] = _parseTypeToIsIncome(type);
+          case '交易性质':
+            mapping['isIncome'] = _parseTypeToIsIncome(value);
             break;
           case '收/支':
-            final type = row[matchedKey] ?? '';
-            mapping['isIncome'] = type.contains('收') ? 'true' : 'false';
+          case '收支':
+          case '收支方向':
+            mapping['isIncome'] = value.contains('收') ? 'true' : 'false';
             break;
           case '收入':
             final income =
-                double.tryParse(row[matchedKey]?.replaceAll(',', '') ?? '0') ??
-                    0;
+                double.tryParse(value.replaceAll(',', '') ?? '0') ?? 0;
             if (income > 0) {
               mapping['amount'] = income % 1 == 0
                   ? income.toInt().toString()
@@ -288,8 +381,7 @@ class CsvImporter {
             break;
           case '支出':
             final expense =
-                double.tryParse(row[matchedKey]?.replaceAll(',', '') ?? '0') ??
-                    0;
+                double.tryParse(value.replaceAll(',', '') ?? '0') ?? 0;
             if (expense > 0) {
               mapping['amount'] = expense % 1 == 0
                   ? expense.toInt().toString()
@@ -299,19 +391,23 @@ class CsvImporter {
             break;
           case '已报销':
           case 'reimbursed':
-            final value = row[matchedKey] ?? '';
+          case '报销状态':
+            final val = value.toLowerCase();
             mapping['isReimbursed'] =
-                value == '1' || value.toLowerCase() == 'true' || value == '是'
+                val == '1' || val == 'true' || val == '是' || val == '已报销'
                     ? 'true'
                     : 'false';
             break;
           case '手续费':
           case 'fee':
-            mapping['fee'] = row[matchedKey] ?? '';
+          case '服务费':
+            mapping['fee'] = value;
             break;
           case '优惠券':
           case 'coupon':
-            mapping['coupon'] = row[matchedKey] ?? '';
+          case '优惠金额':
+          case '红包':
+            mapping['coupon'] = value;
             break;
         }
       }
@@ -320,11 +416,32 @@ class CsvImporter {
     return mapping;
   }
 
+  /// 判断字段是否匹配（模糊匹配）
+  static bool _fieldMatches(String key, String formatField) {
+    final keyLower = key.toLowerCase();
+    final formatLower = formatField.toLowerCase();
+
+    final keyKeywords =
+        keyLower.split(RegExp(r'[\s_,，-]')).where((k) => k.isNotEmpty).toList();
+    final formatKeywords = formatLower
+        .split(RegExp(r'[\s_,，-]'))
+        .where((k) => k.isNotEmpty)
+        .toList();
+
+    for (final kw in formatKeywords) {
+      if (keyKeywords.any((k) => k.contains(kw) || kw.contains(k))) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
   /// 解析类型字段为收入/支出标识
   static String _parseTypeToIsIncome(String type) {
     final lowerType = type.toLowerCase();
-    if (lowerType.contains('收入') || 
-        lowerType.contains('income') || 
+    if (lowerType.contains('收入') ||
+        lowerType.contains('income') ||
         lowerType.contains('in') ||
         lowerType.contains('转入') ||
         lowerType.contains('收款') ||
@@ -335,7 +452,7 @@ class CsvImporter {
   }
 
   /// 解析金额字符串
-  /// 
+  ///
   /// @param amountStr 金额字符串
   /// @return 解析后的金额数值
   static double parseAmount(String amountStr) {
@@ -344,7 +461,7 @@ class CsvImporter {
   }
 
   /// 将映射数据转换为交易对象
-  /// 
+  ///
   /// @param mapping 映射后的字段数据
   /// @return 交易对象，转换失败返回null
   static Transaction? mappingToTransaction(Map<String, String> mapping) {
