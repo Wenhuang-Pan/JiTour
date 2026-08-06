@@ -24,6 +24,14 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <!-- 悬浮窗权限（用于未来的后台弹窗能力） -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <!-- Android 12+ 通知栏权限 -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- 通知监听服务权限（必须由系统在设置页手动授权，声明后才能注册 Service） -->
+    <uses-permission android:name="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE" />
+    <!-- 前台服务专用类型（Android 14 要求） -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     
     <application
         android:label="记途"
@@ -51,6 +59,29 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- 支付通知监听服务：声明 BIND_NOTIFICATION_LISTENER_SERVICE permission + intent-filter
+             这样系统会将该 Service 识别为 NotificationListenerService，
+             用户可在系统"通知使用权"设置中看到记途并授权 -->
+        <service
+            android:name=".PaymentNotificationListener"
+            android:exported="true"
+            android:label="记途支付通知监听"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+        <!-- 后台支付记账悬浮窗 Service：前台保活 + WindowManager 悬浮窗
+             WHY: foregroundServiceType="specialUse" 是 Android 14+ 要求，
+             通过 property 声明子类型以通过 Google Play 审核 -->
+        <service
+            android:name=".OverlayService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="支付通知监听与自动记账悬浮窗" />
+        </service>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

@@ -3,17 +3,20 @@ import '../models/transaction.dart';
 
 class ExportService {
   static String exportToCsv(
-    List<Transaction> transactions, 
-    DateTime startDate, 
+    List<Transaction> transactions,
+    DateTime startDate,
     DateTime endDate, {
     String currency = 'CNY',
   }) {
     final buffer = StringBuffer();
-    
+
+    // WHY: 写入 UTF-8 BOM 标记，确保 Excel 打开时正确识别为 UTF-8 编码，
+    // 避免中文表头被 GBK 误解码导致乱码
+    buffer.write('\uFEFF');
     buffer.writeln('时间,分类,二级分类,类型,金额,币种,账户1,账户2,备注,已报销,手续费,优惠券');
-    
+
     final dateFormat = DateFormat('yyyy/M/d HH:mm');
-    
+
     for (var transaction in transactions) {
       final dateTime = dateFormat.format(transaction.date);
       final type = transaction.isIncome ? '收入' : '支出';
@@ -25,30 +28,37 @@ class ExportService {
       final isReimbursed = transaction.isReimbursed ? '是' : '否';
       final fee = transaction.fee.toStringAsFixed(2);
       final coupon = transaction.coupon.toStringAsFixed(2);
-      
-      buffer.writeln('$dateTime,${transaction.category},$subCategory,$type,$amount,$transCurrency,${transaction.account},$account2,$note,$isReimbursed,$fee,$coupon');
+
+      buffer.writeln(
+          '$dateTime,${transaction.category},$subCategory,$type,$amount,$transCurrency,${transaction.account},$account2,$note,$isReimbursed,$fee,$coupon');
     }
-    
+
     return buffer.toString();
   }
 
-  static String exportToText(List<Transaction> transactions, DateTime startDate, DateTime endDate) {
+  static String exportToText(
+      List<Transaction> transactions, DateTime startDate, DateTime endDate) {
     final buffer = StringBuffer();
     final dateFormat = DateFormat('yyyy-MM-dd');
     final moneyFormat = NumberFormat.currency(symbol: '¥');
-    
+
     buffer.writeln('='.padRight(50, '='));
     buffer.writeln('记途 - 记账记录导出');
     buffer.writeln('='.padRight(50, '='));
     buffer.writeln('导出时间: ${dateFormat.format(DateTime.now())}');
-    buffer.writeln('统计周期: ${dateFormat.format(startDate)} 至 ${dateFormat.format(endDate)}');
+    buffer.writeln(
+        '统计周期: ${dateFormat.format(startDate)} 至 ${dateFormat.format(endDate)}');
     buffer.writeln('='.padRight(50, '='));
     buffer.writeln();
-    
+
     // 分组统计
-    final income = transactions.where((t) => t.isIncome).fold(0.0, (sum, t) => sum + t.amount);
-    final expense = transactions.where((t) => !t.isIncome).fold(0.0, (sum, t) => sum + t.amount);
-    
+    final income = transactions
+        .where((t) => t.isIncome)
+        .fold(0.0, (sum, t) => sum + t.amount);
+    final expense = transactions
+        .where((t) => !t.isIncome)
+        .fold(0.0, (sum, t) => sum + t.amount);
+
     buffer.writeln('【收支概况】');
     buffer.writeln('总收入: ${moneyFormat.format(income)}');
     buffer.writeln('总支出: ${moneyFormat.format(expense)}');
@@ -57,14 +67,14 @@ class ExportService {
     buffer.writeln('='.padRight(50, '='));
     buffer.writeln('【详细记录】');
     buffer.writeln('='.padRight(50, '='));
-    
+
     // 按日期分组
     final grouped = <String, List<Transaction>>{};
     for (var t in transactions) {
       final key = dateFormat.format(t.date);
       grouped.putIfAbsent(key, () => []).add(t);
     }
-    
+
     for (var entry in grouped.entries) {
       buffer.writeln();
       buffer.writeln('--- ${entry.key} ---');
@@ -77,12 +87,12 @@ class ExportService {
         }
       }
     }
-    
+
     buffer.writeln();
     buffer.writeln('='.padRight(50, '='));
     buffer.writeln('共 ${transactions.length} 条记录');
     buffer.writeln('='.padRight(50, '='));
-    
+
     return buffer.toString();
   }
 

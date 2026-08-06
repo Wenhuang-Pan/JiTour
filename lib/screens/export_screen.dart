@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
@@ -187,12 +188,8 @@ class _ExportScreenState extends State<ExportScreen> {
     );
   }
 
-  Widget _buildQuickDateChip(
-    BuildContext context,
-    String label,
-    int days,
-    {bool isCurrentMonth = false, bool isLastMonth = false}
-  ) {
+  Widget _buildQuickDateChip(BuildContext context, String label, int days,
+      {bool isCurrentMonth = false, bool isLastMonth = false}) {
     return ActionChip(
       label: Text(
         label,
@@ -304,10 +301,12 @@ class _ExportScreenState extends State<ExportScreen> {
       child: Container(
         padding: const EdgeInsets.all(AppTheme.spaceMedium),
         decoration: BoxDecoration(
-          color: isSelected ? color.withValues(alpha: 0.05) : AppTheme.neutral50,
+          color:
+              isSelected ? color.withValues(alpha: 0.05) : AppTheme.neutral50,
           borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
           border: Border.all(
-            color: isSelected ? color.withValues(alpha: 0.3) : AppTheme.neutral200,
+            color:
+                isSelected ? color.withValues(alpha: 0.3) : AppTheme.neutral200,
             width: 1,
           ),
         ),
@@ -390,7 +389,8 @@ class _ExportScreenState extends State<ExportScreen> {
                       padding: const EdgeInsets.all(AppTheme.spaceSmall),
                       decoration: BoxDecoration(
                         color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                        borderRadius:
+                            BorderRadius.circular(AppTheme.radiusSmall),
                       ),
                       child: const Icon(
                         Icons.preview_rounded,
@@ -486,7 +486,9 @@ class _ExportScreenState extends State<ExportScreen> {
           ),
           child: ListView.builder(
             padding: const EdgeInsets.all(AppTheme.spaceSmall),
-            itemCount: _filteredTransactions.length > 10 ? 10 : _filteredTransactions.length,
+            itemCount: _filteredTransactions.length > 10
+                ? 10
+                : _filteredTransactions.length,
             itemBuilder: (context, index) {
               final t = _filteredTransactions[index];
               return Container(
@@ -516,15 +518,21 @@ class _ExportScreenState extends State<ExportScreen> {
                           vertical: 2,
                         ),
                         decoration: BoxDecoration(
-                          color: (t.isIncome ? AppTheme.successColor : AppTheme.errorColor).withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                          color: (t.isIncome
+                                  ? AppTheme.successColor
+                                  : AppTheme.errorColor)
+                              .withValues(alpha: 0.1),
+                          borderRadius:
+                              BorderRadius.circular(AppTheme.radiusSmall),
                         ),
                         child: Text(
                           t.isIncome ? '收入' : '支出',
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
-                            color: t.isIncome ? AppTheme.successColor : AppTheme.errorColor,
+                            color: t.isIncome
+                                ? AppTheme.successColor
+                                : AppTheme.errorColor,
                           ),
                         ),
                       ),
@@ -566,16 +574,19 @@ class _ExportScreenState extends State<ExportScreen> {
       width: double.infinity,
       height: 56,
       decoration: BoxDecoration(
-        gradient: _filteredTransactions.isEmpty ? null : AppTheme.primaryGradient,
+        gradient:
+            _filteredTransactions.isEmpty ? null : AppTheme.primaryGradient,
         color: _filteredTransactions.isEmpty ? AppTheme.neutral300 : null,
         borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-        boxShadow: _filteredTransactions.isEmpty ? null : [
-          BoxShadow(
-            color: AppTheme.primaryColor.withValues(alpha: 0.3),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
-          ),
-        ],
+        boxShadow: _filteredTransactions.isEmpty
+            ? null
+            : [
+                BoxShadow(
+                  color: AppTheme.primaryColor.withValues(alpha: 0.3),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
+                ),
+              ],
       ),
       child: Material(
         color: Colors.transparent,
@@ -636,18 +647,23 @@ class _ExportScreenState extends State<ExportScreen> {
       final dateFormat = DateFormat('yyyyMMdd');
 
       if (_exportType == 'csv') {
-        final currency = Provider.of<CurrencyProvider>(context, listen: false).code;
-        content = ExportService.exportToCsv(_filteredTransactions, _startDate, _endDate, currency: currency);
+        final currency =
+            Provider.of<CurrencyProvider>(context, listen: false).code;
+        content = ExportService.exportToCsv(
+            _filteredTransactions, _startDate, _endDate,
+            currency: currency);
         fileName = 'jitu_export_${dateFormat.format(DateTime.now())}.csv';
       } else {
-        content = ExportService.exportToText(_filteredTransactions, _startDate, _endDate);
+        content = ExportService.exportToText(
+            _filteredTransactions, _startDate, _endDate);
         fileName = 'jitu_export_${dateFormat.format(DateTime.now())}.txt';
       }
 
       // 获取临时目录并保存文件
+      // WHY: 显式使用 utf8 编码写入，确保中文正确保存
       final directory = await getTemporaryDirectory();
       final file = File('${directory.path}/$fileName');
-      await file.writeAsString(content);
+      await file.writeAsBytes(utf8.encode(content));
 
       // 使用 share_plus 分享文件
       await Share.shareXFiles(

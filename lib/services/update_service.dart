@@ -17,14 +17,15 @@ class UpdateInfo {
 }
 
 class UpdateService {
-  static const String currentVersion = '1.2.0';
+  static const String currentVersion = '2.1.1';
   static const String githubOwner = 'Wenhuang-Pan';
-  static const String githubRepo = 'SimpleLedger';
-  static const String _releasesUrl = 
-    'https://api.github.com/repos/$githubOwner/$githubRepo/releases/latest';
+  static const String githubRepo = 'JiTour';
+  static const String _releasesUrl =
+      'https://api.github.com/repos/$githubOwner/$githubRepo/releases/latest';
   static const Duration _cacheDuration = Duration(hours: 1);
 
-  static Future<UpdateInfo?> checkForUpdate({bool ignoreSkip = false, bool forceRefresh = false}) async {
+  static Future<UpdateInfo?> checkForUpdate(
+      {bool ignoreSkip = false, bool forceRefresh = false}) async {
     if (!forceRefresh) {
       final cachedResult = await _getCachedUpdate();
       if (cachedResult != null) {
@@ -46,12 +47,12 @@ class UpdateService {
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        
+
         String latestVersion = data['tag_name'] ?? '';
         if (latestVersion.startsWith('v')) {
           latestVersion = latestVersion.substring(1);
         }
-        
+
         if (_compareVersions(latestVersion, currentVersion) > 0) {
           if (!ignoreSkip) {
             final skippedVersion = await _getSkippedVersion();
@@ -69,7 +70,7 @@ class UpdateService {
               break;
             }
           }
-          
+
           if (downloadUrl.isEmpty && data['body'] != null) {
             final body = data['body'].toString();
             final urlMatch = RegExp(r'https?://[^\s]+').firstMatch(body);
@@ -79,14 +80,16 @@ class UpdateService {
           }
 
           if (downloadUrl.isEmpty) {
-            downloadUrl = 'https://github.com/$githubOwner/$githubRepo/releases/tag/v$latestVersion';
+            downloadUrl =
+                'https://github.com/$githubOwner/$githubRepo/releases/tag/v$latestVersion';
           }
 
           final updateInfo = UpdateInfo(
             version: latestVersion,
             downloadUrl: downloadUrl,
             releaseNotes: data['body'] ?? '',
-            releaseDate: DateTime.tryParse(data['published_at'] ?? '') ?? DateTime.now(),
+            releaseDate:
+                DateTime.tryParse(data['published_at'] ?? '') ?? DateTime.now(),
           );
 
           await _cacheUpdate(updateInfo);
@@ -103,9 +106,12 @@ class UpdateService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('update_cache_version', updateInfo.version);
     await prefs.setString('update_cache_download_url', updateInfo.downloadUrl);
-    await prefs.setString('update_cache_release_notes', updateInfo.releaseNotes);
-    await prefs.setString('update_cache_release_date', updateInfo.releaseDate.toIso8601String());
-    await prefs.setInt('update_cache_timestamp', DateTime.now().millisecondsSinceEpoch);
+    await prefs.setString(
+        'update_cache_release_notes', updateInfo.releaseNotes);
+    await prefs.setString(
+        'update_cache_release_date', updateInfo.releaseDate.toIso8601String());
+    await prefs.setInt(
+        'update_cache_timestamp', DateTime.now().millisecondsSinceEpoch);
   }
 
   static Future<UpdateInfo?> _getCachedUpdate() async {
@@ -152,7 +158,7 @@ class UpdateService {
   static int _compareVersions(String v1, String v2) {
     final parts1 = v1.split('.').map((e) => int.tryParse(e) ?? 0).toList();
     final parts2 = v2.split('.').map((e) => int.tryParse(e) ?? 0).toList();
-    
+
     for (var i = 0; i < 3; i++) {
       final p1 = i < parts1.length ? parts1[i] : 0;
       final p2 = i < parts2.length ? parts2[i] : 0;

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
@@ -75,8 +76,9 @@ class _DataManagementScreenState extends State<DataManagementScreen>
         return;
       }
 
-      final content = String.fromCharCodes(bytes);
-      final rows = CsvImporter.parseCsv(content);
+      // WHY: 必须用 parseCsvFromBytes 而非 String.fromCharCodes + parseCsv。
+      // String.fromCharCodes 会把每个 UTF-8 字节当作一个码点，导致中文乱码。
+      final rows = CsvImporter.parseCsvFromBytes(bytes);
 
       if (rows.isEmpty) {
         setState(() {
@@ -315,7 +317,9 @@ class _DataManagementScreenState extends State<DataManagementScreen>
         fileName: 'simple_ledger_export_$dateStr.csv',
         type: FileType.custom,
         allowedExtensions: ['csv'],
-        bytes: Uint8List.fromList(csv.codeUnits),
+        // WHY: 必须用 utf8.encode 而非 codeUnits。
+        // codeUnits 返回 UTF-16 码元，中文会丢失高字节导致乱码。
+        bytes: Uint8List.fromList(utf8.encode(csv)),
       );
 
       if (result != null) {

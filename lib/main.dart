@@ -6,14 +6,17 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
 import 'screens/home_screen.dart';
 import 'screens/data_management_screen.dart';
+import 'screens/csv_import_screen.dart';
+import 'screens/export_screen.dart';
 import 'screens/settings_screen.dart' as settings;
 import 'services/database_service.dart';
 import 'services/auto_backup_service.dart';
+import 'services/recurring_transaction_service.dart';
 import 'theme/app_theme.dart';
 import 'providers/theme_provider.dart';
 import 'providers/currency_provider.dart';
 import 'providers/reminder_provider.dart';
-import 'services/recurring_transaction_service.dart';
+import 'providers/auto_accounting_provider.dart';
 
 void main() async {
   runZonedGuarded(() async {
@@ -39,6 +42,9 @@ void main() async {
     final reminderProvider = ReminderProvider();
     await reminderProvider.init();
 
+    final autoAccountingProvider = AutoAccountingProvider();
+    await autoAccountingProvider.init();
+
     if (!kIsWeb) {
       // 暂时禁用自动备份服务初始化，避免某些Android设备崩溃
       // 自动备份功能将在设置页面中手动启用
@@ -51,6 +57,7 @@ void main() async {
           ChangeNotifierProvider.value(value: themeProvider),
           ChangeNotifierProvider.value(value: currencyProvider),
           ChangeNotifierProvider.value(value: reminderProvider),
+          ChangeNotifierProvider.value(value: autoAccountingProvider),
         ],
         child: const JituApp(),
       ),
@@ -86,6 +93,8 @@ class JituApp extends StatelessWidget {
           routes: {
             '/settings': (context) => const settings.SettingsScreen(),
             '/data': (context) => const DataManagementScreen(),
+            '/import': (context) => const CsvImportScreen(),
+            '/export': (context) => const ExportScreen(),
           },
           debugShowCheckedModeBanner: false,
         );

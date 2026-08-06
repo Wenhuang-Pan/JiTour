@@ -379,6 +379,10 @@ class _TransactionFormModalState extends State<_TransactionFormModal> {
   late bool _isEnabled;
   String? _note;
 
+  // WHY: 金额字段需要 controller 才能设置 selection 实现点击全选；
+  // 其他字段仍用 initialValue 模式。
+  late final TextEditingController _amountInputController;
+
   @override
   void initState() {
     super.initState();
@@ -407,6 +411,18 @@ class _TransactionFormModalState extends State<_TransactionFormModal> {
       _startDate = DateTime.now();
       _isEnabled = true;
     }
+
+    // WHY: 用现有金额初始化 controller，新建时为空字符串，编辑时为金额字符串
+    _amountInputController = TextEditingController(
+      text: _amount == 0 ? '' : _amount.toString(),
+    );
+  }
+
+  @override
+  void dispose() {
+    // WHY: controller 持有 listeners，不释放会内存泄漏
+    _amountInputController.dispose();
+    super.dispose();
   }
 
   /// 获取所有分类
@@ -544,12 +560,15 @@ class _TransactionFormModalState extends State<_TransactionFormModal> {
               ),
 
               // 金额
+              // WHY: 使用 controller 管理，点击时自动全选便于覆盖输入
               _buildFormField(
                 label: '金额',
-                hintText: '0.00',
-                initialValue: _amount.toString(),
+                hintText: '请输入金额',
+                initialValue: _amount == 0 ? '' : _amount.toString(),
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
+                selectAllOnTap: true,
+                controller: _amountInputController,
                 validator: (value) {
                   final amount = double.tryParse(value ?? '');
                   if (amount == null || amount <= 0) {
@@ -711,6 +730,20 @@ class _TransactionFormModalState extends State<_TransactionFormModal> {
   }
 
   /// 构建表单输入框
+  ///
+  /// WHY: 通用表单字段构建方法，支持通过 controller 注入实现点击全选等高级交互。
+  /// controller 与 initialValue 互斥：有 controller 时 initialValue 必须为 null。
+  ///
+  /// @param label 字段标签文本
+  /// @param hintText 占位提示文本
+  /// @param initialValue 初始值（仅在未提供 controller 时生效）
+  /// @param keyboardType 键盘类型
+  /// @param maxLines 最大行数
+  /// @param validator 校验函数
+  /// @param onSaved 保存回调
+  /// @param selectAllOnTap 是否在点击时自动全选文本，默认 false
+  /// @param controller 外部传入的文本控制器，用于控制 selection
+  /// @return 构建好的表单字段 Widget
   Widget _buildFormField({
     required String label,
     required String hintText,
@@ -719,6 +752,8 @@ class _TransactionFormModalState extends State<_TransactionFormModal> {
     int? maxLines,
     String? Function(String?)? validator,
     void Function(String?)? onSaved,
+    bool selectAllOnTap = false,
+    TextEditingController? controller,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -732,9 +767,21 @@ class _TransactionFormModalState extends State<_TransactionFormModal> {
         ),
         const SizedBox(height: AppTheme.spaceSmall),
         TextFormField(
-          initialValue: initialValue,
+          // WHY: controller 与 initialValue 互斥；有 controller 时 initialValue 必须为 null
+          controller: controller,
+          initialValue: controller == null ? initialValue : null,
           keyboardType: keyboardType,
           maxLines: maxLines,
+          onTap: selectAllOnTap && controller != null
+              ? () {
+                  // WHY: 点击即全选，方便覆盖输入；空串时 0-0 也是合法 selection
+                  final text = controller.text;
+                  controller.selection = TextSelection(
+                    baseOffset: 0,
+                    extentOffset: text.length,
+                  );
+                }
+              : null,
           decoration: InputDecoration(
             hintText: hintText,
             border: OutlineInputBorder(

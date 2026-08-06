@@ -3,11 +3,13 @@ import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
 import '../providers/currency_provider.dart';
 import '../providers/reminder_provider.dart';
+import '../providers/auto_accounting_provider.dart';
 import '../services/update_service.dart';
 import '../services/database_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/update_checker.dart';
 import 'reminder_settings_screen.dart';
+import 'auto_accounting_settings_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -44,6 +46,10 @@ class SettingsScreen extends StatelessWidget {
             _buildSectionTitle(context, '提醒'),
             const SizedBox(height: AppTheme.spaceSmall),
             _buildReminderCard(context),
+            const SizedBox(height: AppTheme.spaceLarge),
+            _buildSectionTitle(context, '自动记账'),
+            const SizedBox(height: AppTheme.spaceSmall),
+            _buildAutoAccountingCard(context),
             const SizedBox(height: AppTheme.spaceLarge),
             _buildSectionTitle(context, '关于'),
             const SizedBox(height: AppTheme.spaceSmall),
@@ -361,7 +367,9 @@ class SettingsScreen extends StatelessWidget {
             iconColor: AppTheme.successColor,
             title: '导出数据',
             subtitle: '将数据导出为CSV文件',
-            onTap: () {},
+            onTap: () {
+              Navigator.pushNamed(context, '/export');
+            },
           ),
           const Divider(height: 1, indent: 60),
           _buildDataItem(
@@ -396,6 +404,8 @@ class SettingsScreen extends StatelessWidget {
                         await DatabaseService.savingsGoals.clear();
                         await DatabaseService.categories.clear();
 
+                        // WHY: 异步清除数据后需校验 context 是否仍然挂载，避免使用已销毁的上下文
+                        if (!context.mounted) return;
                         Navigator.pop(context);
 
                         // 显示成功提示
@@ -635,6 +645,50 @@ class SettingsScreen extends StatelessWidget {
                     context,
                     MaterialPageRoute(
                       builder: (_) => const ReminderSettingsScreen(),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  /// 构建自动记账设置卡片
+  ///
+  /// 复用 [_buildReminderItem] 通用列表项，展示自动记账开关状态与
+  /// 待确认记录数量摘要，点击进入自动记账设置页。
+  ///
+  /// @param context 构建上下文
+  /// @return 自动记账设置 Container
+  Widget _buildAutoAccountingCard(BuildContext context) {
+    return Consumer<AutoAccountingProvider>(
+      builder: (context, provider, child) {
+        return Container(
+          decoration: BoxDecoration(
+            color: AppTheme.getCardColor(context),
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+            boxShadow: AppTheme.cardShadow,
+          ),
+          child: Column(
+            children: [
+              _buildReminderItem(
+                context,
+                icon: Icons.auto_awesome_rounded,
+                iconColor: AppTheme.getPrimaryColor(context),
+                title: '自动记账',
+                subtitle: provider.isEnabled
+                    ? (provider.pendingCount > 0
+                        ? '已开启 · ${provider.pendingCount} 条待确认'
+                        : '已开启')
+                    : '未开启',
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const AutoAccountingSettingsScreen(),
                     ),
                   );
                 },

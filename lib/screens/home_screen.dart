@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
+import 'dart:async';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
 import '../theme/app_theme.dart';
@@ -22,6 +24,9 @@ import '../services/recurring_transaction_service.dart';
 import '../utils/icon_library.dart';
 import '../utils/animation_utils.dart';
 import '../widgets/filter_modal.dart';
+import '../widgets/quick_entry_overlay.dart';
+import '../services/notification_bridge_service.dart';
+import '../models/pending_transaction.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -43,16 +48,18 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
-        children: [
-          _screens[_currentIndex],
-          if (_currentIndex == 0)
-            Positioned(
-              right: AppTheme.spaceMedium,
-              bottom: 16,
-              child: _buildFAB(context),
-            ),
-        ],
+      body: QuickEntryOverlay(
+        child: Stack(
+          children: [
+            _screens[_currentIndex],
+            if (_currentIndex == 0)
+              Positioned(
+                right: AppTheme.spaceMedium,
+                bottom: 16,
+                child: _buildFAB(context),
+              ),
+          ],
+        ),
       ),
       appBar: _currentIndex == 0
           ? AppBar(
@@ -238,138 +245,150 @@ class _HomeScreenState extends State<HomeScreen> {
                     top: Radius.circular(AppTheme.radiusXLarge),
                   ),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: AppTheme.spaceSmall),
-                    _buildDrawerItem(
-                      context,
-                      icon: Icons.category_rounded,
-                      title: '分类管理',
-                      subtitle: '管理收入和支出分类',
-                      color: AppTheme.getPrimaryColor(context),
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const CategoryManagementScreen(),
-                          ),
-                        );
-                      },
-                    ),
-                    _buildDrawerItem(
-                      context,
-                      icon: Icons.label_rounded,
-                      title: '标签管理',
-                      subtitle: '管理交易标签',
-                      color: const Color(0xFF8B5CF6),
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const TagsManagementScreen(),
-                          ),
-                        );
-                      },
-                    ),
-                    _buildDrawerItem(
-                      context,
-                      icon: Icons.account_balance_rounded,
-                      title: '负债管理',
-                      subtitle: '管理欠款和还款',
-                      color: AppTheme.errorColor,
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const DebtScreen(),
-                          ),
-                        );
-                      },
-                    ),
-                    _buildDrawerItem(
-                      context,
-                      icon: Icons.repeat_rounded,
-                      title: '定期交易',
-                      subtitle: '自动记账（工资、房租等）',
-                      color: const Color(0xFF10B981),
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const RecurringTransactionScreen(),
-                          ),
-                        );
-                      },
-                    ),
-                    const Divider(height: 1, indent: 20, endIndent: 20),
-                    _buildDrawerItem(
-                      context,
-                      icon: Icons.settings_rounded,
-                      title: '设置',
-                      subtitle: '主题、币种、备份等',
-                      color: AppTheme.neutral600,
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.pushNamed(context, '/settings');
-                      },
-                    ),
-                    _buildDrawerItem(
-                      context,
-                      icon: Icons.import_export_rounded,
-                      title: '导入导出',
-                      subtitle: 'CSV导入与数据管理',
-                      color: AppTheme.warningColor,
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.pushNamed(context, '/data');
-                      },
-                    ),
-                    const Spacer(),
-                    _buildDrawerItem(
-                      context,
-                      icon: Icons.info_outline_rounded,
-                      title: '关于记途',
-                      subtitle: 'V1.2.0 · 一起记账吧',
-                      color: AppTheme.neutral500,
-                      onTap: () {
-                        Navigator.pop(context);
-                        showAboutDialog(
-                          context: context,
-                          applicationName: '记途',
-                          applicationVersion: 'V1.2.0',
-                          applicationIcon: Container(
-                            width: 48,
-                            height: 48,
-                            decoration: BoxDecoration(
-                              gradient: AppTheme.getPrimaryGradient(context),
-                              borderRadius:
-                                  BorderRadius.circular(AppTheme.radiusMedium),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: AppTheme.spaceSmall,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _buildDrawerItem(
+                        context,
+                        icon: Icons.category_rounded,
+                        title: '分类管理',
+                        subtitle: '管理收入和支出分类',
+                        color: AppTheme.getPrimaryColor(context),
+                        onTap: () {
+                          Navigator.pop(context);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const CategoryManagementScreen(),
                             ),
-                            child: const Icon(
-                              Icons.account_balance_wallet_rounded,
-                              color: Colors.white,
-                              size: 24,
+                          );
+                        },
+                      ),
+                      _buildDrawerItem(
+                        context,
+                        icon: Icons.label_rounded,
+                        title: '标签管理',
+                        subtitle: '管理交易标签',
+                        color: const Color(0xFF8B5CF6),
+                        onTap: () {
+                          Navigator.pop(context);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const TagsManagementScreen(),
                             ),
-                          ),
-                          children: const [
-                            Text('一款简洁好用的个人记账应用'),
-                            SizedBox(height: 8),
-                            Text('帮助你轻松管理日常收支'),
-                          ],
-                        );
-                      },
-                    ),
-                    const SizedBox(height: AppTheme.spaceLarge),
-                  ],
-                ),
-              ),
-            ),
-          ],
+                          );
+                        },
+                      ),
+                      _buildDrawerItem(
+                        context,
+                        icon: Icons.account_balance_rounded,
+                        title: '负债管理',
+                        subtitle: '管理欠款和还款',
+                        color: AppTheme.errorColor,
+                        onTap: () {
+                          Navigator.pop(context);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const DebtScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                      _buildDrawerItem(
+                        context,
+                        icon: Icons.repeat_rounded,
+                        title: '定期交易',
+                        subtitle: '自动记账（工资、房租等）',
+                        color: const Color(0xFF10B981),
+                        onTap: () {
+                          Navigator.pop(context);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  const RecurringTransactionScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                      const Divider(height: 1, indent: 20, endIndent: 20),
+                      _buildDrawerItem(
+                        context,
+                        icon: Icons.settings_rounded,
+                        title: '设置',
+                        subtitle: '主题、币种、备份等',
+                        color: AppTheme.neutral600,
+                        onTap: () {
+                          Navigator.pop(context);
+                          Navigator.pushNamed(context, '/settings');
+                        },
+                      ),
+                      _buildDrawerItem(
+                        context,
+                        icon: Icons.import_export_rounded,
+                        title: '导入导出',
+                        subtitle: 'CSV导入与数据管理',
+                        color: AppTheme.warningColor,
+                        onTap: () {
+                          Navigator.pop(context);
+                          Navigator.pushNamed(context, '/data');
+                        },
+                      ),
+                      const SizedBox(height: AppTheme.spaceMedium),
+                      _buildDrawerItem(
+                        context,
+                        icon: Icons.info_outline_rounded,
+                        title: '关于记途',
+                        subtitle: 'V1.2.0 · 一起记账吧',
+                        color: AppTheme.neutral500,
+                        onTap: () {
+                          Navigator.pop(context);
+                          showAboutDialog(
+                            context: context,
+                            applicationName: '记途',
+                            applicationVersion: 'V1.2.0',
+                            applicationIcon: Container(
+                              width: 48,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                gradient: AppTheme.getPrimaryGradient(context),
+                                borderRadius: BorderRadius.circular(
+                                    AppTheme.radiusMedium),
+                              ),
+                              child: const Icon(
+                                Icons.account_balance_wallet_rounded,
+                                color: Colors.white,
+                                size: 24,
+                              ),
+                            ),
+                            children: const [
+                              Text('一款简洁好用的个人记账应用'),
+                              SizedBox(height: 8),
+                              Text('帮助你轻松管理日常收支'),
+                            ],
+                          );
+                        },
+                      ),
+                      const SizedBox(height: AppTheme.spaceLarge),
+                      // WHY: 调试入口仅在 debug 构建可见，release 自动剔除；
+                      // 用于在无真实支付场景时模拟通知，验证弹窗全链路。
+                      if (kDebugMode) ...[
+                        const Divider(height: 1, indent: 20, endIndent: 20),
+                        _buildDebugSection(context),
+                      ],
+                    ],
+                  ), // Column
+                ), // SingleChildScrollView
+              ), // Container decoration
+            ), // Expanded
+          ], // outer Column children
         ),
       ),
     );
@@ -432,6 +451,128 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+
+  /// Debug 区：模拟支付通知触发弹窗（仅 debug 构建可见）
+  Widget _buildDebugSection(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppTheme.spaceLarge,
+        AppTheme.spaceMedium,
+        AppTheme.spaceLarge,
+        AppTheme.spaceMedium,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: AppTheme.spaceXSmall),
+          Row(
+            children: [
+              Icon(Icons.bug_report_rounded,
+                  size: 14, color: AppTheme.warningColor),
+              const SizedBox(width: AppTheme.spaceXSmall),
+              Text(
+                '调试区（仅开发模式）',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: AppTheme.warningColor,
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppTheme.spaceMedium),
+          Wrap(
+            spacing: AppTheme.spaceSmall,
+            runSpacing: AppTheme.spaceSmall,
+            children: [
+              _buildDebugChip(
+                context: context,
+                label: '美团外卖 ¥28.50',
+                onTap: () {
+                  NotificationBridgeService.injectMockPayment(
+                    amount: 28.50,
+                    merchant: '美团外卖',
+                    source: PaymentSource.alipay,
+                  );
+                  Navigator.pop(context);
+                },
+              ),
+              _buildDebugChip(
+                context: context,
+                label: '滴滴出行 ¥45.00',
+                onTap: () {
+                  NotificationBridgeService.injectMockPayment(
+                    amount: 45.00,
+                    merchant: '滴滴出行',
+                    source: PaymentSource.wechat,
+                  );
+                  Navigator.pop(context);
+                },
+              ),
+              _buildDebugChip(
+                context: context,
+                label: '星巴克 ¥38.00',
+                onTap: () {
+                  NotificationBridgeService.injectMockPayment(
+                    amount: 38.00,
+                    merchant: '星巴克咖啡',
+                    source: PaymentSource.alipay,
+                  );
+                  Navigator.pop(context);
+                },
+              ),
+              _buildDebugChip(
+                context: context,
+                label: '未知商户 ¥199.00',
+                onTap: () {
+                  NotificationBridgeService.injectMockPayment(
+                    amount: 199.00,
+                    merchant: '某某科技有限公司',
+                    source: PaymentSource.wechat,
+                  );
+                  Navigator.pop(context);
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: AppTheme.spaceSmall),
+        ],
+      ),
+    );
+  }
+
+  /// Debug Chip 按钮
+  Widget _buildDebugChip({
+    required BuildContext context,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppTheme.radiusFull),
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppTheme.spaceMedium,
+            vertical: AppTheme.spaceSmall + 2,
+          ),
+          decoration: BoxDecoration(
+            color: isDark ? AppTheme.neutral700 : AppTheme.neutral100,
+            borderRadius: BorderRadius.circular(AppTheme.radiusFull),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: AppTheme.textBodySmall,
+              fontWeight: FontWeight.w500,
+              color: isDark ? AppTheme.neutral100 : AppTheme.neutral700,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class TransactionListScreen extends StatefulWidget {
@@ -443,6 +584,18 @@ class TransactionListScreen extends StatefulWidget {
 
 class _TransactionListScreenState extends State<TransactionListScreen> {
   final FilterConditions _filterConditions = FilterConditions();
+
+  // WHY: 使用 TextEditingController 管理搜索框文本，避免 onChanged 中
+  // setState 导致 Widget 重建丢失焦点的问题
+  final TextEditingController _searchController = TextEditingController();
+  Timer? _searchDebounce;
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _searchDebounce?.cancel();
+    super.dispose();
+  }
 
   String _formatDate(DateTime date) {
     final now = DateTime.now();
@@ -516,28 +669,42 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
             }
 
             final now = DateTime.now();
-            final today = DateTime(now.year, now.month, now.day);
-            final todayTransactions = allTransactions
-                .where((t) =>
-                    DateTime(t.date.year, t.date.month, t.date.day) == today)
-                .toList();
 
-            final todayIncome = todayTransactions
-                .where((t) => t.isIncome)
-                .fold(0.0, (sum, t) => sum + t.amount);
-            final todayExpense = todayTransactions
+            // WHY: 计算当月支出和预算余额，显示在首页顶部
+            final monthTransactions = allTransactions
+                .where(
+                    (t) => t.date.year == now.year && t.date.month == now.month)
+                .toList();
+            final monthExpense = monthTransactions
                 .where((t) => !t.isIncome)
                 .fold(0.0, (sum, t) => sum + t.amount);
-            final todayBalance = todayIncome - todayExpense;
+            final monthBudgets =
+                DatabaseService.getBudgetsForMonth(now.year, now.month);
+            final totalBudget =
+                monthBudgets.fold<double>(0.0, (sum, b) => sum + b.amount);
+            final budgetBalance = totalBudget - monthExpense;
+
+            // WHY: 按日期分组交易，计算每日收支汇总显示在日期标签右侧
+            final groupedTransactions = <DateTime, List<Transaction>>{};
+            for (final t in transactions) {
+              final dayKey = DateTime(t.date.year, t.date.month, t.date.day);
+              groupedTransactions.putIfAbsent(dayKey, () => []).add(t);
+            }
+            final sortedDays = groupedTransactions.keys.toList()
+              ..sort((a, b) => b.compareTo(a));
+            final flatTransactions = <Transaction>[];
+            for (final day in sortedDays) {
+              flatTransactions.addAll(groupedTransactions[day]!);
+            }
 
             return CustomScrollView(
               slivers: [
                 SliverToBoxAdapter(
-                  child: _buildTodaySummary(
+                  child: _buildMonthlyBudgetCard(
                     context,
-                    todayIncome,
-                    todayExpense,
-                    todayBalance,
+                    monthExpense,
+                    totalBudget,
+                    budgetBalance,
                   ),
                 ),
                 SliverToBoxAdapter(
@@ -564,10 +731,24 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
                   sliver: SliverList(
                     delegate: SliverChildBuilderDelegate(
                       (context, index) {
-                        final transaction = transactions[index];
+                        final transaction = flatTransactions[index];
                         final isFirstOfDay = index == 0 ||
-                            _formatDate(transactions[index - 1].date) !=
+                            _formatDate(flatTransactions[index - 1].date) !=
                                 _formatDate(transaction.date);
+
+                        // WHY: 计算当日收支汇总，显示在日期标签右侧
+                        double? dayIncome, dayExpense;
+                        if (isFirstOfDay) {
+                          final dayKey = DateTime(transaction.date.year,
+                              transaction.date.month, transaction.date.day);
+                          final dayTx = groupedTransactions[dayKey] ?? [];
+                          dayIncome = dayTx
+                              .where((t) => t.isIncome)
+                              .fold<double>(0.0, (sum, t) => sum + t.amount);
+                          dayExpense = dayTx
+                              .where((t) => !t.isIncome)
+                              .fold<double>(0.0, (sum, t) => sum + t.amount);
+                        }
 
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -598,6 +779,35 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
                                             AppTheme.getDividerColor(context),
                                       ),
                                     ),
+                                    // WHY: 在日期最右侧显示当日收支汇总
+                                    if (dayExpense! > 0)
+                                      Padding(
+                                        padding: const EdgeInsets.only(
+                                            left: AppTheme.spaceSmall),
+                                        child: Text(
+                                          '支 ¥${dayExpense.toStringAsFixed(2)}',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: AppTheme.errorColor
+                                                .withValues(alpha: 0.8),
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
+                                    if (dayIncome! > 0)
+                                      Padding(
+                                        padding: const EdgeInsets.only(
+                                            left: AppTheme.spaceSmall),
+                                        child: Text(
+                                          '收 ¥${dayIncome.toStringAsFixed(2)}',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: AppTheme.successColor
+                                                .withValues(alpha: 0.8),
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
                                   ],
                                 ),
                               ),
@@ -605,7 +815,7 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
                           ],
                         );
                       },
-                      childCount: transactions.length,
+                      childCount: flatTransactions.length,
                     ),
                   ),
                 ),
@@ -641,27 +851,34 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
                   const SizedBox(width: AppTheme.spaceSmall),
                   Expanded(
                     child: TextField(
+                      controller: _searchController,
                       decoration: const InputDecoration(
                         hintText: '搜索账单',
                         border: InputBorder.none,
                         contentPadding: EdgeInsets.zero,
                         isDense: true,
                       ),
+                      // WHY: 使用防抖避免每次输入都触发 setState 导致焦点丢失
                       onChanged: (value) {
-                        setState(() {
-                          _filterConditions.keyword = value;
+                        _filterConditions.keyword =
+                            value.isEmpty ? null : value;
+                        _searchDebounce?.cancel();
+                        _searchDebounce =
+                            Timer(const Duration(milliseconds: 300), () {
+                          if (mounted) {
+                            setState(() {});
+                          }
                         });
                       },
                     ),
                   ),
-                  if (_filterConditions.keyword != null &&
-                      _filterConditions.keyword!.isNotEmpty)
+                  if (_searchController.text.isNotEmpty)
                     IconButton(
                       icon: const Icon(Icons.clear_rounded, size: 18),
                       onPressed: () {
-                        setState(() {
-                          _filterConditions.keyword = null;
-                        });
+                        _searchController.clear();
+                        _filterConditions.keyword = null;
+                        setState(() {});
                       },
                     ),
                   const SizedBox(width: AppTheme.spaceSmall),
@@ -771,6 +988,7 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
 
   /// 清除所有筛选条件
   void _clearFilters() {
+    _searchController.clear();
     setState(() {
       _filterConditions.reset();
     });
@@ -810,6 +1028,184 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: AppTheme.neutral400,
                   ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 构建月度预算余额卡片
+  ///
+  /// WHY: V2.1.0 新增，替换原"今日概览"大面积卡片，
+  /// 显示当月支出和预算余额，帮助用户掌控月度财务状况。
+  ///
+  /// @param context 构建上下文
+  /// @param monthExpense 当月总支出
+  /// @param totalBudget 当月总预算
+  /// @param budgetBalance 预算余额（预算 - 支出）
+  /// @return 月度预算卡片 Widget
+  Widget _buildMonthlyBudgetCard(
+    BuildContext context,
+    double monthExpense,
+    double totalBudget,
+    double budgetBalance,
+  ) {
+    // WHY: 预算余额为负表示超支
+    final isOverBudget = budgetBalance < 0;
+    final progress =
+        totalBudget > 0 ? (monthExpense / totalBudget).clamp(0.0, 1.0) : 0.0;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppTheme.spaceMedium,
+        AppTheme.spaceMedium,
+        AppTheme.spaceMedium,
+        AppTheme.spaceXSmall,
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(AppTheme.spaceLarge),
+        decoration: BoxDecoration(
+          gradient: AppTheme.getPrimaryGradient(context),
+          borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+          boxShadow: AppTheme.glowShadow(AppTheme.getPrimaryColor(context)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Text(
+                  '本月预算',
+                  style: TextStyle(
+                    fontSize: AppTheme.textBodyMedium,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                    letterSpacing: 0.1,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  DateFormat('yyyy年M月').format(DateTime.now()),
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.85),
+                    fontSize: AppTheme.textLabelSmall,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppTheme.spaceLarge),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '预算余额',
+                        style: TextStyle(
+                          fontSize: AppTheme.textBodySmall,
+                          color: Colors.white.withValues(alpha: 0.85),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: AppTheme.spaceXSmall),
+                      Text(
+                        '¥${budgetBalance.abs().toStringAsFixed(2)}',
+                        style: TextStyle(
+                          fontSize: AppTheme.textHeadlineSmall,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                          letterSpacing: -0.4,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        isOverBudget ? '已超支' : '剩余可用',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.white.withValues(alpha: 0.7),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        '本月支出',
+                        style: TextStyle(
+                          fontSize: AppTheme.textBodySmall,
+                          color: Colors.white.withValues(alpha: 0.85),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: AppTheme.spaceXSmall),
+                      Text(
+                        '¥${monthExpense.toStringAsFixed(2)}',
+                        style: const TextStyle(
+                          fontSize: AppTheme.textTitleLarge,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                          letterSpacing: -0.4,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        totalBudget > 0
+                            ? '预算 ¥${totalBudget.toStringAsFixed(2)}'
+                            : '未设置预算',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.white.withValues(alpha: 0.7),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppTheme.spaceLarge),
+            // WHY: 预算使用进度条，直观展示预算消耗情况
+            ClipRRect(
+              borderRadius: BorderRadius.circular(AppTheme.radiusFull),
+              child: LinearProgressIndicator(
+                value: progress,
+                minHeight: 6,
+                backgroundColor: Colors.white.withValues(alpha: 0.2),
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  isOverBudget
+                      ? Colors.white
+                      : Colors.white.withValues(alpha: 0.9),
+                ),
+              ),
+            ),
+            const SizedBox(height: AppTheme.spaceSmall),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '已用 ${(progress * 100).toStringAsFixed(0)}%',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.white.withValues(alpha: 0.7),
+                  ),
+                ),
+                Text(
+                  isOverBudget
+                      ? '超支 ${(progress * 100 - 100).toStringAsFixed(0)}%'
+                      : '剩余 ${((1 - progress) * 100).toStringAsFixed(0)}%',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.white.withValues(alpha: 0.7),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
             ),
           ],
         ),

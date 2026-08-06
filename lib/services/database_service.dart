@@ -7,6 +7,7 @@ import '../models/tag.dart';
 import '../models/savings_goal.dart';
 import '../models/debt.dart';
 import '../models/recurring_transaction.dart';
+import '../models/pending_transaction.dart';
 import 'category_service.dart';
 import 'account_service.dart';
 import 'tag_service.dart';
@@ -22,6 +23,10 @@ class DatabaseService {
   static const String _debtBoxName = 'debts';
   static const String _recurringTransactionBoxName = 'recurring_transactions';
   static const String _locationBoxName = 'locations';
+  // WHY: 支付通知自动记账相关 box
+  static const String _pendingTransactionBoxName = 'pending_transactions';
+  static const String _merchantCategoryMapBoxName = 'merchant_category_map';
+  static const String _autoAccountingPrefsBoxName = 'auto_accounting_prefs';
   static late Box<Transaction> _transactionBox;
   static late Box<Budget> _budgetBox;
   static late Box<Account> _accountBox;
@@ -31,6 +36,10 @@ class DatabaseService {
   static late Box<Debt> _debtBox;
   static late Box<RecurringTransaction> _recurringTransactionBox;
   static late Box<Map<String, dynamic>> _locationBox;
+  // WHY: 待确认交易、商户学习表、自动记账偏好
+  static late Box<PendingTransaction> _pendingTransactionBox;
+  static late Box<String> _merchantCategoryMapBox;
+  static late Box<dynamic> _autoAccountingPrefsBox;
 
   static Future<void> init() async {
     if (!Hive.isAdapterRegistered(0)) {
@@ -57,6 +66,16 @@ class DatabaseService {
     if (!Hive.isAdapterRegistered(7)) {
       Hive.registerAdapter(RecurringTransactionAdapter());
     }
+    // WHY: 注册支付通知自动记账相关 adapter，typeId 8/9/10
+    if (!Hive.isAdapterRegistered(8)) {
+      Hive.registerAdapter(PendingTransactionAdapter());
+    }
+    if (!Hive.isAdapterRegistered(9)) {
+      Hive.registerAdapter(PaymentSourceAdapter());
+    }
+    if (!Hive.isAdapterRegistered(10)) {
+      Hive.registerAdapter(PendingStatusAdapter());
+    }
 
     _transactionBox = await Hive.openBox<Transaction>(_transactionBoxName);
     _budgetBox = await Hive.openBox<Budget>(_budgetBoxName);
@@ -68,6 +87,13 @@ class DatabaseService {
     _recurringTransactionBox =
         await Hive.openBox<RecurringTransaction>(_recurringTransactionBoxName);
     _locationBox = await Hive.openBox<Map<String, dynamic>>(_locationBoxName);
+    // WHY: 打开支付通知自动记账相关 box
+    _pendingTransactionBox =
+        await Hive.openBox<PendingTransaction>(_pendingTransactionBoxName);
+    _merchantCategoryMapBox =
+        await Hive.openBox<String>(_merchantCategoryMapBoxName);
+    _autoAccountingPrefsBox =
+        await Hive.openBox<dynamic>(_autoAccountingPrefsBoxName);
 
     // 初始化分类服务
     await CategoryService.init();
@@ -92,6 +118,11 @@ class DatabaseService {
   static Box<RecurringTransaction> get recurringTransactions =>
       _recurringTransactionBox;
   static Box<Map<String, dynamic>> get locations => _locationBox;
+  // WHY: 支付通知自动记账相关 box getter
+  static Box<PendingTransaction> get pendingTransactions =>
+      _pendingTransactionBox;
+  static Box<String> get merchantCategoryMap => _merchantCategoryMapBox;
+  static Box<dynamic> get autoAccountingPrefs => _autoAccountingPrefsBox;
 
   static Future<void> addTransaction(Transaction transaction) async {
     await _transactionBox.put(transaction.id, transaction);

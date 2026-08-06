@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import '../services/csv_importer.dart';
@@ -26,6 +27,9 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
   String? _formatName;
   int _successCount = 0;
   int _failCount = 0;
+  // WHY: 保存第一条失败记录的详细原因，用于 UI 显示，便于用户排查格式问题
+  String? _firstFailReason;
+  String? _firstFailMapping;
 
   /// 选择CSV文件
   Future<void> _pickFile() async {
@@ -56,8 +60,9 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
         return;
       }
 
-      final csvContent = String.fromCharCodes(file.bytes!);
-      _processCsv(csvContent, file.name);
+      // WHY: Flutter Web 端 FilePicker 返回的 bytes 可能被 JS 层按 Latin-1 解码，
+      // 导致 utf8.decode 二次解码失败。直接传 bytes 给 parseCsv，由其内部处理编码。
+      _processCsv(file.bytes!, file.name);
     } catch (e) {
       setState(() => _errorMessage = '选择文件失败: $e');
     } finally {
@@ -66,30 +71,62 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
   }
 
   /// 处理CSV内容
-  void _processCsv(String csvContent, String fileName) {
+  void _processCsv(Uint8List bytes, String fileName) {
     try {
-      final rows = CsvImporter.parseCsv(csvContent);
+      debugPrint('[CsvImport] === 开始处理 CSV ===');
+      debugPrint('[CsvImport] 文件名: $fileName');
+      debugPrint('[CsvImport] bytes 长度: ${bytes.length}');
+
+      final rows = CsvImporter.parseCsvFromBytes(bytes);
+      debugPrint('[CsvImport] parseCsv 行数: ${rows.length}');
       if (rows.isEmpty) {
+        debugPrint('[CsvImport] ❌ parseCsv 返回空');
         setState(() => _errorMessage = '未解析到数据，请检查CSV格式');
         return;
       }
 
+      debugPrint('[CsvImport] 表头: ${rows[0].keys.toList()}');
+      debugPrint('[CsvImport] 第1行数据: ${rows[0]}');
+
       final format = CsvImporter.detectCsvFormat(rows);
       final formatName = CsvImporter.getFormatName(format);
-      final mapped =
-          rows.map((row) => CsvImporter.mapFields(format, row)).toList();
+      debugPrint('[CsvImport] 检测格式: $formatName');
+
+      // WHY: 用 for 循环而非 .map()，以便传入 debugRowIdx 输出前3行详细匹配日志
+      final mapped = <Map<String, String>>[];
+      for (int i = 0; i < rows.length; i++) {
+        mapped.add(CsvImporter.mapFields(format, rows[i], i));
+      }
+      debugPrint('[CsvImport] mapFields 完成, 行数: ${mapped.length}');
 
       // 转换为交易对象
       final transactions = <Transaction>[];
       int failCount = 0;
-      for (final mapping in mapped) {
+      String? firstFailReason;
+      String? firstFailMapping;
+      for (int i = 0; i < mapped.length; i++) {
+        final mapping = mapped[i];
         final transaction = CsvImporter.mappingToTransaction(mapping);
         if (transaction != null) {
           transactions.add(transaction);
         } else {
           failCount++;
+          if (firstFailReason == null) {
+            firstFailMapping = mapping.toString();
+            final date = CsvImporter.parseDate(mapping['date'] ?? '');
+            final amount = CsvImporter.parseAmount(mapping['amount'] ?? '');
+            if (date == null) {
+              firstFailReason = '日期解析失败: "${mapping['date']}"';
+            } else if (amount <= 0) {
+              firstFailReason = '金额解析失败: "${mapping['amount']}" → $amount';
+            } else {
+              firstFailReason = '未知原因';
+            }
+          }
         }
       }
+      debugPrint(
+          '[CsvImport] 转换完成: 成功 ${transactions.length} 条, 失败 $failCount 条');
 
       setState(() {
         _csvData = rows;
@@ -99,8 +136,12 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
         _formatName = formatName;
         _successCount = transactions.length;
         _failCount = failCount;
+        _firstFailReason = firstFailReason;
+        _firstFailMapping = firstFailMapping;
       });
-    } catch (e) {
+    } catch (e, stack) {
+      debugPrint('[CsvImport] ❌ 解析异常: $e');
+      debugPrint('[CsvImport] 堆栈: $stack');
       setState(() => _errorMessage = '解析失败: $e');
     }
   }
@@ -401,6 +442,66 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
             ),
           ],
         ),
+        const SizedBox(height: AppTheme.spaceMedium),
+
+        // WHY: 失败时显示第一条失败记录的详细原因，便于用户排查
+        if (_failCount > 0 && _firstFailReason != null) ...[
+          Container(
+            padding: const EdgeInsets.all(AppTheme.spaceMedium),
+            decoration: BoxDecoration(
+              color: AppTheme.errorColor.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+              border: Border.all(
+                color: AppTheme.errorColor.withValues(alpha: 0.3),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.error_outline_rounded,
+                        color: AppTheme.errorColor, size: 18),
+                    const SizedBox(width: AppTheme.spaceSmall),
+                    Text(
+                      '失败原因（第1条）',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: AppTheme.errorColor,
+                            fontWeight: FontWeight.w600,
+                          ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppTheme.spaceSmall),
+                Text(
+                  _firstFailReason!,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppTheme.errorColor,
+                      ),
+                ),
+                if (_firstFailMapping != null) ...[
+                  const SizedBox(height: AppTheme.spaceSmall),
+                  Container(
+                    padding: const EdgeInsets.all(AppTheme.spaceSmall),
+                    decoration: BoxDecoration(
+                      color: AppTheme.getCardColor(context),
+                      borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                    ),
+                    child: SelectableText(
+                      _firstFailMapping!,
+                      style: TextStyle(
+                        fontFamily: 'Monospace',
+                        fontSize: 11,
+                        color: AppTheme.neutral700,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: AppTheme.spaceMedium),
+        ],
         const SizedBox(height: AppTheme.spaceSmall),
 
         // 数据表格预览
