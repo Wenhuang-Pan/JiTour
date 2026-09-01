@@ -29,6 +29,9 @@ class Numpad extends StatefulWidget {
   final VoidCallback? onLocationTap;
   final String? locationText;
 
+  /// 保存按钮的自定义文案，未指定时默认为"保存"
+  final String? saveButtonText;
+
   const Numpad({
     super.key,
     required this.onNumberPressed,
@@ -49,6 +52,7 @@ class Numpad extends StatefulWidget {
     this.timeText,
     this.onLocationTap,
     this.locationText,
+    this.saveButtonText,
   });
 
   @override
@@ -345,9 +349,9 @@ class _NumpadState extends State<Numpad> {
           widget.canSave ? AppTheme.primaryColor : AppTheme.neutral300,
       boxShadow:
           widget.canSave ? AppTheme.glowShadow(AppTheme.primaryColor) : null,
-      child: const Text(
-        '保存',
-        style: TextStyle(
+      child: Text(
+        widget.saveButtonText ?? '保存',
+        style: const TextStyle(
           fontSize: AppTheme.textTitleSmall,
           fontWeight: FontWeight.w700,
           color: Colors.white,
@@ -358,6 +362,11 @@ class _NumpadState extends State<Numpad> {
   }
 
   Widget _buildSaveAndAddButton() {
+    // WHY: 编辑模式下不传 onSaveAndAddPressed，此处直接占位空容器，
+    // 让"保存"按钮占满整行，避免视觉错位
+    if (widget.onSaveAndAddPressed == null) {
+      return const SizedBox.shrink();
+    }
     return _NumpadKey(
       onTap: () {
         HapticFeedback.selectionClick();

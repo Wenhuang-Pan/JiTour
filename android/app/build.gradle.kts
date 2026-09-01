@@ -41,6 +41,14 @@ android {
     buildTypes {
         release {
             signingConfig = signingConfigs.getByName("release")
+            // WHY: 关闭 R8 代码压缩，避免 mlkit 等插件缺失类导致构建失败
+            // WHY: 保留 proguard-rules.pro 引用，未来需要混淆时可重新开启
+            isMinifyEnabled = false
+            isShrinkResources = false
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
             applicationVariants.all {
                 outputs.all {
                     this as com.android.build.gradle.internal.api.BaseVariantOutputImpl

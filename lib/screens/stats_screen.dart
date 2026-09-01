@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:intl/intl.dart';
 import '../theme/app_theme.dart';
 import '../models/transaction.dart';
 import '../services/database_service.dart';
@@ -210,8 +211,8 @@ class _StatsScreenState extends State<StatsScreen> {
                     AppTheme.errorColor,
                   ),
                   const SizedBox(height: AppTheme.spaceLarge),
-                  _buildCategoryList(
-                      context, expenseStats, AppTheme.errorColor),
+                  _buildCategoryList(context, expenseStats, AppTheme.errorColor,
+                      periodTransactions, false),
                   const SizedBox(height: AppTheme.spaceXLarge),
                 ],
 
@@ -227,8 +228,8 @@ class _StatsScreenState extends State<StatsScreen> {
                     AppTheme.successColor,
                   ),
                   const SizedBox(height: AppTheme.spaceLarge),
-                  _buildCategoryList(
-                      context, incomeStats, AppTheme.successColor),
+                  _buildCategoryList(context, incomeStats,
+                      AppTheme.successColor, periodTransactions, true),
                   const SizedBox(height: AppTheme.spaceXLarge),
                 ],
 
@@ -887,8 +888,12 @@ class _StatsScreenState extends State<StatsScreen> {
     );
   }
 
-  Widget _buildCategoryList(BuildContext context,
-      Map<String, double> categoryStats, Color primaryColor) {
+  Widget _buildCategoryList(
+      BuildContext context,
+      Map<String, double> categoryStats,
+      Color primaryColor,
+      List<Transaction> periodTransactions,
+      bool isIncome) {
     final sortedEntries = categoryStats.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
     final total = categoryStats.values.fold(0.0, (sum, val) => sum + val);
@@ -906,85 +911,246 @@ class _StatsScreenState extends State<StatsScreen> {
           final percentage = (data.value / total) * 100;
           final isLast = index == sortedEntries.length - 1;
 
-          return Container(
-            padding: const EdgeInsets.all(AppTheme.spaceMedium),
-            decoration: BoxDecoration(
-              border: isLast
-                  ? null
-                  : Border(
-                      bottom: BorderSide(
-                        color: AppTheme.getDividerColor(context),
-                        width: 1,
+          return InkWell(
+            onTap: () => _showCategoryDetail(
+                context, data.key, periodTransactions, isIncome),
+            child: Container(
+              padding: const EdgeInsets.all(AppTheme.spaceMedium),
+              decoration: BoxDecoration(
+                border: isLast
+                    ? null
+                    : Border(
+                        bottom: BorderSide(
+                          color: AppTheme.getDividerColor(context),
+                          width: 1,
+                        ),
+                      ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: colors[index].withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                    ),
+                    child: Center(
+                      child: Icon(
+                        IconLibrary.getIconByName(data.key),
+                        size: 18,
+                        color: colors[index],
                       ),
                     ),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: colors[index].withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                   ),
-                  child: Center(
-                    child: Icon(
-                      IconLibrary.getIconByName(data.key),
-                      size: 18,
-                      color: colors[index],
+                  const SizedBox(width: AppTheme.spaceMedium),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          data.key,
+                          style:
+                              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                        ),
+                        const SizedBox(height: 4),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(2),
+                          child: LinearProgressIndicator(
+                            value: percentage / 100,
+                            backgroundColor:
+                                AppTheme.getSecondaryBackground(context),
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(colors[index]),
+                            minHeight: 4,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ),
-                const SizedBox(width: AppTheme.spaceMedium),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  const SizedBox(width: AppTheme.spaceMedium),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        data.key,
+                        '¥${data.value.toStringAsFixed(2)}',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                               fontWeight: FontWeight.w600,
+                              color: primaryColor,
                             ),
                       ),
-                      const SizedBox(height: 4),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(2),
-                        child: LinearProgressIndicator(
-                          value: percentage / 100,
-                          backgroundColor:
-                              AppTheme.getSecondaryBackground(context),
-                          valueColor:
-                              AlwaysStoppedAnimation<Color>(colors[index]),
-                          minHeight: 4,
-                        ),
+                      Text(
+                        '${percentage.toStringAsFixed(1)}%',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: AppTheme.neutral500,
+                            ),
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(width: AppTheme.spaceMedium),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      '¥${data.value.toStringAsFixed(2)}',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color: primaryColor,
-                          ),
-                    ),
-                    Text(
-                      '${percentage.toStringAsFixed(1)}%',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppTheme.neutral500,
-                          ),
-                    ),
-                  ],
-                ),
-              ],
+                  const SizedBox(width: AppTheme.spaceXSmall),
+                  // WHY: 提示可点击查看明细
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    size: 18,
+                    color: AppTheme.neutral400,
+                  ),
+                ],
+              ),
             ),
           );
         }).toList(),
       ),
+    );
+  }
+
+  /// 显示分类下当期所有交易明细
+  ///
+  /// @param context BuildContext
+  /// @param categoryName 分类名称
+  /// @param periodTransactions 当期所有交易
+  /// @param isIncome 是否为收入分类
+  void _showCategoryDetail(BuildContext context, String categoryName,
+      List<Transaction> periodTransactions, bool isIncome) {
+    // WHY: 筛选该分类下当期的所有交易，并按日期倒序排列便于查看
+    final categoryTransactions = periodTransactions
+        .where((t) => t.category == categoryName && t.isIncome == isIncome)
+        .toList()
+      ..sort((a, b) => b.date.compareTo(a.date));
+
+    final totalAmount =
+        categoryTransactions.fold(0.0, (sum, t) => sum + t.amount);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppTheme.getCardColor(context),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppTheme.radiusXLarge),
+        ),
+      ),
+      builder: (context) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.7,
+          minChildSize: 0.4,
+          maxChildSize: 0.9,
+          expand: false,
+          builder: (context, scrollController) {
+            return Padding(
+              padding: const EdgeInsets.only(
+                left: AppTheme.spaceLarge,
+                right: AppTheme.spaceLarge,
+                bottom: AppTheme.spaceXLarge,
+              ),
+              child: Column(
+                children: [
+                  Container(
+                    margin: const EdgeInsets.symmetric(
+                        vertical: AppTheme.spaceMedium),
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppTheme.neutral300,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  Text(
+                    categoryName,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                  const SizedBox(height: AppTheme.spaceXSmall),
+                  Text(
+                    '${categoryTransactions.length} 笔 · 合计 ¥${totalAmount.toStringAsFixed(2)}',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppTheme.neutral500,
+                        ),
+                  ),
+                  const SizedBox(height: AppTheme.spaceMedium),
+                  Expanded(
+                    child: categoryTransactions.isEmpty
+                        ? Center(
+                            child: Text(
+                              '暂无明细',
+                              style: TextStyle(
+                                color: AppTheme.neutral400,
+                              ),
+                            ),
+                          )
+                        : ListView.separated(
+                            controller: scrollController,
+                            itemCount: categoryTransactions.length,
+                            separatorBuilder: (_, __) => Divider(
+                              height: 1,
+                              color: AppTheme.getDividerColor(context),
+                            ),
+                            itemBuilder: (context, index) {
+                              final t = categoryTransactions[index];
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: AppTheme.spaceSmall,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            t.note?.isNotEmpty == true
+                                                ? t.note!
+                                                : t.account,
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .bodyMedium
+                                                ?.copyWith(
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            DateFormat('yyyy-MM-dd HH:mm')
+                                                .format(t.date),
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .bodySmall
+                                                ?.copyWith(
+                                                  color: AppTheme.neutral400,
+                                                ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Text(
+                                      '${t.isIncome ? '+' : '-'}¥${t.amount.toStringAsFixed(2)}',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodyMedium
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w700,
+                                            color: t.isIncome
+                                                ? AppTheme.successColor
+                                                : AppTheme.neutral900,
+                                          ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 

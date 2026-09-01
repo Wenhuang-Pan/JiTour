@@ -24,7 +24,10 @@ class QuickDateOption {
 }
 
 class AddTransactionScreen extends StatefulWidget {
-  const AddTransactionScreen({super.key});
+  /// 编辑模式时传入的待编辑交易，新增模式为 null
+  final Transaction? editingTransaction;
+
+  const AddTransactionScreen({super.key, this.editingTransaction});
 
   @override
   State<AddTransactionScreen> createState() => _AddTransactionScreenState();
@@ -48,18 +51,82 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   double? _selectedLatitude;
   double? _selectedLongitude;
 
+  /// 编辑模式下的原交易 ID，新增模式为 null
+  String? _editingId;
+
+  /// 是否处于编辑模式
+  bool get _isEditing => _editingId != null;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final accounts = AccountService.getActiveAccounts();
-      if (accounts.isNotEmpty) {
-        setState(() {
-          _selectedAccount = accounts.first;
-        });
+      if (widget.editingTransaction != null) {
+        _populateFromTransaction(widget.editingTransaction!);
+      } else {
+        final accounts = AccountService.getActiveAccounts();
+        if (accounts.isNotEmpty) {
+          setState(() {
+            _selectedAccount = accounts.first;
+          });
+        }
+        _updateDefaultCategory();
       }
-      _updateDefaultCategory();
     });
+  }
+
+  /// 从已有交易填充表单字段（编辑模式）
+  ///
+  /// @param transaction 待编辑的交易
+  void _populateFromTransaction(Transaction transaction) {
+    _editingId = transaction.id;
+    _currentTab = transaction.isIncome ? 1 : 0;
+    _amountText = transaction.amount.toStringAsFixed(2);
+    _selectedDate = transaction.date;
+    _isReimbursed = transaction.isReimbursed;
+    _couponAmount = transaction.coupon;
+    _feeAmount = transaction.fee;
+    _selectedLocationName = transaction.locationName;
+    _selectedLatitude = transaction.latitude;
+    _selectedLongitude = transaction.longitude;
+    _noteController.text = transaction.note ?? '';
+
+    // WHY: 编辑模式下，回填用户输入的"原价"金额
+    // 由于 amount 字段已扣除优惠，需反向加回 coupon 并减去 fee，得到原输入金额
+    if (!transaction.isIncome &&
+        (transaction.coupon > 0 || transaction.fee > 0)) {
+      final originalAmount =
+          transaction.amount + transaction.coupon - transaction.fee;
+      _amountText = originalAmount.toStringAsFixed(2);
+    }
+
+    // 匹配账户
+    final accounts = AccountService.getActiveAccounts();
+    final matchedAccount =
+        accounts.where((a) => a.name == transaction.account).firstOrNull;
+    if (matchedAccount != null) {
+      _selectedAccount = matchedAccount;
+    } else if (accounts.isNotEmpty) {
+      _selectedAccount = accounts.first;
+    }
+
+    // 匹配分类
+    final categories = _currentTab == 0
+        ? CategoryService.getExpenseCategories()
+        : CategoryService.getIncomeCategories();
+    _selectedCategory =
+        categories.where((c) => c.name == transaction.category).firstOrNull;
+
+    // 匹配标签
+    _selectedTags.clear();
+    for (final tagId in transaction.tagIds) {
+      final tag = TagService.getTagById(tagId);
+      if (tag != null) {
+        _selectedTags.add(tag);
+      }
+    }
+
+    setState(() {});
   }
 
   void _updateDefaultCategory() {
@@ -96,7 +163,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
             onNumberPressed: _onNumberPressed,
             onDeletePressed: _onDeletePressed,
             onSavePressed: _saveTransaction,
-            onSaveAndAddPressed: _saveAndAddTransaction,
+            onSaveAndAddPressed: _isEditing ? null : _saveAndAddTransaction,
+            saveButtonText: _isEditing ? '保存修改' : null,
             canSave: _canSave,
             noteController: _noteController,
             selectedAccountName: _selectedAccount?.name,
@@ -127,29 +195,37 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         icon: const Icon(Icons.close_rounded),
         onPressed: () => Navigator.pop(context),
       ),
-      title: const SizedBox.shrink(),
-      actions: [
-        IconButton(
-          icon: const Icon(
-            Icons.edit_note_rounded,
-            color: AppTheme.neutral500,
-          ),
-          onPressed: _startVoiceRecognition,
-          tooltip: '文本记账',
+      title: Text(
+        _isEditing ? '编辑账单' : '',
+        style: TextStyle(
+          fontSize: AppTheme.textBodyLarge,
+          fontWeight: FontWeight.w600,
         ),
-        IconButton(
-          icon: const Icon(Icons.camera_alt_rounded),
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const PhotoCaptureScreen(),
+      ),
+      actions: _isEditing
+          ? const []
+          : [
+              IconButton(
+                icon: const Icon(
+                  Icons.edit_note_rounded,
+                  color: AppTheme.neutral500,
+                ),
+                onPressed: _startVoiceRecognition,
+                tooltip: '文本记账',
               ),
-            );
-          },
-          tooltip: '拍照记账',
-        ),
-      ],
+              IconButton(
+                icon: const Icon(Icons.camera_alt_rounded),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const PhotoCaptureScreen(),
+                    ),
+                  );
+                },
+                tooltip: '拍照记账',
+              ),
+            ],
       elevation: 0,
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       surfaceTintColor: Colors.transparent,
@@ -1858,12 +1934,19 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
 
   Future<void> _doSaveTransaction(bool keepOpen) async {
     // WHY: 保存时使用 _finalAmount 解析表达式，确保 "50+30" 存为 80
-    final amount = _finalAmount;
+    final rawAmount = _finalAmount;
     final isIncome = _currentTab == 1;
 
+    // WHY: 用户输入的金额为"原价"，实际入账金额需扣除优惠并加上手续费
+    // 例如原价 100、优惠 10、手续费 0，则 amount 字段存 90，
+    // coupon/fee 字段保留作为元信息，主界面显示 ¥90 + "优惠 ¥10" 注释
+    final effectiveAmount = isIncome
+        ? rawAmount
+        : (rawAmount - _couponAmount + _feeAmount).clamp(0.0, double.infinity);
+
     final transaction = Transaction(
-      id: UuidUtil.generate(),
-      amount: amount,
+      id: _editingId ?? UuidUtil.generate(),
+      amount: effectiveAmount,
       isIncome: isIncome,
       category: _selectedCategory!.name,
       account: _selectedAccount?.name ?? '默认账户',
@@ -1878,15 +1961,33 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       longitude: _selectedLongitude,
     );
 
-    DatabaseService.addTransaction(transaction);
+    if (_editingId != null) {
+      // 编辑模式：先回滚原账户余额，再应用新金额
+      final oldTransaction = DatabaseService.getTransactionById(_editingId!);
+      if (oldTransaction != null) {
+        final oldAccount =
+            AccountService.getAccountByName(oldTransaction.account);
+        if (oldAccount != null) {
+          if (oldTransaction.isIncome) {
+            oldAccount.currentBalance -= oldTransaction.amount;
+          } else {
+            oldAccount.currentBalance += oldTransaction.amount;
+          }
+          await AccountService.updateAccount(oldAccount);
+        }
+      }
+      await DatabaseService.updateTransaction(transaction);
+    } else {
+      await DatabaseService.addTransaction(transaction);
+    }
 
     if (_selectedAccount != null) {
       final account = AccountService.getAccountById(_selectedAccount!.id);
       if (account != null) {
         if (isIncome) {
-          account.currentBalance += amount;
+          account.currentBalance += effectiveAmount;
         } else {
-          account.currentBalance -= amount;
+          account.currentBalance -= effectiveAmount;
         }
         await AccountService.updateAccount(account);
       }

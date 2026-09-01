@@ -1113,7 +1113,8 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
                       ),
                       const SizedBox(height: AppTheme.spaceXSmall),
                       Text(
-                        '¥${budgetBalance.abs().toStringAsFixed(2)}',
+                        // WHY: 超支时显示负号，让用户直观感知负结余
+                        '${budgetBalance < 0 ? '-' : ''}¥${budgetBalance.abs().toStringAsFixed(2)}',
                         style: TextStyle(
                           fontSize: AppTheme.textHeadlineSmall,
                           fontWeight: FontWeight.w700,
@@ -1665,12 +1666,24 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
 
   Widget _buildTransactionCard(BuildContext context, Transaction transaction) {
     final categoryColor = _getCategoryColor(transaction.category);
+    // WHY: 当存在优惠时，金额下方追加"优惠 ¥X.XX"小字，使用成功色标注
+    final hasCoupon = !transaction.isIncome && transaction.coupon > 0;
     return Container(
       margin: const EdgeInsets.only(bottom: 2),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () {},
+          onTap: () {
+            // WHY: 单击进入编辑页面，便于修改分类、金额、优惠等
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => AddTransactionScreen(
+                  editingTransaction: transaction,
+                ),
+              ),
+            );
+          },
           onLongPress: () => _showDeleteDialog(context, transaction),
           borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
           child: Padding(
@@ -1761,6 +1774,17 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
                             letterSpacing: -0.3,
                           ),
                     ),
+                    if (hasCoupon) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        '优惠 ¥${transaction.coupon.toStringAsFixed(2)}',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: AppTheme.successColor.withValues(alpha: 0.85),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 2),
                     Text(
                       DateFormat('HH:mm').format(transaction.date),

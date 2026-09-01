@@ -128,6 +128,22 @@ class DatabaseService {
     await _transactionBox.put(transaction.id, transaction);
   }
 
+  /// 更新交易（编辑模式使用）
+  ///
+  /// @param transaction 已修改的交易对象，id 必须已存在
+  /// @return Future 完成持久化
+  static Future<void> updateTransaction(Transaction transaction) async {
+    await _transactionBox.put(transaction.id, transaction);
+  }
+
+  /// 按 ID 获取交易
+  ///
+  /// @param id 交易 ID
+  /// @return 找到返回 Transaction，否则 null
+  static Transaction? getTransactionById(String id) {
+    return _transactionBox.get(id);
+  }
+
   static Future<void> deleteTransaction(String id) async {
     await _transactionBox.delete(id);
   }

@@ -49,6 +49,15 @@ class _BudgetScreenState extends State<BudgetScreen> {
                   b.month == _selectedMonth.month)
               .toList();
 
+          // WHY: 月度预算默认继承上月。仅当当前月无任何预算记录时，
+          // 从最近的上月复制一份并持久化，避免每次访问都覆盖用户修改。
+          // 通过 post-frame 回调避免在 build 过程中触发 Hive 写入。
+          if (budgets.isEmpty) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _carryOverBudgetsFromLastMonth();
+            });
+          }
+
           final transactions = DatabaseService.transactions.values
               .where((t) =>
                   !t.isIncome &&
@@ -1311,6 +1320,49 @@ class _BudgetScreenState extends State<BudgetScreen> {
         ],
       ),
     );
+  }
+
+  /// 从最近的上月继承预算到当前选中月份
+  ///
+  /// WHY: 用户希望月度预算默认和上月一致，除非手动修改。
+  /// 仅在当前月无任何预算记录时触发，避免覆盖用户已设的预算。
+  /// 从选中月往前递推查找最近的非空月份作为数据源。
+  ///
+  /// @return Future 完成继承持久化
+  Future<void> _carryOverBudgetsFromLastMonth() async {
+    final targetYear = _selectedMonth.year;
+    final targetMonth = _selectedMonth.month;
+
+    // 再次检查目标月是否真无预算（避免 post-frame 重复触发）
+    final existing =
+        DatabaseService.getBudgetsForMonth(targetYear, targetMonth);
+    if (existing.isNotEmpty) return;
+
+    // WHY: 向前查找最近的有预算的月份，最多回溯 12 个月
+    List<Budget> sourceBudgets = <Budget>[];
+    DateTime probe = DateTime(targetYear, targetMonth, 1);
+    for (int i = 1; i <= 12; i++) {
+      probe = DateTime(probe.year, probe.month - 1, 1);
+      final found = DatabaseService.getBudgetsForMonth(probe.year, probe.month);
+      if (found.isNotEmpty) {
+        sourceBudgets = found;
+        break;
+      }
+    }
+
+    if (sourceBudgets.isEmpty) return;
+
+    // WHY: 复制上月预算并设置为目标月份，使用新 ID 避免覆盖原记录
+    for (final b in sourceBudgets) {
+      final carried = Budget(
+        id: UuidUtil.generate(),
+        category: b.category,
+        amount: b.amount,
+        year: targetYear,
+        month: targetMonth,
+      );
+      await DatabaseService.addBudget(carried);
+    }
   }
 
   void _selectMonth() async {

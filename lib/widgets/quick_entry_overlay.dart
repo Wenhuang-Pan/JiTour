@@ -59,7 +59,8 @@ class _QuickEntryOverlayState extends State<QuickEntryOverlay> {
 
   /// 初始化时检查一次待确认列表
   void _initPendingCheck() {
-    final provider = Provider.of<AutoAccountingProvider>(context, listen: false);
+    final provider =
+        Provider.of<AutoAccountingProvider>(context, listen: false);
     if (provider.pendingList.isNotEmpty) {
       final first = provider.pendingList.first;
       if (!_shownIds.contains(first.id)) {
@@ -146,6 +147,9 @@ class _QuickEntrySheetState extends State<_QuickEntrySheet> {
   /// 备注输入控制器
   late TextEditingController _noteController;
 
+  /// 金额输入控制器（用户可手动修改）
+  late TextEditingController _amountController;
+
   /// 可选支出分类列表
   List<Category> _expenseCategories = <Category>[];
 
@@ -160,7 +164,8 @@ class _QuickEntrySheetState extends State<_QuickEntrySheet> {
 
     // WHY: 默认优先选中推断的分类（若存在且在列表中），
     // 否则选中第一个分类，减少用户操作成本。
-    final categoryNames = _expenseCategories.map((Category c) => c.name).toSet();
+    final categoryNames =
+        _expenseCategories.map((Category c) => c.name).toSet();
     if (widget.pending.inferredCategory != null &&
         categoryNames.contains(widget.pending.inferredCategory)) {
       _selectedCategory = widget.pending.inferredCategory!;
@@ -170,15 +175,29 @@ class _QuickEntrySheetState extends State<_QuickEntrySheet> {
     }
 
     // WHY: 账户默认选中第一个，后续可根据支付来源智能匹配（如支付宝→支付宝账户）。
-    _selectedAccount = _activeAccounts.isNotEmpty ? _activeAccounts.first.name : '';
+    _selectedAccount =
+        _activeAccounts.isNotEmpty ? _activeAccounts.first.name : '';
 
-    _noteController = TextEditingController(text: widget.pending.merchant ?? '');
+    _noteController =
+        TextEditingController(text: widget.pending.merchant ?? '');
+    _amountController = TextEditingController(
+      text: widget.pending.amount.toStringAsFixed(2),
+    );
   }
 
   @override
   void dispose() {
     _noteController.dispose();
+    _amountController.dispose();
     super.dispose();
+  }
+
+  /// 获取用户输入的最终金额
+  ///
+  /// @return 解析后的金额；解析失败回退到 pending 原金额
+  double get _effectiveAmount {
+    final parsed = double.tryParse(_amountController.text.trim());
+    return parsed != null && parsed > 0 ? parsed : widget.pending.amount;
   }
 
   /// 格式化金额为千分位、两位小数
@@ -324,7 +343,8 @@ class _QuickEntrySheetState extends State<_QuickEntrySheet> {
         padding: const EdgeInsets.only(top: AppTheme.spaceSmall),
         child: Row(
           children: [
-            Icon(Icons.info_outline_rounded, size: 14, color: AppTheme.warningColor),
+            Icon(Icons.info_outline_rounded,
+                size: 14, color: AppTheme.warningColor),
             const SizedBox(width: AppTheme.spaceXSmall),
             Expanded(
               child: Text(
@@ -343,7 +363,8 @@ class _QuickEntrySheetState extends State<_QuickEntrySheet> {
         padding: const EdgeInsets.only(top: AppTheme.spaceSmall),
         child: Row(
           children: [
-            Icon(Icons.auto_awesome_rounded, size: 14, color: AppTheme.successColor),
+            Icon(Icons.auto_awesome_rounded,
+                size: 14, color: AppTheme.successColor),
             const SizedBox(width: AppTheme.spaceXSmall),
             Expanded(
               child: Text(
@@ -433,12 +454,14 @@ class _QuickEntrySheetState extends State<_QuickEntrySheet> {
 
           HapticFeedback.mediumImpact();
           final noteText = _noteController.text.trim();
-          final result = await Provider.of<AutoAccountingProvider>(context, listen: false)
-              .confirmTransaction(
+          final result =
+              await Provider.of<AutoAccountingProvider>(context, listen: false)
+                  .confirmTransaction(
             widget.pending.id,
             category: _selectedCategory,
             account: _selectedAccount,
             note: noteText.isEmpty ? null : noteText,
+            amount: _effectiveAmount,
           );
 
           if (mounted) {
@@ -477,7 +500,7 @@ class _QuickEntrySheetState extends State<_QuickEntrySheet> {
             const Icon(Icons.check_rounded, size: 20),
             const SizedBox(width: AppTheme.spaceXSmall),
             Text(
-              '确认记账 ¥${formatAmount(widget.pending.amount)}',
+              '确认记账 ¥${formatAmount(_effectiveAmount)}',
               style: const TextStyle(
                 fontSize: AppTheme.textBodyLarge,
                 fontWeight: FontWeight.w700,
@@ -539,7 +562,8 @@ class _QuickEntrySheetState extends State<_QuickEntrySheet> {
                       ),
                       decoration: BoxDecoration(
                         color: _getSourceColor(widget.pending.source),
-                        borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                        borderRadius:
+                            BorderRadius.circular(AppTheme.radiusSmall),
                       ),
                       child: Text(
                         widget.pending.sourceDisplayName,
@@ -580,11 +604,22 @@ class _QuickEntrySheetState extends State<_QuickEntrySheet> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          '支付金额',
-                          style: textTheme.bodyMedium?.copyWith(
-                            color: AppTheme.neutral500,
-                          ),
+                        Row(
+                          children: [
+                            Text(
+                              '支付金额',
+                              style: textTheme.bodyMedium?.copyWith(
+                                color: AppTheme.neutral500,
+                              ),
+                            ),
+                            const SizedBox(width: AppTheme.spaceSmall),
+                            // WHY: 提示用户金额可点击修改
+                            Icon(
+                              Icons.edit_rounded,
+                              size: 12,
+                              color: AppTheme.neutral400,
+                            ),
+                          ],
                         ),
                         const SizedBox(height: AppTheme.spaceSmall),
                         Row(
@@ -599,11 +634,27 @@ class _QuickEntrySheetState extends State<_QuickEntrySheet> {
                               ),
                             ),
                             const SizedBox(width: 2),
-                            Text(
-                              formatAmount(widget.pending.amount),
-                              style: textTheme.displaySmall?.copyWith(
-                                fontWeight: FontWeight.w700,
-                                color: primaryColor,
+                            Expanded(
+                              // WHY: 金额改为可编辑 TextField，
+                              // 让用户在分类预测错误或金额识别错误时手动修改
+                              child: TextField(
+                                controller: _amountController,
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                        decimal: true),
+                                style: textTheme.headlineMedium?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  color: primaryColor,
+                                ),
+                                decoration: const InputDecoration(
+                                  border: InputBorder.none,
+                                  isDense: true,
+                                  contentPadding: EdgeInsets.zero,
+                                ),
+                                onChanged: (_) {
+                                  // WHY: 触发重建以更新确认按钮上的金额显示
+                                  setState(() {});
+                                },
                               ),
                             ),
                           ],
@@ -677,17 +728,21 @@ class _QuickEntrySheetState extends State<_QuickEntrySheet> {
                     hintText: '添加备注（可选）',
                     counterText: '',
                     filled: true,
-                    fillColor: isDark ? AppTheme.neutral700 : AppTheme.neutral100,
+                    fillColor:
+                        isDark ? AppTheme.neutral700 : AppTheme.neutral100,
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                      borderRadius:
+                          BorderRadius.circular(AppTheme.radiusMedium),
                       borderSide: BorderSide.none,
                     ),
                     enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                      borderRadius:
+                          BorderRadius.circular(AppTheme.radiusMedium),
                       borderSide: BorderSide.none,
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                      borderRadius:
+                          BorderRadius.circular(AppTheme.radiusMedium),
                       borderSide: BorderSide(color: primaryColor, width: 2),
                     ),
                     contentPadding: const EdgeInsets.symmetric(
