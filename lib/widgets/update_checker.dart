@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:url_launcher/url_launcher.dart';
 import '../services/update_service.dart';
 import '../theme/app_theme.dart';
 
@@ -135,25 +137,31 @@ class UpdateCheckerWidget extends StatefulWidget {
           ],
         ),
         const SizedBox(height: AppTheme.spaceMedium),
+        // WHY: 更新方式按平台区分——Web 端刷新即可；Android 端需下载 APK 覆盖安装，
+        // 旧版本硬编码为 Web 提示导致手机 App 用户无法更新
         Container(
           padding: const EdgeInsets.all(AppTheme.spaceSmall),
           decoration: BoxDecoration(
-            color: AppTheme.successColor.withValues(alpha: 0.12),
+            color: (kIsWeb ? AppTheme.successColor : AppTheme.primaryColor)
+                .withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
           ),
-          child: const Row(
+          child: Row(
             children: [
               Icon(
-                Icons.check_circle_rounded,
-                color: AppTheme.successColor,
+                kIsWeb ? Icons.check_circle_rounded : Icons.download_rounded,
+                color: kIsWeb ? AppTheme.successColor : AppTheme.primaryColor,
                 size: 16,
               ),
-              SizedBox(width: AppTheme.spaceXSmall),
+              const SizedBox(width: AppTheme.spaceXSmall),
               Expanded(
                 child: Text(
-                  'Web 应用自动更新，无需重装，数据安全保留',
+                  kIsWeb
+                      ? 'Web 应用自动更新，无需重装，数据安全保留'
+                      : '点击“立即更新”将下载 APK 安装包，覆盖安装即可，记账数据自动保留',
                   style: TextStyle(
-                    color: AppTheme.successColor,
+                    color:
+                        kIsWeb ? AppTheme.successColor : AppTheme.primaryColor,
                     fontSize: AppTheme.textLabelMedium,
                     fontWeight: FontWeight.w500,
                   ),
@@ -163,6 +171,95 @@ class UpdateCheckerWidget extends StatefulWidget {
           ),
         ),
       ],
+    );
+  }
+
+  /// 执行更新动作。
+  ///
+  /// WHY: Web 端为免安装应用，刷新页面即可加载新版本；
+  /// Android 端通过系统浏览器打开 APK 下载链接，下载完成后由系统安装器覆盖安装，
+  /// 避免在应用内自行处理下载与 REQUEST_INSTALL_PACKAGES 权限的复杂逻辑。
+  ///
+  /// @param context 用于获取 ScaffoldMessenger 的上下文
+  /// @param updateInfo 包含下载地址的版本信息
+  /// @return 无返回值；失败时通过 SnackBar 提示
+  static Future<void> performUpdateAction(
+      BuildContext context, UpdateInfo updateInfo) async {
+    // WHY: 在 await 之前捕获 ScaffoldMessenger，避免对话框关闭后 context 失活
+    final messenger = ScaffoldMessenger.of(context);
+
+    if (kIsWeb) {
+      _showWebRefreshHint(context);
+      return;
+    }
+
+    final uri = Uri.tryParse(updateInfo.downloadUrl);
+    bool launched = false;
+    if (uri != null) {
+      try {
+        launched = await launchUrl(
+          uri,
+          mode: LaunchMode.externalApplication,
+        );
+      } catch (e) {
+        launched = false;
+      }
+    }
+
+    messenger.showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(
+              launched
+                  ? Icons.download_done_rounded
+                  : Icons.error_outline_rounded,
+              size: 20,
+              color: Colors.white,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                launched
+                    ? '已打开浏览器下载新版本，下载完成后点击安装包覆盖安装，数据不会丢失'
+                    : '无法打开下载链接，请前往 GitHub Releases 页面手动下载安装',
+                style: const TextStyle(fontSize: 13),
+              ),
+            ),
+          ],
+        ),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 6),
+      ),
+    );
+  }
+
+  /// WHY: Web 端刷新提示抽为独立方法，供静态对话框与实例对话框复用
+  static void _showWebRefreshHint(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Row(
+          children: [
+            Icon(Icons.info_outline_rounded, size: 20),
+            SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                '请刷新浏览器页面即可完成更新，数据将自动保留',
+                style: TextStyle(fontSize: 13),
+              ),
+            ),
+          ],
+        ),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 8),
+        action: SnackBarAction(
+          label: '刷新',
+          onPressed: () {
+            Navigator.of(context)
+                .pushNamedAndRemoveUntil('/home', (route) => false);
+          },
+        ),
+      ),
     );
   }
 
@@ -211,31 +308,7 @@ class UpdateCheckerWidget extends StatefulWidget {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: const Row(
-                    children: [
-                      Icon(Icons.info_outline_rounded, size: 20),
-                      SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          '请刷新浏览器页面即可完成更新，数据将自动保留',
-                          style: TextStyle(fontSize: 13),
-                        ),
-                      ),
-                    ],
-                  ),
-                  behavior: SnackBarBehavior.floating,
-                  duration: const Duration(seconds: 8),
-                  action: SnackBarAction(
-                    label: '刷新',
-                    onPressed: () {
-                      Navigator.of(context)
-                          .pushNamedAndRemoveUntil('/home', (route) => false);
-                    },
-                  ),
-                ),
-              );
+              performUpdateAction(context, updateInfo);
             },
             child: const Text('立即更新'),
           ),
@@ -258,7 +331,8 @@ class _UpdateCheckerWidgetState extends State<UpdateCheckerWidget> {
     setState(() => _isChecking = true);
 
     try {
-      final updateInfo = await UpdateService.checkForUpdate(ignoreSkip: ignoreSkip);
+      final updateInfo =
+          await UpdateService.checkForUpdate(ignoreSkip: ignoreSkip);
 
       if (!mounted) return;
 
@@ -315,38 +389,12 @@ class _UpdateCheckerWidgetState extends State<UpdateCheckerWidget> {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(dialogContext);
-              _performUpdate(updateInfo);
+              // WHY: 使用 State 的持久 context 而非 dialogContext（pop 后即失活）
+              UpdateCheckerWidget.performUpdateAction(context, updateInfo);
             },
             child: const Text('立即更新'),
           ),
         ],
-      ),
-    );
-  }
-
-  void _performUpdate(UpdateInfo updateInfo) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Row(
-          children: [
-            Icon(Icons.info_outline_rounded, size: 20),
-            SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                '请刷新浏览器页面即可完成更新，数据将自动保留',
-                style: TextStyle(fontSize: 13),
-              ),
-            ),
-          ],
-        ),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 8),
-        action: SnackBarAction(
-          label: '刷新',
-          onPressed: () {
-            Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
-          },
-        ),
       ),
     );
   }
@@ -414,7 +462,8 @@ class UpdateCheckButton extends StatelessWidget {
                 ),
               )
             else
-              const Icon(Icons.search_rounded, color: AppTheme.primaryColor, size: 16),
+              const Icon(Icons.search_rounded,
+                  color: AppTheme.primaryColor, size: 16),
           ],
         ),
       ),
