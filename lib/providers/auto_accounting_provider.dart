@@ -303,18 +303,21 @@ class AutoAccountingProvider extends ChangeNotifier {
   /// @param category 用户最终选择的分类
   /// @param account 账户名
   /// @param note 备注（可选）
+  /// @param amount 用户修改后的金额（可选，未传则使用 pending 原金额）
   /// @return 创建的正式 Transaction，失败返回 null
   Future<Transaction?> confirmTransaction(
     String pendingId, {
     required String category,
     required String account,
     String? note,
+    double? amount,
   }) async {
     final Transaction? result = await PendingTransactionService.confirm(
       pendingId,
       category: category,
       account: account,
       note: note,
+      amount: amount,
     );
 
     if (result != null) {

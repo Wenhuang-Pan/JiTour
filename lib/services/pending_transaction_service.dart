@@ -81,22 +81,27 @@ class PendingTransactionService {
   /// @param category 用户最终选择的分类
   /// @param account 账户名
   /// @param note 备注（可选）
+  /// @param amount 用户修改后的金额（可选，未传则使用 pending 原金额）
   /// @return 创建的正式交易，失败返回 null
   static Future<Transaction?> confirm(
     String pendingId, {
     required String category,
     required String account,
     String? note,
+    double? amount,
   }) async {
     final pending = DatabaseService.pendingTransactions.get(pendingId);
     if (pending == null || pending.status != PendingStatus.pending) {
       return null;
     }
 
+    // WHY: 优先使用用户手动修改后的金额，未传则使用 pending 原金额
+    final effectiveAmount = amount ?? pending.amount;
+
     // 创建正式交易
     final transaction = Transaction(
       id: UuidUtil.generate(),
-      amount: pending.amount,
+      amount: effectiveAmount,
       isIncome: false, // WHY: 支付通知默认为支出
       category: category,
       account: account,
@@ -108,6 +113,11 @@ class PendingTransactionService {
       coupon: 0.0,
     );
     await DatabaseService.addTransaction(transaction);
+
+    // WHY: 若用户手动修改了金额，则同步更新 pending 记录，便于审计追溯
+    if (amount != null && (amount - pending.amount).abs() > 0.001) {
+      pending.amount = amount;
+    }
 
     // 更新待确认状态
     pending.status = PendingStatus.confirmed;
