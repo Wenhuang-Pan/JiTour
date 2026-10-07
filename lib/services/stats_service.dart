@@ -2,6 +2,25 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/transaction.dart';
 import '../theme/app_theme.dart';
+import 'tag_service.dart';
+
+/// 标签维度统计条目（纯内存 DTO，不入 Hive）
+class TagStatEntry {
+  /// 标签 ID
+  final String tagId;
+
+  /// 关联交易金额合计（一笔交易带多个标签时，会在每个标签下各计一次）
+  final double amount;
+
+  /// 关联交易笔数
+  final int count;
+
+  const TagStatEntry({
+    required this.tagId,
+    required this.amount,
+    required this.count,
+  });
+}
 
 class StatsService {
   StatsService._();
@@ -55,6 +74,44 @@ class StatsService {
       stats[t.category] = (stats[t.category] ?? 0) + t.amount;
     }
     return stats;
+  }
+
+  /// 计算标签维度统计（按收支类型）
+  ///
+  /// WHY: 标签与分类是多对多关系，一笔交易可带多个标签，故金额在每个
+  /// 关联标签下各计一次，占比口径为"标签关联金额合计"而非收支总额。
+  /// 物理删除（box 中已不存在）的标签 ID 跳过：既不进分子也不进分母，
+  /// 避免其余标签占比失真；软删除标签仍可解析，由 UI 置灰展示。
+  ///
+  /// 时间复杂度：O(n·k + m log m)，n=交易数，k=单笔平均标签数，m=命中标签数
+  ///
+  /// @param transactions 当期交易列表
+  /// @param isIncome true 统计收入标签，false 统计支出标签
+  /// @return 按金额倒序排列的标签统计条目
+  static List<TagStatEntry> calculateTagStats(
+      List<Transaction> transactions, bool isIncome) {
+    final amounts = <String, double>{};
+    final counts = <String, int>{};
+
+    for (final t in transactions) {
+      if (t.isIncome != isIncome) continue;
+      for (final tagId in t.tagIds) {
+        // WHY: 物理删除的标签不可解析，跳过聚合防止金额"消失"进分母
+        if (TagService.getTagById(tagId) == null) continue;
+        amounts[tagId] = (amounts[tagId] ?? 0) + t.amount;
+        counts[tagId] = (counts[tagId] ?? 0) + 1;
+      }
+    }
+
+    final entries = amounts.entries
+        .map((e) => TagStatEntry(
+              tagId: e.key,
+              amount: e.value,
+              count: counts[e.key] ?? 0,
+            ))
+        .toList()
+      ..sort((a, b) => b.amount.compareTo(a.amount));
+    return entries;
   }
 
   /// 计算趋势数据（近6个月）

@@ -123,6 +123,24 @@ class TagService {
         .firstOrNull;
   }
 
+  /// 统计各标签被多少笔未删除账单使用
+  ///
+  /// WHY: 标签管理页需要展示使用情况、删除前需要提示影响范围。
+  /// 仅统计未软删除账单（getAllTransactions 已过滤），一笔账单带多个标签时各计一次。
+  ///
+  /// 时间复杂度：O(n·k)，n=账单数，k=单笔平均标签数
+  ///
+  /// @return tagId → 使用笔数；从未使用的标签不在 Map 中
+  static Map<String, int> getTagUsageCounts() {
+    final counts = <String, int>{};
+    for (final transaction in DatabaseService.getAllTransactions()) {
+      for (final tagId in transaction.tagIds) {
+        counts[tagId] = (counts[tagId] ?? 0) + 1;
+      }
+    }
+    return counts;
+  }
+
   // 检查标签名称是否存在
   static bool tagNameExists(String name, {String? excludeId}) {
     return getAllTags()
@@ -180,20 +198,6 @@ class TagService {
         await updateTag(tag);
       }
     }
-  }
-
-  // 获取标签统计（交易数量）
-  static Map<String, int> getTagStatistics() {
-    final statistics = <String, int>{};
-    final tags = getActiveTags();
-
-    for (final tag in tags) {
-      statistics[tag.id] = 0;
-    }
-
-    // TODO: 当 Transaction 模型添加 tags 字段后，实现统计逻辑
-
-    return statistics;
   }
 
   // 获取默认图标列表

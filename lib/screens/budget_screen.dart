@@ -60,6 +60,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
 
           final transactions = DatabaseService.transactions.values
               .where((t) =>
+                  !t.isDeleted &&
                   !t.isIncome &&
                   t.date.year == _selectedMonth.year &&
                   t.date.month == _selectedMonth.month)

@@ -40,9 +40,9 @@ class AccountDetailScreen extends StatelessWidget {
       body: ValueListenableBuilder(
         valueListenable: DatabaseService.transactions.listenable(),
         builder: (context, Box<Transaction> box, _) {
-          // 获取该账户的所有交易
+          // 获取该账户的所有交易（排除软删除账单）
           final accountTransactions = box.values
-              .where((t) => t.account == account.name)
+              .where((t) => t.account == account.name && !t.isDeleted)
               .toList()
             ..sort((a, b) => b.date.compareTo(a.date));
 

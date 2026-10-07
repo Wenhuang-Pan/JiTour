@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import '../theme/app_theme.dart';
 import '../models/tag.dart';
+import '../models/transaction.dart';
 import '../services/tag_service.dart';
+import '../services/database_service.dart';
 import '../utils/icon_library.dart';
 
 class TagsManagementScreen extends StatefulWidget {
@@ -14,31 +17,91 @@ class TagsManagementScreen extends StatefulWidget {
 class _TagsManagementScreenState extends State<TagsManagementScreen> {
   @override
   Widget build(BuildContext context) {
-    final tags = TagService.getActiveTags();
+    final tags = TagService.getAllTags();
+    final activeTags = tags.where((tag) => tag.isActive).toList()
+      ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+    final inactiveTags = tags.where((tag) => !tag.isActive).toList()
+      ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    final bool isEmpty = tags.isEmpty;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('标签管理'),
         elevation: 0,
       ),
-      body: tags.isEmpty
-          ? _buildEmptyState(context)
-          : ListView.builder(
-              padding: const EdgeInsets.all(AppTheme.spaceLarge),
-              itemCount: tags.length,
-              itemBuilder: (context, index) {
-                final tag = tags[index];
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: AppTheme.spaceSmall),
-                  child: _buildTagCard(context, tag),
-                );
-              },
-            ),
+      // WHY: 监听交易 box，账单增删或标签变更后使用笔数实时刷新
+      body: ValueListenableBuilder(
+        valueListenable: DatabaseService.transactions.listenable(),
+        builder: (context, Box<Transaction> box, _) {
+          final usageCounts = TagService.getTagUsageCounts();
+          if (isEmpty) return _buildEmptyState(context);
+
+          return ListView(
+            padding: const EdgeInsets.all(AppTheme.spaceLarge),
+            children: [
+              ...activeTags.map((tag) => Padding(
+                    padding: const EdgeInsets.only(bottom: AppTheme.spaceSmall),
+                    child: _buildTagCard(
+                      context,
+                      tag,
+                      usageCounts[tag.id] ?? 0,
+                    ),
+                  )),
+              if (inactiveTags.isNotEmpty) ...[
+                const SizedBox(height: AppTheme.spaceMedium),
+                _buildInactiveHeader(context, inactiveTags.length),
+                const SizedBox(height: AppTheme.spaceSmall),
+                ...inactiveTags.map((tag) => Padding(
+                      padding:
+                          const EdgeInsets.only(bottom: AppTheme.spaceSmall),
+                      child: _buildInactiveTagCard(
+                        context,
+                        tag,
+                        usageCounts[tag.id] ?? 0,
+                      ),
+                    )),
+              ],
+              const SizedBox(height: AppTheme.spaceXXXLarge),
+            ],
+          );
+        },
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddTagDialog(context),
         backgroundColor: AppTheme.primaryColor,
         child: const Icon(Icons.add_rounded, color: Colors.white),
       ),
+    );
+  }
+
+  /// 构建已停用分区标题
+  Widget _buildInactiveHeader(BuildContext context, int count) {
+    return Row(
+      children: [
+        const Icon(
+          Icons.inventory_2_outlined,
+          size: 16,
+          color: AppTheme.neutral500,
+        ),
+        const SizedBox(width: AppTheme.spaceXSmall),
+        Text(
+          '已停用（$count）',
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: AppTheme.neutral600,
+              ),
+        ),
+        const SizedBox(width: AppTheme.spaceSmall),
+        const Expanded(
+          child: Text(
+            '停用后历史账单保留，可随时恢复',
+            style: TextStyle(
+              color: AppTheme.neutral400,
+              fontSize: 11,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -80,7 +143,7 @@ class _TagsManagementScreenState extends State<TagsManagementScreen> {
     );
   }
 
-  Widget _buildTagCard(BuildContext context, Tag tag) {
+  Widget _buildTagCard(BuildContext context, Tag tag, int usageCount) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -114,11 +177,14 @@ class _TagsManagementScreenState extends State<TagsManagementScreen> {
                 fontWeight: FontWeight.w600,
               ),
         ),
-        subtitle: Text(
-          '排序: ${tag.sortOrder}',
-          style: const TextStyle(
-            color: AppTheme.neutral500,
-            fontSize: 12,
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: Text(
+            usageCount > 0 ? '$usageCount 笔账单使用' : '暂无账单使用',
+            style: TextStyle(
+              color: usageCount > 0 ? AppTheme.neutral500 : AppTheme.neutral400,
+              fontSize: 12,
+            ),
           ),
         ),
         trailing: Row(
@@ -130,9 +196,74 @@ class _TagsManagementScreenState extends State<TagsManagementScreen> {
               onPressed: () => _showEditTagDialog(context, tag),
             ),
             IconButton(
-              icon: const Icon(Icons.delete_rounded),
+              icon: const Icon(Icons.block_rounded),
+              color: AppTheme.neutral500,
+              tooltip: '停用',
+              onPressed: () =>
+                  _showDisableConfirmDialog(context, tag, usageCount),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 构建已停用标签卡片（置灰，可恢复或永久删除）
+  Widget _buildInactiveTagCard(BuildContext context, Tag tag, int usageCount) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.neutral50,
+        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+        border: Border.all(color: AppTheme.neutral200, width: 1),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: AppTheme.spaceMedium,
+          vertical: AppTheme.spaceXSmall,
+        ),
+        leading: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: AppTheme.neutral200,
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+          ),
+          child: Icon(
+            IconLibrary.getIconByName(tag.iconName),
+            color: AppTheme.neutral400,
+            size: 22,
+          ),
+        ),
+        title: Text(
+          tag.name,
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: AppTheme.neutral500,
+                decoration: TextDecoration.lineThrough,
+              ),
+        ),
+        subtitle: Text(
+          usageCount > 0 ? '$usageCount 笔历史账单' : '暂无账单使用',
+          style: const TextStyle(
+            color: AppTheme.neutral400,
+            fontSize: 12,
+          ),
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.restore_rounded),
+              color: AppTheme.primaryColor,
+              tooltip: '恢复',
+              onPressed: () => _restoreTag(context, tag),
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete_forever_rounded),
               color: AppTheme.errorColor,
-              onPressed: () => _showDeleteConfirmDialog(context, tag),
+              tooltip: '永久删除',
+              onPressed: () =>
+                  _showPermanentDeleteConfirmDialog(context, tag, usageCount),
             ),
           ],
         ),
@@ -165,11 +296,14 @@ class _TagsManagementScreenState extends State<TagsManagementScreen> {
                       labelText: '标签名称',
                       labelStyle: const TextStyle(color: AppTheme.neutral600),
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                        borderRadius:
+                            BorderRadius.circular(AppTheme.radiusMedium),
                       ),
                       focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                        borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2),
+                        borderRadius:
+                            BorderRadius.circular(AppTheme.radiusMedium),
+                        borderSide: const BorderSide(
+                            color: AppTheme.primaryColor, width: 2),
                       ),
                     ),
                   ),
@@ -195,7 +329,8 @@ class _TagsManagementScreenState extends State<TagsManagementScreen> {
                             selectedIconName = iconName;
                           });
                         },
-                        borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                        borderRadius:
+                            BorderRadius.circular(AppTheme.radiusSmall),
                         child: Container(
                           width: 40,
                           height: 40,
@@ -203,7 +338,8 @@ class _TagsManagementScreenState extends State<TagsManagementScreen> {
                             color: isSelected
                                 ? AppTheme.primaryColor.withValues(alpha: 0.1)
                                 : AppTheme.neutral50,
-                            borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                            borderRadius:
+                                BorderRadius.circular(AppTheme.radiusSmall),
                             border: Border.all(
                               color: isSelected
                                   ? AppTheme.primaryColor
@@ -243,13 +379,15 @@ class _TagsManagementScreenState extends State<TagsManagementScreen> {
                             selectedColor = color;
                           });
                         },
-                        borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                        borderRadius:
+                            BorderRadius.circular(AppTheme.radiusSmall),
                         child: Container(
                           width: 40,
                           height: 40,
                           decoration: BoxDecoration(
                             color: color,
-                            borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                            borderRadius:
+                                BorderRadius.circular(AppTheme.radiusSmall),
                             border: Border.all(
                               color: isSelected
                                   ? AppTheme.neutral900
@@ -350,11 +488,14 @@ class _TagsManagementScreenState extends State<TagsManagementScreen> {
                       labelText: '标签名称',
                       labelStyle: const TextStyle(color: AppTheme.neutral600),
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                        borderRadius:
+                            BorderRadius.circular(AppTheme.radiusMedium),
                       ),
                       focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                        borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2),
+                        borderRadius:
+                            BorderRadius.circular(AppTheme.radiusMedium),
+                        borderSide: const BorderSide(
+                            color: AppTheme.primaryColor, width: 2),
                       ),
                     ),
                   ),
@@ -380,7 +521,8 @@ class _TagsManagementScreenState extends State<TagsManagementScreen> {
                             selectedIconName = iconName;
                           });
                         },
-                        borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                        borderRadius:
+                            BorderRadius.circular(AppTheme.radiusSmall),
                         child: Container(
                           width: 40,
                           height: 40,
@@ -388,15 +530,20 @@ class _TagsManagementScreenState extends State<TagsManagementScreen> {
                             color: isSelected
                                 ? selectedColor.withValues(alpha: 0.1)
                                 : AppTheme.neutral50,
-                            borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                            borderRadius:
+                                BorderRadius.circular(AppTheme.radiusSmall),
                             border: Border.all(
-                              color: isSelected ? selectedColor : AppTheme.neutral200,
+                              color: isSelected
+                                  ? selectedColor
+                                  : AppTheme.neutral200,
                               width: isSelected ? 2 : 1,
                             ),
                           ),
                           child: Icon(
                             icon,
-                            color: isSelected ? selectedColor : AppTheme.neutral500,
+                            color: isSelected
+                                ? selectedColor
+                                : AppTheme.neutral500,
                             size: 20,
                           ),
                         ),
@@ -424,13 +571,15 @@ class _TagsManagementScreenState extends State<TagsManagementScreen> {
                             selectedColor = color;
                           });
                         },
-                        borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                        borderRadius:
+                            BorderRadius.circular(AppTheme.radiusSmall),
                         child: Container(
                           width: 40,
                           height: 40,
                           decoration: BoxDecoration(
                             color: color,
-                            borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                            borderRadius:
+                                BorderRadius.circular(AppTheme.radiusSmall),
                             border: Border.all(
                               color: isSelected
                                   ? AppTheme.neutral900
@@ -507,7 +656,9 @@ class _TagsManagementScreenState extends State<TagsManagementScreen> {
     );
   }
 
-  void _showDeleteConfirmDialog(BuildContext context, Tag tag) {
+  /// 停用标签确认（软删除）
+  void _showDisableConfirmDialog(
+      BuildContext context, Tag tag, int usageCount) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -527,10 +678,14 @@ class _TagsManagementScreenState extends State<TagsManagementScreen> {
               ),
             ),
             const SizedBox(width: AppTheme.spaceSmall),
-            const Text('删除标签'),
+            const Text('停用标签'),
           ],
         ),
-        content: Text('确定要删除「${tag.name}」标签吗？'),
+        content: Text(
+          usageCount > 0
+              ? '「${tag.name}」正被 $usageCount 笔账单使用。\n\n停用后记账时不能再选择该标签，历史账单与统计数据都会保留，之后可在下方"已停用"中恢复。'
+              : '确定要停用「${tag.name}」标签吗？\n\n停用后记账时不能再选择，之后可在"已停用"中恢复。',
+        ),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppTheme.radiusXLarge),
         ),
@@ -541,12 +696,103 @@ class _TagsManagementScreenState extends State<TagsManagementScreen> {
           ),
           ElevatedButton(
             onPressed: () async {
+              // WHY: await 前捕获 navigator/messenger，避免异步间隙后 context 失活
+              final navigator = Navigator.of(context);
+              final messenger = ScaffoldMessenger.of(context);
               await TagService.deleteTag(tag.id);
-              Navigator.pop(context);
+              if (!mounted) return;
+              navigator.pop();
               setState(() {});
-              ScaffoldMessenger.of(context).showSnackBar(
+              messenger.showSnackBar(
                 const SnackBar(
-                  content: Text('标签已删除'),
+                  content: Text('标签已停用，可在下方已停用区恢复'),
+                  backgroundColor: AppTheme.neutral700,
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.neutral700,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('停用'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 恢复已停用标签
+  Future<void> _restoreTag(BuildContext context, Tag tag) async {
+    // WHY: 避免恢复后与现有活跃标签重名，破坏同名唯一约束
+    if (TagService.tagNameExists(tag.name, excludeId: tag.id)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('恢复失败：已存在同名标签「${tag.name}」，请先在编辑中改名'),
+          backgroundColor: AppTheme.errorColor,
+        ),
+      );
+      return;
+    }
+    tag.restore();
+    setState(() {});
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('标签已恢复'),
+        backgroundColor: AppTheme.successColor,
+      ),
+    );
+  }
+
+  /// 永久删除确认（二次确认；不可恢复）
+  void _showPermanentDeleteConfirmDialog(
+      BuildContext context, Tag tag, int usageCount) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: AppTheme.errorColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+              ),
+              child: const Icon(
+                Icons.delete_forever_rounded,
+                color: AppTheme.errorColor,
+                size: 16,
+              ),
+            ),
+            const SizedBox(width: AppTheme.spaceSmall),
+            const Text('永久删除标签'),
+          ],
+        ),
+        content: Text(
+          usageCount > 0
+              ? '「${tag.name}」关联着 $usageCount 笔历史账单。永久删除后无法恢复，这些账单将不再显示该标签，也无法再按它统计（账单本身不会被删除）。\n\n确定永久删除吗？'
+              : '永久删除「${tag.name}」后无法恢复，确定继续吗？',
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.radiusXLarge),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              // WHY: await 前捕获 navigator/messenger，避免异步间隙后 context 失活
+              final navigator = Navigator.of(context);
+              final messenger = ScaffoldMessenger.of(context);
+              await TagService.permanentDeleteTag(tag.id);
+              if (!mounted) return;
+              navigator.pop();
+              setState(() {});
+              messenger.showSnackBar(
+                const SnackBar(
+                  content: Text('标签已永久删除'),
                   backgroundColor: AppTheme.successColor,
                 ),
               );
@@ -555,7 +801,7 @@ class _TagsManagementScreenState extends State<TagsManagementScreen> {
               backgroundColor: AppTheme.errorColor,
               foregroundColor: Colors.white,
             ),
-            child: const Text('删除'),
+            child: const Text('永久删除'),
           ),
         ],
       ),

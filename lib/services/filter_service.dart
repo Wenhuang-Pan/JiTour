@@ -121,11 +121,16 @@ class FilterService {
     List<Transaction> transactions,
     FilterConditions conditions,
   ) {
+    // WHY: 软删除账单在任何情况下都不进入列表/搜索结果（备份导出等场景走独立通道）；
+    // 无筛选条件的早退分支也必须过滤，否则首页默认态仍会显示软删除账单
+    final List<Transaction> activeTransactions =
+        transactions.where((t) => !t.isDeleted).toList();
+
     if (!conditions.hasFilters) {
-      return transactions..sort((a, b) => b.date.compareTo(a.date));
+      return activeTransactions..sort((a, b) => b.date.compareTo(a.date));
     }
 
-    List<Transaction> filtered = List.from(transactions);
+    List<Transaction> filtered = activeTransactions;
 
     // WHY: Transaction.tags 存的是逗号分隔的标签 ID，预构建一次 tagId→标签名
     // 映射（O(标签数)），避免在交易循环内重复查 Hive box

@@ -4,6 +4,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
 import '../theme/app_theme.dart';
 import '../models/transaction.dart';
+import '../models/tag.dart';
 import '../services/database_service.dart';
 import '../services/account_service.dart';
 import '../services/tag_service.dart';
@@ -96,7 +97,8 @@ class _StatsScreenState extends State<StatsScreen> {
       body: ValueListenableBuilder(
         valueListenable: DatabaseService.transactions.listenable(),
         builder: (context, Box<Transaction> box, _) {
-          final allTransactions = box.values.toList()
+          // WHY: 统计页一切口径（KPI/趋势/分类/标签/对比/排行）都排除软删除账单
+          final allTransactions = box.values.where((t) => !t.isDeleted).toList()
             ..sort((a, b) => a.date.compareTo(b.date));
 
           // 根据视图模式获取交易数据
@@ -115,6 +117,12 @@ class _StatsScreenState extends State<StatsScreen> {
               StatsService.calculateCategoryStats(periodTransactions, false);
           final incomeStats =
               StatsService.calculateCategoryStats(periodTransactions, true);
+
+          // WHY: 标签与分类一样按收支分区聚合，避免收入标签与支出标签混排
+          final expenseTagStats =
+              StatsService.calculateTagStats(periodTransactions, false);
+          final incomeTagStats =
+              StatsService.calculateTagStats(periodTransactions, true);
 
           // 趋势数据始终基于全量交易计算（近6月）
           final trendData = StatsService.calculateTrendData(allTransactions);
@@ -233,8 +241,10 @@ class _StatsScreenState extends State<StatsScreen> {
                   const SizedBox(height: AppTheme.spaceXLarge),
                 ],
 
-                // 标签统计
-                _buildTagStats(context, periodTransactions),
+                // 标签统计（支出/收入分区，点击标签可查看当期明细）
+                _buildTagStats(context, periodTransactions, expenseTagStats,
+                    incomeTagStats,
+                    isYearView: _isYearView),
                 const SizedBox(height: AppTheme.spaceXLarge),
 
                 // TOP N 排行榜
@@ -1088,60 +1098,209 @@ class _StatsScreenState extends State<StatsScreen> {
                               color: AppTheme.getDividerColor(context),
                             ),
                             itemBuilder: (context, index) {
-                              final t = categoryTransactions[index];
-                              return Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: AppTheme.spaceSmall,
+                              return _buildTransactionDetailRow(
+                                  categoryTransactions[index]);
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  /// 构建下钻明细中的单条交易行（分类/标签明细共用）
+  ///
+  /// @param t 交易记录；标题取备注，备注为空时取账户名
+  Widget _buildTransactionDetailRow(Transaction t) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        vertical: AppTheme.spaceSmall,
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  t.note?.isNotEmpty == true ? t.note! : t.account,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w500,
+                      ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  DateFormat('yyyy-MM-dd HH:mm').format(t.date),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppTheme.neutral400,
+                      ),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            '${t.isIncome ? '+' : '-'}¥${t.amount.toStringAsFixed(2)}',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color:
+                      t.isIncome ? AppTheme.successColor : AppTheme.neutral900,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 显示某标签下当期所有交易明细
+  ///
+  /// WHY: 与分类下钻体验对齐——DraggableScrollableSheet、笔数合计、日期倒序；
+  /// 标签为多对多，筛选条件为 tagIds 包含该标签且收支类型与分区一致。
+  ///
+  /// @param context BuildContext
+  /// @param tagId 标签 ID
+  /// @param isIncome 是否为收入分区
+  /// @param periodTransactions 当期所有交易
+  void _showTagDetail(BuildContext context, String tagId, bool isIncome,
+      List<Transaction> periodTransactions) {
+    final Tag? tag = TagService.getTagById(tagId);
+    final String tagName = tag?.name ?? '未知标签';
+    final bool deactivated = tag != null && !tag.isActive;
+
+    final List<Transaction> tagTransactions = periodTransactions
+        .where((t) => t.isIncome == isIncome && t.tagIds.contains(tagId))
+        .toList()
+      ..sort((a, b) => b.date.compareTo(a.date));
+
+    final double totalAmount =
+        tagTransactions.fold(0.0, (sum, t) => sum + t.amount);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppTheme.getCardColor(context),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppTheme.radiusXLarge),
+        ),
+      ),
+      builder: (context) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.7,
+          minChildSize: 0.4,
+          maxChildSize: 0.9,
+          expand: false,
+          builder: (context, scrollController) {
+            return Padding(
+              padding: const EdgeInsets.only(
+                left: AppTheme.spaceLarge,
+                right: AppTheme.spaceLarge,
+                bottom: AppTheme.spaceXLarge,
+              ),
+              child: Column(
+                children: [
+                  Container(
+                    margin: const EdgeInsets.symmetric(
+                        vertical: AppTheme.spaceMedium),
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppTheme.neutral300,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      if (tag != null) ...[
+                        Container(
+                          width: 28,
+                          height: 28,
+                          decoration: BoxDecoration(
+                            color: Color(tag.colorValue)
+                                .withValues(alpha: deactivated ? 0.06 : 0.12),
+                            borderRadius:
+                                BorderRadius.circular(AppTheme.radiusSmall),
+                          ),
+                          child: Icon(
+                            IconLibrary.getIconByName(tag.iconName),
+                            size: 15,
+                            color: deactivated
+                                ? AppTheme.neutral400
+                                : Color(tag.colorValue),
+                          ),
+                        ),
+                        const SizedBox(width: AppTheme.spaceSmall),
+                      ],
+                      Text(
+                        tagName,
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleMedium
+                            ?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: deactivated ? AppTheme.neutral500 : null,
+                            ),
+                      ),
+                      if (deactivated) ...[
+                        const SizedBox(width: AppTheme.spaceSmall),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 1,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppTheme.neutral200,
+                            borderRadius:
+                                BorderRadius.circular(AppTheme.radiusFull),
+                          ),
+                          child: Text(
+                            '已停用',
+                            style: Theme.of(context)
+                                .textTheme
+                                .labelSmall
+                                ?.copyWith(
+                                  fontSize: 10,
+                                  color: AppTheme.neutral500,
                                 ),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            t.note?.isNotEmpty == true
-                                                ? t.note!
-                                                : t.account,
-                                            style: Theme.of(context)
-                                                .textTheme
-                                                .bodyMedium
-                                                ?.copyWith(
-                                                  fontWeight: FontWeight.w500,
-                                                ),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                          const SizedBox(height: 2),
-                                          Text(
-                                            DateFormat('yyyy-MM-dd HH:mm')
-                                                .format(t.date),
-                                            style: Theme.of(context)
-                                                .textTheme
-                                                .bodySmall
-                                                ?.copyWith(
-                                                  color: AppTheme.neutral400,
-                                                ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    Text(
-                                      '${t.isIncome ? '+' : '-'}¥${t.amount.toStringAsFixed(2)}',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodyMedium
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.w700,
-                                            color: t.isIncome
-                                                ? AppTheme.successColor
-                                                : AppTheme.neutral900,
-                                          ),
-                                    ),
-                                  ],
-                                ),
-                              );
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: AppTheme.spaceXSmall),
+                  Text(
+                    '${tagTransactions.length} 笔 · 合计 ¥${totalAmount.toStringAsFixed(2)}',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppTheme.neutral500,
+                        ),
+                  ),
+                  const SizedBox(height: AppTheme.spaceMedium),
+                  Expanded(
+                    child: tagTransactions.isEmpty
+                        ? const Center(
+                            child: Text(
+                              '暂无明细',
+                              style: TextStyle(
+                                color: AppTheme.neutral400,
+                              ),
+                            ),
+                          )
+                        : ListView.separated(
+                            controller: scrollController,
+                            itemCount: tagTransactions.length,
+                            separatorBuilder: (_, __) => Divider(
+                              height: 1,
+                              color: AppTheme.getDividerColor(context),
+                            ),
+                            itemBuilder: (context, index) {
+                              return _buildTransactionDetailRow(
+                                  tagTransactions[index]);
                             },
                           ),
                   ),
@@ -1305,153 +1464,267 @@ class _StatsScreenState extends State<StatsScreen> {
     );
   }
 
-  // 标签统计
-  Widget _buildTagStats(BuildContext context, List<Transaction> transactions) {
-    if (transactions.isEmpty) return const SizedBox.shrink();
-
-    // 统计各标签的交易金额
-    final tagStats = <String, double>{};
-    final tagCounts = <String, int>{};
-
-    for (final t in transactions) {
-      final tagIds = t.tagIds;
-      for (final tagId in tagIds) {
-        tagStats[tagId] = (tagStats[tagId] ?? 0) + t.amount;
-        tagCounts[tagId] = (tagCounts[tagId] ?? 0) + 1;
-      }
+  /// 构建标签统计区域（支出/收入两个分区）
+  ///
+  /// WHY: 标签为多对多关系，收入标签与支出标签混排会导致金额正负语义混乱，
+  /// 故与"支出分类/收入分类"对齐拆为两个分区；行可点击下钻查看当期账单。
+  Widget _buildTagStats(
+    BuildContext context,
+    List<Transaction> periodTransactions,
+    List<TagStatEntry> expenseTagStats,
+    List<TagStatEntry> incomeTagStats, {
+    required bool isYearView,
+  }) {
+    if (expenseTagStats.isEmpty && incomeTagStats.isEmpty) {
+      return const SizedBox.shrink();
     }
 
-    if (tagStats.isEmpty) return const SizedBox.shrink();
-
-    // 转换为标签名称并排序
-    final sortedTagStats = tagStats.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-
-    final totalAmount = tagStats.values.fold(0.0, (sum, val) => sum + val);
+    final String periodLabel = isYearView ? '年度标签构成' : '本月标签构成';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionTitle(context, '标签统计', '交易标签分布'),
-        const SizedBox(height: AppTheme.spaceMedium),
-        Container(
-          padding: const EdgeInsets.all(AppTheme.spaceLarge),
-          decoration: BoxDecoration(
-            color: AppTheme.getCardColor(context),
-            borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+        if (expenseTagStats.isNotEmpty) ...[
+          _buildSectionTitle(context, '支出标签', periodLabel),
+          const SizedBox(height: AppTheme.spaceMedium),
+          _buildTagStatCard(
+            context,
+            periodTransactions,
+            expenseTagStats,
+            isIncome: false,
+            amountColor: AppTheme.errorColor,
           ),
-          child: Column(
-            children:
-                sortedTagStats.take(6).toList().asMap().entries.map((entry) {
-              final index = entry.key;
-              final tagId = entry.value.key;
-              final amount = entry.value.value;
-              final count = tagCounts[tagId] ?? 0;
-              final tag = TagService.getTagById(tagId);
-              final percentage = (amount / totalAmount) * 100;
-              final isLast = index == sortedTagStats.take(6).length - 1;
+        ],
+        if (incomeTagStats.isNotEmpty) ...[
+          if (expenseTagStats.isNotEmpty)
+            const SizedBox(height: AppTheme.spaceXLarge),
+          _buildSectionTitle(context, '收入标签', periodLabel),
+          const SizedBox(height: AppTheme.spaceMedium),
+          _buildTagStatCard(
+            context,
+            periodTransactions,
+            incomeTagStats,
+            isIncome: true,
+            amountColor: AppTheme.successColor,
+          ),
+        ],
+      ],
+    );
+  }
 
-              if (tag == null) return const SizedBox.shrink();
+  /// 构建单个收支分区的标签统计卡片
+  ///
+  /// @param periodTransactions 当期全部交易，供下钻时筛选
+  /// @param tagStats 已按金额倒序的标签统计条目（全量展示，不截断）
+  /// @param isIncome 是否为收入分区
+  /// @param amountColor 金额与进度强调色
+  Widget _buildTagStatCard(
+    BuildContext context,
+    List<Transaction> periodTransactions,
+    List<TagStatEntry> tagStats, {
+    required bool isIncome,
+    required Color amountColor,
+  }) {
+    // WHY: 分母为该分区标签关联金额合计，一笔多标签会被累计多次（标签维度口径）
+    final double totalAmount = tagStats.fold(0.0, (sum, e) => sum + e.amount);
 
-              return Container(
-                padding:
-                    const EdgeInsets.symmetric(vertical: AppTheme.spaceSmall),
-                decoration: BoxDecoration(
-                  border: isLast
-                      ? null
-                      : const Border(
-                          bottom: BorderSide(
-                            color: AppTheme.neutral100,
-                            width: 1,
-                          ),
-                        ),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceLarge),
+      decoration: BoxDecoration(
+        color: AppTheme.getCardColor(context),
+        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+      ),
+      child: Column(
+        children: [
+          for (int i = 0; i < tagStats.length; i++)
+            _buildTagStatRow(
+              context,
+              entry: tagStats[i],
+              totalAmount: totalAmount,
+              amountColor: amountColor,
+              isLast: i == tagStats.length - 1,
+              onTap: () => _showTagDetail(
+                context,
+                tagStats[i].tagId,
+                isIncome,
+                periodTransactions,
+              ),
+            ),
+          // WHY: 明示标签占比口径，避免用户与收支总额直接比较产生误解
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              vertical: AppTheme.spaceSmall,
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.info_outline_rounded,
+                  size: 12,
+                  color: AppTheme.neutral400,
                 ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: Color(tag.colorValue).withValues(alpha: 0.1),
-                        borderRadius:
-                            BorderRadius.circular(AppTheme.radiusSmall),
-                      ),
-                      child: Icon(
-                        IconLibrary.getIconByName(tag.iconName),
-                        size: 18,
-                        color: Color(tag.colorValue),
-                      ),
-                    ),
-                    const SizedBox(width: AppTheme.spaceMedium),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Text(
-                                tag.name,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodyMedium
-                                    ?.copyWith(
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                '$count笔',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodySmall
-                                    ?.copyWith(
-                                      color: AppTheme.neutral500,
-                                    ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(2),
-                            child: LinearProgressIndicator(
-                              value: percentage / 100,
-                              backgroundColor: AppTheme.neutral200,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                Color(tag.colorValue),
-                              ),
-                              minHeight: 4,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: AppTheme.spaceMedium),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          '¥${amount.toStringAsFixed(2)}',
-                          style:
-                              Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    '按标签归集，一笔账单可计入多个标签',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppTheme.neutral400,
+                          fontSize: 11,
                         ),
-                        Text(
-                          '${percentage.toStringAsFixed(1)}%',
-                          style:
-                              Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: AppTheme.neutral500,
-                                  ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 构建标签统计卡片中的单行
+  Widget _buildTagStatRow(
+    BuildContext context, {
+    required TagStatEntry entry,
+    required double totalAmount,
+    required Color amountColor,
+    required bool isLast,
+    required VoidCallback onTap,
+  }) {
+    final Tag? tag = TagService.getTagById(entry.tagId);
+    if (tag == null) return const SizedBox.shrink();
+
+    final bool deactivated = !tag.isActive;
+    final double percentage =
+        totalAmount > 0 ? (entry.amount / totalAmount) * 100 : 0;
+    final Color tagColor = Color(tag.colorValue);
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: AppTheme.spaceSmall + 2),
+        decoration: BoxDecoration(
+          border: isLast
+              ? null
+              : Border(
+                  bottom: BorderSide(
+                    color: AppTheme.getDividerColor(context),
+                    width: 1,
+                  ),
+                ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: tagColor.withValues(alpha: deactivated ? 0.06 : 0.1),
+                borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+              ),
+              child: Icon(
+                IconLibrary.getIconByName(tag.iconName),
+                size: 18,
+                // WHY: 已停用标签降低不透明度，表达"历史可追溯但不可新选"
+                color: deactivated ? AppTheme.neutral400 : tagColor,
+              ),
+            ),
+            const SizedBox(width: AppTheme.spaceMedium),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          tag.name,
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodyMedium
+                              ?.copyWith(
+                                fontWeight: FontWeight.w500,
+                                color: deactivated ? AppTheme.neutral400 : null,
+                              ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '${entry.count}笔',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: AppTheme.neutral500,
+                            ),
+                      ),
+                      if (deactivated) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 1,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppTheme.neutral200,
+                            borderRadius:
+                                BorderRadius.circular(AppTheme.radiusFull),
+                          ),
+                          child: Text(
+                            '已停用',
+                            style: Theme.of(context)
+                                .textTheme
+                                .labelSmall
+                                ?.copyWith(
+                                  fontSize: 10,
+                                  color: AppTheme.neutral500,
+                                ),
+                          ),
                         ),
                       ],
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(2),
+                    child: LinearProgressIndicator(
+                      value: percentage / 100,
+                      backgroundColor: AppTheme.neutral200,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        deactivated ? AppTheme.neutral400 : tagColor,
+                      ),
+                      minHeight: 4,
                     ),
-                  ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: AppTheme.spaceMedium),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  '¥${entry.amount.toStringAsFixed(2)}',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: deactivated ? AppTheme.neutral500 : amountColor,
+                      ),
                 ),
-              );
-            }).toList(),
-          ),
+                Text(
+                  '${percentage.toStringAsFixed(1)}%',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppTheme.neutral500,
+                      ),
+                ),
+              ],
+            ),
+            const SizedBox(width: AppTheme.spaceXSmall),
+            const Icon(
+              Icons.chevron_right_rounded,
+              size: 18,
+              color: AppTheme.neutral400,
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 

@@ -679,7 +679,9 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
         child: ValueListenableBuilder(
           valueListenable: DatabaseService.transactions.listenable(),
           builder: (context, Box<Transaction> box, _) {
-            final allTransactions = box.values.toList();
+            // WHY: 统一在数据源排除软删除账单，列表与月度预算支出均不再计入
+            final allTransactions =
+                box.values.where((t) => !t.isDeleted).toList();
 
             // 应用筛选条件
             final transactions = FilterService.filterTransactions(
