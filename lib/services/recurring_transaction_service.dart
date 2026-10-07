@@ -1,14 +1,17 @@
+import 'package:flutter/foundation.dart';
+import '../models/account.dart';
 import '../models/recurring_transaction.dart';
 import '../models/transaction.dart';
+import '../services/account_service.dart';
 import '../services/database_service.dart';
 import '../utils/uuid_util.dart';
 
 /// 定期交易服务
-/// 
+///
 /// 提供定期交易的增删改查和自动生成交易功能
 class RecurringTransactionService {
   /// 添加定期交易
-  /// 
+  ///
   /// @param recurringTransaction 定期交易对象
   /// @return 添加后的定期交易
   static Future<RecurringTransaction> addRecurringTransaction(
@@ -19,7 +22,7 @@ class RecurringTransactionService {
   }
 
   /// 更新定期交易
-  /// 
+  ///
   /// @param recurringTransaction 定期交易对象
   /// @return 更新后的定期交易
   static Future<RecurringTransaction> updateRecurringTransaction(
@@ -31,7 +34,7 @@ class RecurringTransactionService {
   }
 
   /// 删除定期交易
-  /// 
+  ///
   /// @param id 定期交易ID
   static Future<void> deleteRecurringTransaction(String id) async {
     final box = DatabaseService.recurringTransactions;
@@ -39,7 +42,7 @@ class RecurringTransactionService {
   }
 
   /// 获取所有定期交易
-  /// 
+  ///
   /// @param includeDisabled 是否包含已禁用的交易（默认true）
   /// @return 定期交易列表
   static List<RecurringTransaction> getAllRecurringTransactions({
@@ -47,23 +50,23 @@ class RecurringTransactionService {
   }) {
     final box = DatabaseService.recurringTransactions;
     var transactions = box.values.toList();
-    
+
     if (!includeDisabled) {
       transactions = transactions.where((t) => t.isEnabled).toList();
     }
-    
+
     // 按下次执行日期排序
     transactions.sort((a, b) {
       if (a.nextExecutionDate == null) return 1;
       if (b.nextExecutionDate == null) return -1;
       return a.nextExecutionDate!.compareTo(b.nextExecutionDate!);
     });
-    
+
     return transactions;
   }
 
   /// 获取单个定期交易
-  /// 
+  ///
   /// @param id 定期交易ID
   /// @return 定期交易对象，不存在返回null
   static RecurringTransaction? getRecurringTransaction(String id) {
@@ -72,7 +75,7 @@ class RecurringTransactionService {
   }
 
   /// 获取需要执行的定期交易
-  /// 
+  ///
   /// @return 需要执行的定期交易列表
   static List<RecurringTransaction> getPendingRecurringTransactions() {
     final box = DatabaseService.recurringTransactions;
@@ -82,23 +85,22 @@ class RecurringTransactionService {
   }
 
   /// 获取即将到期的定期交易（3天内）
-  /// 
+  ///
   /// @param days 天数（默认3）
   /// @return 即将到期的定期交易列表
-  static List<RecurringTransaction> getUpcomingRecurringTransactions({int days = 3}) {
+  static List<RecurringTransaction> getUpcomingRecurringTransactions(
+      {int days = 3}) {
     final box = DatabaseService.recurringTransactions;
     final now = DateTime.now();
     final threshold = now.add(Duration(days: days));
-    
-    return box.values
-        .where((t) {
-          if (!t.isEnabled) return false;
-          if (t.isExpired) return false;
-          if (t.nextExecutionDate == null) return false;
-          return t.nextExecutionDate!.isBefore(threshold) &&
-                 t.nextExecutionDate!.isAfter(now);
-        })
-        .toList()
+
+    return box.values.where((t) {
+      if (!t.isEnabled) return false;
+      if (t.isExpired) return false;
+      if (t.nextExecutionDate == null) return false;
+      return t.nextExecutionDate!.isBefore(threshold) &&
+          t.nextExecutionDate!.isAfter(now);
+    }).toList()
       ..sort((a, b) => a.nextExecutionDate!.compareTo(b.nextExecutionDate!));
   }
 
@@ -140,6 +142,24 @@ class RecurringTransactionService {
 
     await DatabaseService.addTransaction(transaction);
 
+    // WHY: 定期交易执行与手工记账保持同一余额不变量——收入加、支出减。
+    // 历史版本（≤2.2.1）此处漏联动；历史已执行记录无来源标识无法追溯，
+    // 由用户在账户页手动调整（v2.3.0 起新执行的记录自动联动）。
+    final Account? targetAccount =
+        AccountService.getAccountByName(recurringTransaction.account);
+    if (targetAccount != null) {
+      if (recurringTransaction.isIncome) {
+        targetAccount.currentBalance += recurringTransaction.amount;
+      } else {
+        targetAccount.currentBalance -= recurringTransaction.amount;
+      }
+      await AccountService.updateAccount(targetAccount);
+    } else {
+      // WHY: 账户可能已被删除或改名，仅记录日志不阻断执行记录更新
+      debugPrint('[RecurringTransaction] 余额联动跳过: 账户不存在 '
+          '"${recurringTransaction.account}", recurringId=${recurringTransaction.id}');
+    }
+
     // 更新定期交易的执行记录
     recurringTransaction.markAsExecuted();
     await updateRecurringTransaction(recurringTransaction);
@@ -161,7 +181,7 @@ class RecurringTransactionService {
   }
 
   /// 批量执行所有待执行的定期交易
-  /// 
+  ///
   /// @return 生成的交易数量
   static Future<int> executeAllPendingTransactions() async {
     final pending = getPendingRecurringTransactions();
@@ -172,7 +192,7 @@ class RecurringTransactionService {
   }
 
   /// 检查并执行定期交易（在应用启动时调用）
-  /// 
+  ///
   /// @return 生成的交易数量
   static Future<int> checkAndExecute() async {
     // 更新所有定期交易的下次执行日期
@@ -183,23 +203,23 @@ class RecurringTransactionService {
         await updateRecurringTransaction(recurring);
       }
     }
-    
+
     // 执行待执行的交易
     return executeAllPendingTransactions();
   }
 
   /// 获取定期交易统计
-  /// 
+  ///
   /// @return 统计信息Map
   static Map<String, dynamic> getStats() {
     final box = DatabaseService.recurringTransactions;
     final all = box.values.toList();
     final enabled = all.where((t) => t.isEnabled).toList();
     final pending = getPendingRecurringTransactions();
-    
+
     double totalIncome = 0;
     double totalExpense = 0;
-    
+
     for (final t in enabled) {
       if (t.isIncome) {
         totalIncome += t.amount;
@@ -207,7 +227,7 @@ class RecurringTransactionService {
         totalExpense += t.amount;
       }
     }
-    
+
     return {
       'totalCount': all.length,
       'enabledCount': enabled.length,
@@ -218,7 +238,7 @@ class RecurringTransactionService {
   }
 
   /// 启用/禁用定期交易
-  /// 
+  ///
   /// @param id 定期交易ID
   /// @param isEnabled 是否启用
   static Future<void> toggleStatus(String id, bool isEnabled) async {

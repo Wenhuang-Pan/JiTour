@@ -62,6 +62,8 @@ class _ExportScreenState extends State<ExportScreen> {
             _buildPreviewCard(context, dateFormat),
             const SizedBox(height: AppTheme.spaceXLarge),
             _buildExportButton(context),
+            const SizedBox(height: AppTheme.spaceMedium),
+            _buildExportAllButton(context),
             const SizedBox(height: AppTheme.spaceXXXLarge),
           ],
         ),
@@ -619,6 +621,48 @@ class _ExportScreenState extends State<ExportScreen> {
     );
   }
 
+  /// 构建"导出全部"次级按钮
+  ///
+  /// WHY: 主按钮只导出所选日期范围；提供一键导出全部历史账单的入口，
+  /// 导出格式跟随上方选择的 CSV/TXT，文件名带 all 标识以便区分。
+  Widget _buildExportAllButton(BuildContext context) {
+    // WHY: 该页面无新增/删除交易入口，build 时取一次总数即可
+    final int allCount = DatabaseService.getAllTransactions().length;
+    final bool disabled = allCount == 0;
+
+    return SizedBox(
+      width: double.infinity,
+      height: 52,
+      child: OutlinedButton.icon(
+        onPressed: disabled ? null : () => _exportData(exportAll: true),
+        style: OutlinedButton.styleFrom(
+          side: BorderSide(
+            color: disabled
+                ? AppTheme.neutral300
+                : AppTheme.primaryColor.withValues(alpha: 0.5),
+            width: 1.5,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+          ),
+        ),
+        icon: Icon(
+          Icons.all_inclusive_rounded,
+          size: 20,
+          color: disabled ? AppTheme.neutral400 : AppTheme.primaryColor,
+        ),
+        label: Text(
+          '导出全部账单（$allCount 条）',
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            color: disabled ? AppTheme.neutral400 : AppTheme.primaryColor,
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _selectDate(bool isStart) async {
     final DateTime? picked = await showDatePicker(
       context: context,
@@ -640,23 +684,41 @@ class _ExportScreenState extends State<ExportScreen> {
     }
   }
 
-  Future<void> _exportData() async {
+  /// 执行导出
+  ///
+  /// @param exportAll true 时忽略页面选定的日期范围，导出全部账单；
+  ///                  统计周期取实际最早/最晚交易日期，保证 TXT 报告头部准确
+  Future<void> _exportData({bool exportAll = false}) async {
     try {
       String content;
       String fileName;
       final dateFormat = DateFormat('yyyyMMdd');
 
+      // WHY: 全部导出使用数据库中全部未删除交易，不受日期选择器约束
+      final List<Transaction> transactions = exportAll
+          ? DatabaseService.getAllTransactions()
+          : _filteredTransactions;
+      if (transactions.isEmpty) return;
+
+      // WHY: getAllTransactions 按日期倒序，首条最晚、末条最早
+      final DateTime rangeStart =
+          exportAll ? transactions.last.date : _startDate;
+      final DateTime rangeEnd = exportAll ? transactions.first.date : _endDate;
+
       if (_exportType == 'csv') {
         final currency =
             Provider.of<CurrencyProvider>(context, listen: false).code;
-        content = ExportService.exportToCsv(
-            _filteredTransactions, _startDate, _endDate,
+        content = ExportService.exportToCsv(transactions, rangeStart, rangeEnd,
             currency: currency);
-        fileName = 'jitu_export_${dateFormat.format(DateTime.now())}.csv';
+        fileName = exportAll
+            ? 'jitu_export_all_${dateFormat.format(DateTime.now())}.csv'
+            : 'jitu_export_${dateFormat.format(DateTime.now())}.csv';
       } else {
-        content = ExportService.exportToText(
-            _filteredTransactions, _startDate, _endDate);
-        fileName = 'jitu_export_${dateFormat.format(DateTime.now())}.txt';
+        content =
+            ExportService.exportToText(transactions, rangeStart, rangeEnd);
+        fileName = exportAll
+            ? 'jitu_export_all_${dateFormat.format(DateTime.now())}.txt'
+            : 'jitu_export_${dateFormat.format(DateTime.now())}.txt';
       }
 
       // 获取临时目录并保存文件
@@ -674,7 +736,7 @@ class _ExportScreenState extends State<ExportScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('导出成功！'),
+            content: Text('导出成功！共 ${transactions.length} 条记录'),
             backgroundColor: AppTheme.successColor,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(

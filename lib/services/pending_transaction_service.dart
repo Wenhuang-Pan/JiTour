@@ -1,5 +1,8 @@
+import 'package:flutter/foundation.dart';
+import '../models/account.dart';
 import '../models/pending_transaction.dart';
 import '../models/transaction.dart';
+import '../services/account_service.dart';
 import '../services/database_service.dart';
 import '../utils/uuid_util.dart';
 import 'category_inference_service.dart';
@@ -114,15 +117,28 @@ class PendingTransactionService {
     );
     await DatabaseService.addTransaction(transaction);
 
-    // WHY: 若用户手动修改了金额，则同步更新 pending 记录，便于审计追溯
+    // WHY: 必须先把 pending 置为 confirmed 并落盘，再扣账户余额。
+    // status==pending 是 confirm 的幂等闸门，若先扣款后改状态，
+    // 中途崩溃会导致重试时重复建交易、重复扣款；先落状态最坏只漏扣，危害更小。
     if (amount != null && (amount - pending.amount).abs() > 0.001) {
       pending.amount = amount;
     }
-
-    // 更新待确认状态
     pending.status = PendingStatus.confirmed;
     pending.confirmedTransactionId = transaction.id;
     await DatabaseService.pendingTransactions.put(pending.id, pending);
+
+    // WHY: 自动记账转正与手工记账保持同一余额不变量——支出必须扣减账户余额。
+    // 历史版本（≤2.2.1）此处漏扣导致账户余额偏高，由 BalanceMigrationService 一次性补扣。
+    // 交易中 account 存的是账户名称（与悬浮窗缓存的账户名列表一致）。
+    final Account? targetAccount = AccountService.getAccountByName(account);
+    if (targetAccount != null) {
+      targetAccount.currentBalance -= effectiveAmount;
+      await AccountService.updateAccount(targetAccount);
+    } else {
+      // WHY: 账户可能已被删除或改名，余额无法联动；交易已落库不应回滚，仅记录日志
+      debugPrint('[PendingTransaction] 余额联动跳过: 账户不存在 "$account", '
+          'pendingId=$pendingId, amount=$effectiveAmount');
+    }
 
     // 学习商户-分类映射
     if (pending.merchant != null && pending.merchant!.isNotEmpty) {
@@ -155,9 +171,8 @@ class PendingTransactionService {
   ///
   /// @return 清理的数量
   static Future<int> clearProcessed() async {
-    final processed = getAll()
-        .where((t) => t.status != PendingStatus.pending)
-        .toList();
+    final processed =
+        getAll().where((t) => t.status != PendingStatus.pending).toList();
     for (final t in processed) {
       await DatabaseService.pendingTransactions.delete(t.id);
     }

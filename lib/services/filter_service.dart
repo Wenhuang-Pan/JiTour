@@ -1,4 +1,5 @@
 import '../models/transaction.dart';
+import 'tag_service.dart';
 
 /// 筛选条件模型
 ///
@@ -50,7 +51,8 @@ class FilterConditions {
 
   /// 判断是否有任何筛选条件
   bool get hasFilters {
-    return keyword != null && keyword!.isNotEmpty ||
+    // WHY: 纯空格关键词视为无筛选，避免输入空格后误进"无结果"态
+    return keyword != null && keyword!.trim().isNotEmpty ||
         category != null && category!.isNotEmpty ||
         account != null && account!.isNotEmpty ||
         startDate != null ||
@@ -125,6 +127,12 @@ class FilterService {
 
     List<Transaction> filtered = List.from(transactions);
 
+    // WHY: Transaction.tags 存的是逗号分隔的标签 ID，预构建一次 tagId→标签名
+    // 映射（O(标签数)），避免在交易循环内重复查 Hive box
+    final Map<String, String> tagNameById = <String, String>{
+      for (final tag in TagService.getAllTags()) tag.id: tag.name,
+    };
+
     // 按收支类型筛选
     if (conditions.isIncome != null) {
       filtered =
@@ -190,18 +198,25 @@ class FilterService {
     if (conditions.tag != null && conditions.tag!.isNotEmpty) {
       final targetTag = conditions.tag!;
       filtered = filtered.where((t) {
-        final tags = t.tags is List<String> ? t.tags as List<String> : [];
-        return tags.contains(targetTag);
+        // WHY: 兼容按标签 ID 或标签名称筛选；旧代码误用 t.tags as List<String>，
+        // 但 tags 实际是逗号分隔的 ID 字符串，该分支永不命中
+        return t.tagIds
+            .any((id) => id == targetTag || tagNameById[id] == targetTag);
       }).toList();
     }
 
-    // 按关键词搜索（匹配备注、分类名、账户名）
-    if (conditions.keyword != null && conditions.keyword!.isNotEmpty) {
-      final keyword = conditions.keyword!.toLowerCase();
+    // 按关键词搜索（匹配备注、分类名、账户名、消费位置、标签名）
+    if (conditions.keyword != null && conditions.keyword!.trim().isNotEmpty) {
+      final keyword = conditions.keyword!.trim().toLowerCase();
       filtered = filtered.where((t) {
+        // WHY: 标签 ID 反查名称后再匹配关键词
+        final bool tagMatched = t.tagIds.any(
+            (id) => (tagNameById[id] ?? '').toLowerCase().contains(keyword));
         return (t.note?.toLowerCase().contains(keyword) ?? false) ||
             t.category.toLowerCase().contains(keyword) ||
-            t.account.toLowerCase().contains(keyword);
+            t.account.toLowerCase().contains(keyword) ||
+            (t.locationName?.toLowerCase().contains(keyword) ?? false) ||
+            tagMatched;
       }).toList();
     }
 

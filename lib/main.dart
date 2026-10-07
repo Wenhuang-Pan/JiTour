@@ -11,6 +11,7 @@ import 'screens/export_screen.dart';
 import 'screens/settings_screen.dart' as settings;
 import 'services/database_service.dart';
 import 'services/auto_backup_service.dart';
+import 'services/balance_migration_service.dart';
 import 'services/recurring_transaction_service.dart';
 import 'theme/app_theme.dart';
 import 'providers/theme_provider.dart';
@@ -29,6 +30,10 @@ void main() async {
 
     await Hive.initFlutter();
     await DatabaseService.init();
+
+    // WHY: 必须先补扣历史自动记账漏扣的余额，再执行当天定期交易，
+    // 确保后续交易均走 v2.3.0 的余额联动逻辑，迁移不会重复处理新交易
+    await BalanceMigrationService.runIfNeeded();
 
     // 检查并执行定期交易
     await RecurringTransactionService.checkAndExecute();

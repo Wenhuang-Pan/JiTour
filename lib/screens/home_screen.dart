@@ -21,10 +21,12 @@ import '../services/database_service.dart';
 import '../services/category_service.dart';
 import '../services/filter_service.dart';
 import '../services/recurring_transaction_service.dart';
+import '../services/update_service.dart';
 import '../utils/icon_library.dart';
 import '../utils/animation_utils.dart';
 import '../widgets/filter_modal.dart';
 import '../widgets/quick_entry_overlay.dart';
+import '../widgets/update_checker.dart';
 import '../services/notification_bridge_service.dart';
 import '../models/pending_transaction.dart';
 
@@ -346,19 +348,26 @@ class _HomeScreenState extends State<HomeScreen> {
                         context,
                         icon: Icons.info_outline_rounded,
                         title: '关于记途',
-                        subtitle: 'V1.2.0 · 一起记账吧',
+                        // WHY: 版本号从 UpdateService 动态读取，与 pubspec/发布版本保持一致，
+                        // 旧代码硬编码 V1.2.0 已与实际版本（2.2.1）脱节
+                        subtitle: 'V${UpdateService.getVersion()} · 一起记账吧',
                         color: AppTheme.neutral500,
                         onTap: () {
                           Navigator.pop(context);
+                          // WHY: 使用 State 级 context 而非抽屉内部 context，
+                          // 确保抽屉与关于对话框关闭后仍能弹出更新相关提示
+                          final pageContext = this.context;
                           showAboutDialog(
-                            context: context,
+                            context: pageContext,
                             applicationName: '记途',
-                            applicationVersion: 'V1.2.0',
+                            applicationVersion:
+                                'V${UpdateService.getVersion()}',
                             applicationIcon: Container(
                               width: 48,
                               height: 48,
                               decoration: BoxDecoration(
-                                gradient: AppTheme.getPrimaryGradient(context),
+                                gradient:
+                                    AppTheme.getPrimaryGradient(pageContext),
                                 borderRadius: BorderRadius.circular(
                                     AppTheme.radiusMedium),
                               ),
@@ -368,10 +377,24 @@ class _HomeScreenState extends State<HomeScreen> {
                                 size: 24,
                               ),
                             ),
-                            children: const [
-                              Text('一款简洁好用的个人记账应用'),
-                              SizedBox(height: 8),
-                              Text('帮助你轻松管理日常收支'),
+                            children: [
+                              const Text('一款简洁好用的个人记账应用'),
+                              const SizedBox(height: 8),
+                              const Text('帮助你轻松管理日常收支'),
+                              const SizedBox(height: AppTheme.spaceLarge),
+                              // WHY: 在关于对话框内提供手动检查更新入口；
+                              // manualCheck 绕过缓存与"跳过此版本"标记强制拉取最新版本
+                              OutlinedButton.icon(
+                                onPressed: () {
+                                  Navigator.pop(pageContext);
+                                  UpdateCheckerWidget.manualCheck(pageContext);
+                                },
+                                icon: const Icon(
+                                  Icons.system_update_rounded,
+                                  size: 18,
+                                ),
+                                label: const Text('检查更新'),
+                              ),
                             ],
                           );
                         },
@@ -665,6 +688,19 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
             );
 
             if (transactions.isEmpty) {
+              // WHY: 区分"无账单"与"搜索/筛选无结果"：后者保留搜索框，
+              // 方便直接改词重搜或一键清除，避免用户被困在无入口的空页面
+              if (_filterConditions.hasFilters) {
+                return ListView(
+                  children: [
+                    const SizedBox(height: AppTheme.spaceSmall),
+                    _buildSearchSection(context),
+                    const SizedBox(height: AppTheme.spaceSmall),
+                    _buildFilterIndicator(context),
+                    _buildNoResultState(context),
+                  ],
+                );
+              }
               return _buildEmptyState(context);
             }
 
@@ -699,14 +735,16 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
 
             return CustomScrollView(
               slivers: [
-                SliverToBoxAdapter(
-                  child: _buildMonthlyBudgetCard(
-                    context,
-                    monthExpense,
-                    totalBudget,
-                    budgetBalance,
+                // WHY: 搜索/筛选态聚焦结果，隐藏月度预算卡片与定期交易提醒
+                if (!_filterConditions.hasFilters)
+                  SliverToBoxAdapter(
+                    child: _buildMonthlyBudgetCard(
+                      context,
+                      monthExpense,
+                      totalBudget,
+                      budgetBalance,
+                    ),
                   ),
-                ),
                 SliverToBoxAdapter(
                   child: _buildSearchSection(context),
                 ),
@@ -714,9 +752,10 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
                 // SliverToBoxAdapter(
                 //   child: _buildSavingsSection(context),
                 // ),
-                SliverToBoxAdapter(
-                  child: _buildRecurringTransactionReminder(context),
-                ),
+                if (!_filterConditions.hasFilters)
+                  SliverToBoxAdapter(
+                    child: _buildRecurringTransactionReminder(context),
+                  ),
                 if (_filterConditions.hasFilters)
                   SliverToBoxAdapter(
                     child: _buildFilterIndicator(context),
@@ -992,6 +1031,58 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
     setState(() {
       _filterConditions.reset();
     });
+  }
+
+  /// 构建搜索/筛选无结果状态
+  ///
+  /// WHY: 与"完全无账单"空状态区分，提示用户调整关键词或清除筛选
+  Widget _buildNoResultState(BuildContext context) {
+    return Padding(
+      // WHY: bottom 120 避让右下角"记一笔"FAB，防止清除按钮被遮挡
+      padding: const EdgeInsets.only(
+        top: 96,
+        bottom: 120,
+        left: AppTheme.spaceXXXLarge,
+        right: AppTheme.spaceXXXLarge,
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.08),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.search_off_rounded,
+              size: 40,
+              color: AppTheme.getPrimaryColor(context),
+            ),
+          ),
+          const SizedBox(height: AppTheme.spaceLarge),
+          Text(
+            '未找到相关账单',
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+          ),
+          const SizedBox(height: AppTheme.spaceSmall),
+          Text(
+            '试试更换关键词或清除筛选条件',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: AppTheme.neutral400,
+                ),
+          ),
+          const SizedBox(height: AppTheme.spaceXLarge),
+          OutlinedButton.icon(
+            onPressed: _clearFilters,
+            icon: const Icon(Icons.filter_alt_off_rounded, size: 18),
+            label: const Text('清除搜索与筛选'),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildEmptyState(BuildContext context) {

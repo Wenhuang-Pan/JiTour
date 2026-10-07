@@ -234,6 +234,47 @@ class UpdateCheckerWidget extends StatefulWidget {
     );
   }
 
+  /// 手动触发一次检查更新（供"关于"对话框等入口调用）。
+  ///
+  /// WHY: 手动检查需绕过 1 小时更新缓存并忽略"跳过此版本"标记，
+  /// 确保能看到 GitHub 上的真实最新版本；与启动时静默检查（读缓存）区分开。
+  ///
+  /// @param context 用于展示 SnackBar 与更新对话框的上下文，
+  ///                调用方需保证检查期间该 context 所属页面仍挂载（如页面级 context）
+  /// @return 无返回值；有新版时弹出更新对话框，无新版时提示"当前已是最新版本"
+  static Future<void> manualCheck(BuildContext context) async {
+    // WHY: 在 await 之前捕获 ScaffoldMessenger，避免检查期间页面切换后提示失败
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(
+      const SnackBar(
+        content: Text('正在检查更新…'),
+        behavior: SnackBarBehavior.floating,
+        duration: Duration(seconds: 4),
+      ),
+    );
+
+    final updateInfo = await UpdateService.checkForUpdate(
+      ignoreSkip: true,
+      forceRefresh: true,
+    );
+
+    if (!context.mounted) return;
+
+    // WHY: 先清除"正在检查更新"提示，避免与结果提示堆叠
+    messenger.clearSnackBars();
+    if (updateInfo != null) {
+      showUpdateDialog(context, updateInfo);
+    } else {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('当前已是最新版本'),
+          behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
   /// WHY: Web 端刷新提示抽为独立方法，供静态对话框与实例对话框复用
   static void _showWebRefreshHint(BuildContext context) {
     ScaffoldMessenger.of(context).showSnackBar(

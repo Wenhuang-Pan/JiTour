@@ -9,6 +9,7 @@ import '../models/account.dart';
 import '../models/tag.dart';
 import '../models/savings_goal.dart';
 import '../models/category.dart';
+import 'balance_migration_service.dart';
 
 class BackupService {
   static Future<String> createBackup() async {
@@ -173,7 +174,8 @@ class BackupService {
             fee: (t['fee'] as num?)?.toDouble() ?? 0.0,
             coupon: (t['coupon'] as num?)?.toDouble() ?? 0.0,
             tags: t['tags'],
-            deletedAt: t['deletedAt'] != null ? DateTime.parse(t['deletedAt']) : null,
+            deletedAt:
+                t['deletedAt'] != null ? DateTime.parse(t['deletedAt']) : null,
           );
           await transactionsBox.put(transaction.id, transaction);
         }
@@ -205,8 +207,12 @@ class BackupService {
             currentBalance: (a['currentBalance'] as num?)?.toDouble() ?? 0.0,
             isActive: a['isActive'] ?? true,
             sortOrder: a['sortOrder'] as int? ?? 0,
-            createdAt: a['createdAt'] != null ? DateTime.parse(a['createdAt']) : DateTime.now(),
-            updatedAt: a['updatedAt'] != null ? DateTime.parse(a['updatedAt']) : DateTime.now(),
+            createdAt: a['createdAt'] != null
+                ? DateTime.parse(a['createdAt'])
+                : DateTime.now(),
+            updatedAt: a['updatedAt'] != null
+                ? DateTime.parse(a['updatedAt'])
+                : DateTime.now(),
           );
           await accountsBox.put(account.id, account);
         }
@@ -222,8 +228,12 @@ class BackupService {
             iconName: t['iconName'],
             isActive: t['isActive'] ?? true,
             sortOrder: t['sortOrder'] as int? ?? 0,
-            createdAt: t['createdAt'] != null ? DateTime.parse(t['createdAt']) : DateTime.now(),
-            updatedAt: t['updatedAt'] != null ? DateTime.parse(t['updatedAt']) : DateTime.now(),
+            createdAt: t['createdAt'] != null
+                ? DateTime.parse(t['createdAt'])
+                : DateTime.now(),
+            updatedAt: t['updatedAt'] != null
+                ? DateTime.parse(t['updatedAt'])
+                : DateTime.now(),
           );
           await tagsBox.put(tag.id, tag);
         }
@@ -241,10 +251,16 @@ class BackupService {
             iconName: g['iconName'],
             colorValue: g['colorValue'] as int,
             startDate: DateTime.parse(g['startDate']),
-            targetDate: g['targetDate'] != null ? DateTime.parse(g['targetDate']) : null,
+            targetDate: g['targetDate'] != null
+                ? DateTime.parse(g['targetDate'])
+                : null,
             isCompleted: g['isCompleted'] ?? false,
-            createdAt: g['createdAt'] != null ? DateTime.parse(g['createdAt']) : DateTime.now(),
-            updatedAt: g['updatedAt'] != null ? DateTime.parse(g['updatedAt']) : DateTime.now(),
+            createdAt: g['createdAt'] != null
+                ? DateTime.parse(g['createdAt'])
+                : DateTime.now(),
+            updatedAt: g['updatedAt'] != null
+                ? DateTime.parse(g['updatedAt'])
+                : DateTime.now(),
             accountId: g['accountId'],
           );
           await savingsGoalsBox.put(goal.id, goal);
@@ -261,11 +277,16 @@ class BackupService {
             isIncome: c['isIncome'],
             color: c['color'],
             createdAt: DateTime.parse(c['createdAt']),
-            deletedAt: c['deletedAt'] != null ? DateTime.parse(c['deletedAt']) : null,
+            deletedAt:
+                c['deletedAt'] != null ? DateTime.parse(c['deletedAt']) : null,
           );
           await categoriesBox.put(category.id, category);
         }
       }
+
+      // WHY: 备份内容不含迁移标志与 pending 表，恢复后重置余额补扣迁移标志，
+      // 下次启动时基于现存 pending 记录重新评估，避免恢复旧备份后历史漏扣无法补回
+      await BalanceMigrationService.resetMigrationFlag();
 
       return true;
     } catch (e) {
@@ -276,21 +297,22 @@ class BackupService {
   static Future<File> saveBackupToFile(String content) async {
     final dateFormat = DateFormat('yyyyMMdd_HHmmss');
     final fileName = 'jitu_backup_${dateFormat.format(DateTime.now())}.json';
-    
+
     final directory = await getApplicationDocumentsDirectory();
     final file = File('${directory.path}/$fileName');
-    
+
     await file.writeAsString(content);
     return file;
   }
 
   static Future<List<FileSystemEntity>> getBackupFiles() async {
     final directory = await getApplicationDocumentsDirectory();
-    final files = directory.listSync()
-        .where((f) => f.path.endsWith('.json') && 
-                      f.path.contains('jitu_backup_'))
+    final files = directory
+        .listSync()
+        .where(
+            (f) => f.path.endsWith('.json') && f.path.contains('jitu_backup_'))
         .toList();
-    
+
     files.sort((a, b) => b.path.compareTo(a.path)); // 最新备份在前
     return files;
   }
