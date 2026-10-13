@@ -1,4 +1,5 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
+// 金额字段 read 已手动改为 parseDecimal 兼容旧 double 数据，勿重新 build_runner 覆盖
 
 part of 'account.dart';
 
@@ -21,8 +22,8 @@ class AccountAdapter extends TypeAdapter<Account> {
       name: fields[1] as String,
       iconName: fields[2] as String,
       colorValue: fields[3] as int,
-      initialBalance: fields[4] as Decimal?,
-      currentBalance: fields[5] as Decimal?,
+      initialBalance: fields[4] == null ? null : parseDecimal(fields[4]),
+      currentBalance: fields[5] == null ? null : parseDecimal(fields[5]),
       isActive: fields[6] as bool,
       sortOrder: fields[7] as int,
       createdAt: fields[8] as DateTime?,

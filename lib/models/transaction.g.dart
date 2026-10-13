@@ -1,4 +1,5 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
+// 金额字段 read 已手动改为 parseDecimal 兼容旧 double 数据，勿重新 build_runner 覆盖
 
 part of 'transaction.dart';
 
@@ -18,7 +19,7 @@ class TransactionAdapter extends TypeAdapter<Transaction> {
     };
     return Transaction(
       id: fields[0] as String,
-      amount: fields[1] as Decimal,
+      amount: parseDecimal(fields[1]),
       isIncome: fields[2] as bool,
       category: fields[3] as String,
       account: fields[4] as String,
@@ -30,8 +31,8 @@ class TransactionAdapter extends TypeAdapter<Transaction> {
       currency: fields[10] as String?,
       account2: fields[11] as String?,
       isReimbursed: fields[12] as bool,
-      fee: fields[13] as Decimal?,
-      coupon: fields[14] as Decimal?,
+      fee: fields[13] == null ? null : parseDecimal(fields[13]),
+      coupon: fields[14] == null ? null : parseDecimal(fields[14]),
       locationName: fields[15] as String?,
       latitude: fields[16] as double?,
       longitude: fields[17] as double?,

@@ -10,7 +10,6 @@ import 'screens/csv_import_screen.dart';
 import 'screens/export_screen.dart';
 import 'screens/settings_screen.dart' as settings;
 import 'services/database_service.dart';
-import 'services/auto_backup_service.dart';
 import 'services/balance_migration_service.dart';
 import 'services/recurring_transaction_service.dart';
 import 'theme/app_theme.dart';

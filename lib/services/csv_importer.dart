@@ -171,9 +171,13 @@ class CsvImporter {
       'yyyy年MM月dd日 HH:mm',
     ];
 
+    // WHY: 必须使用 parseStrict 严格匹配——intl 的 parse 是宽松解析，
+    // 会把 '15/01/2024' 先按 'yyyy/MM/dd' 错误匹配（年=15、日=2024 溢出滚动），
+    // 导致 dd/MM/yyyy、MM/dd/yyyy 等真实格式永远轮不到；严格模式要求
+    // 整串消费且字段范围合法，才能按声明顺序命中正确格式
     for (final format in formats) {
       try {
-        return DateFormat(format).parse(dateString);
+        return DateFormat(format).parseStrict(dateString);
       } catch (_) {
         continue;
       }

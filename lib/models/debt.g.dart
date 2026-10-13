@@ -1,4 +1,5 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
+// 金额字段 read 已手动改为 parseDecimal 兼容旧 double 数据，勿重新 build_runner 覆盖
 
 part of 'debt.dart';
 
@@ -20,8 +21,8 @@ class DebtAdapter extends TypeAdapter<Debt> {
       id: fields[0] as String,
       name: fields[1] as String,
       creditor: fields[2] as String,
-      totalAmount: fields[3] as Decimal,
-      paidAmount: fields[4] as Decimal?,
+      totalAmount: parseDecimal(fields[3]),
+      paidAmount: fields[4] == null ? null : parseDecimal(fields[4]),
       interestRate: fields[5] as double,
       dueDate: fields[6] as DateTime,
       status: fields[7] as String,

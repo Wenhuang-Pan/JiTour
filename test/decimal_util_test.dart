@@ -44,4 +44,27 @@ void main() {
     await Hive.close();
     await tmpDir.delete(recursive: true);
   });
+
+  test('金额适配器必须使用 parseDecimal 兼容读取（防 build_runner 覆盖回归）', () {
+    // WHY: v3.0.0 曾遗漏 4 个适配器的裸 `as Decimal` 强转，旧 double 数据
+    // 读取时抛 TypeError，导致启动白屏。重跑 build_runner 会重新生成强转代码，
+    // 此测试直接扫描源码做静态守护，一旦回归立即变红
+    const adapterFiles = <String>[
+      'lib/models/transaction.g.dart',
+      'lib/models/account.g.dart',
+      'lib/models/debt.g.dart',
+      'lib/models/savings_goal.g.dart',
+      'lib/models/budget.g.dart',
+      'lib/models/recurring_transaction.g.dart',
+      'lib/models/pending_transaction.g.dart',
+    ];
+    for (final path in adapterFiles) {
+      final content = File(path).readAsStringSync();
+      expect(
+        content.contains('as Decimal'),
+        isFalse,
+        reason: '$path 存在裸 `as Decimal` 强转，旧 double 数据读取会崩溃',
+      );
+    }
+  });
 }

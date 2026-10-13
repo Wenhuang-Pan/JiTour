@@ -17,7 +17,7 @@ class UpdateInfo {
 }
 
 class UpdateService {
-  static const String currentVersion = '3.0.0';
+  static const String currentVersion = '3.0.1';
   static const String githubOwner = 'Wenhuang-Pan';
   static const String githubRepo = 'JiTour';
   static const String _releasesUrl =
