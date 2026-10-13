@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
+import 'package:decimal/decimal.dart';
 import 'package:jitu/services/database_service.dart';
 import 'package:jitu/models/transaction.dart';
 import 'package:jitu/models/budget.dart';
@@ -30,7 +31,7 @@ void main() {
       test('创建交易', () async {
         final transaction = Transaction(
           id: 'test-transaction-1',
-          amount: 100.0,
+          amount: Decimal.parse('100.0'),
           isIncome: false,
           category: '餐饮',
           account: '现金',
@@ -42,7 +43,7 @@ void main() {
 
         final stored = DatabaseService.transactions.get('test-transaction-1');
         expect(stored, isNotNull);
-        expect(stored?.amount, 100.0);
+        expect(stored?.amount, Decimal.parse('100.0'));
         expect(stored?.category, '餐饮');
         expect(stored?.note, '午餐');
       });
@@ -50,7 +51,7 @@ void main() {
       test('删除交易', () async {
         final transaction = Transaction(
           id: 'test-transaction-delete',
-          amount: 50.0,
+          amount: Decimal.parse('50.0'),
           isIncome: false,
           category: '交通',
           account: '现金',
@@ -70,7 +71,7 @@ void main() {
 
         final transaction1 = Transaction(
           id: 'trans-1',
-          amount: 100.0,
+          amount: Decimal.parse('100.0'),
           isIncome: false,
           category: '餐饮',
           account: '现金',
@@ -78,7 +79,7 @@ void main() {
         );
         final transaction2 = Transaction(
           id: 'trans-2',
-          amount: 200.0,
+          amount: Decimal.parse('200.0'),
           isIncome: false,
           category: '购物',
           account: '银行卡',
@@ -86,7 +87,7 @@ void main() {
         );
         final transaction3 = Transaction(
           id: 'trans-3',
-          amount: 5000.0,
+          amount: Decimal.parse('5000.0'),
           isIncome: true,
           category: '工资',
           account: '银行卡',
@@ -110,7 +111,7 @@ void main() {
 
         final transaction1 = Transaction(
           id: 'range-1',
-          amount: 100.0,
+          amount: Decimal.parse('100.0'),
           isIncome: false,
           category: '餐饮',
           account: '现金',
@@ -118,7 +119,7 @@ void main() {
         );
         final transaction2 = Transaction(
           id: 'range-2',
-          amount: 200.0,
+          amount: Decimal.parse('200.0'),
           isIncome: false,
           category: '购物',
           account: '银行卡',
@@ -126,7 +127,7 @@ void main() {
         );
         final transaction3 = Transaction(
           id: 'range-3',
-          amount: 5000.0,
+          amount: Decimal.parse('5000.0'),
           isIncome: true,
           category: '工资',
           account: '银行卡',
@@ -149,7 +150,7 @@ void main() {
       test('交易软删除', () async {
         final transaction = Transaction(
           id: 'soft-delete-test',
-          amount: 100.0,
+          amount: Decimal.parse('100.0'),
           isIncome: false,
           category: '餐饮',
           account: '现金',
@@ -167,7 +168,7 @@ void main() {
       test('恢复已删除的交易', () async {
         final transaction = Transaction(
           id: 'restore-test',
-          amount: 100.0,
+          amount: Decimal.parse('100.0'),
           isIncome: false,
           category: '餐饮',
           account: '现金',
@@ -186,7 +187,7 @@ void main() {
       test('交易标签管理', () async {
         final transaction = Transaction(
           id: 'tags-test',
-          amount: 100.0,
+          amount: Decimal.parse('100.0'),
           isIncome: false,
           category: '餐饮',
           account: '现金',
@@ -214,7 +215,7 @@ void main() {
       test('交易默认值', () {
         final transaction = Transaction(
           id: 'defaults-test',
-          amount: 100.0,
+          amount: Decimal.parse('100.0'),
           isIncome: false,
           category: '餐饮',
           account: '现金',
@@ -223,8 +224,8 @@ void main() {
 
         expect(transaction.currency, 'CNY');
         expect(transaction.isReimbursed, false);
-        expect(transaction.fee, 0.0);
-        expect(transaction.coupon, 0.0);
+        expect(transaction.fee, Decimal.parse('0.0'));
+        expect(transaction.coupon, Decimal.parse('0.0'));
         expect(transaction.note, isNull);
         expect(transaction.subCategory, isNull);
         expect(transaction.account2, isNull);
@@ -236,7 +237,7 @@ void main() {
         final budget = Budget(
           id: 'test-budget-1',
           category: '餐饮',
-          amount: 2000.0,
+          amount: Decimal.parse('2000.0'),
           year: 2024,
           month: 1,
         );
@@ -246,7 +247,7 @@ void main() {
         final stored = DatabaseService.budgets.get('test-budget-1');
         expect(stored, isNotNull);
         expect(stored?.category, '餐饮');
-        expect(stored?.amount, 2000.0);
+        expect(stored?.amount, Decimal.parse('2000.0'));
         expect(stored?.year, 2024);
         expect(stored?.month, 1);
       });
@@ -255,24 +256,24 @@ void main() {
         final budget = Budget(
           id: 'test-budget-update',
           category: '餐饮',
-          amount: 2000.0,
+          amount: Decimal.parse('2000.0'),
           year: 2024,
           month: 1,
         );
 
         await DatabaseService.addBudget(budget);
-        budget.amount = 3000.0;
+        budget.amount = Decimal.parse('3000.0');
         await DatabaseService.updateBudget(budget);
 
         final updated = DatabaseService.budgets.get('test-budget-update');
-        expect(updated?.amount, 3000.0);
+        expect(updated?.amount, Decimal.parse('3000.0'));
       });
 
       test('删除预算', () async {
         final budget = Budget(
           id: 'test-budget-delete',
           category: '交通',
-          amount: 500.0,
+          amount: Decimal.parse('500.0'),
           year: 2024,
           month: 1,
         );
@@ -290,21 +291,21 @@ void main() {
         final budget1 = Budget(
           id: 'month-budget-1',
           category: '餐饮',
-          amount: 2000.0,
+          amount: Decimal.parse('2000.0'),
           year: 2024,
           month: 1,
         );
         final budget2 = Budget(
           id: 'month-budget-2',
           category: '交通',
-          amount: 500.0,
+          amount: Decimal.parse('500.0'),
           year: 2024,
           month: 1,
         );
         final budget3 = Budget(
           id: 'month-budget-3',
           category: '餐饮',
-          amount: 2000.0,
+          amount: Decimal.parse('2000.0'),
           year: 2024,
           month: 2,
         );
@@ -325,14 +326,14 @@ void main() {
         final budget1 = Budget(
           id: 'category-budget-1',
           category: '餐饮',
-          amount: 2000.0,
+          amount: Decimal.parse('2000.0'),
           year: 2024,
           month: 1,
         );
         final budget2 = Budget(
           id: 'category-budget-2',
           category: '餐饮',
-          amount: 2500.0,
+          amount: Decimal.parse('2500.0'),
           year: 2024,
           month: 2,
         );
@@ -347,8 +348,8 @@ void main() {
         final marchFoodBudget =
             DatabaseService.getBudgetForCategory('餐饮', 2024, 3);
 
-        expect(januaryFoodBudget?.amount, 2000.0);
-        expect(februaryFoodBudget?.amount, 2500.0);
+        expect(januaryFoodBudget?.amount, Decimal.parse('2000.0'));
+        expect(februaryFoodBudget?.amount, Decimal.parse('2500.0'));
         expect(marchFoodBudget, isNull);
       });
     });

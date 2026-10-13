@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart' show kDebugMode;
 import 'dart:async';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
+import 'package:decimal/decimal.dart';
 import '../theme/app_theme.dart';
 import 'add_transaction_screen.dart';
 import 'stats_screen.dart';
@@ -512,7 +513,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 label: '美团外卖 ¥28.50',
                 onTap: () {
                   NotificationBridgeService.injectMockPayment(
-                    amount: 28.50,
+                    amount: Decimal.parse('28.50'),
                     merchant: '美团外卖',
                     source: PaymentSource.alipay,
                   );
@@ -524,7 +525,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 label: '滴滴出行 ¥45.00',
                 onTap: () {
                   NotificationBridgeService.injectMockPayment(
-                    amount: 45.00,
+                    amount: Decimal.parse('45.00'),
                     merchant: '滴滴出行',
                     source: PaymentSource.wechat,
                   );
@@ -536,7 +537,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 label: '星巴克 ¥38.00',
                 onTap: () {
                   NotificationBridgeService.injectMockPayment(
-                    amount: 38.00,
+                    amount: Decimal.parse('38.00'),
                     merchant: '星巴克咖啡',
                     source: PaymentSource.alipay,
                   );
@@ -548,7 +549,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 label: '未知商户 ¥199.00',
                 onTap: () {
                   NotificationBridgeService.injectMockPayment(
-                    amount: 199.00,
+                    amount: Decimal.parse('199.00'),
                     merchant: '某某科技有限公司',
                     source: PaymentSource.wechat,
                   );
@@ -715,11 +716,11 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
                 .toList();
             final monthExpense = monthTransactions
                 .where((t) => !t.isIncome)
-                .fold(0.0, (sum, t) => sum + t.amount);
+                .fold(Decimal.zero, (sum, t) => sum + t.amount);
             final monthBudgets =
                 DatabaseService.getBudgetsForMonth(now.year, now.month);
             final totalBudget =
-                monthBudgets.fold<double>(0.0, (sum, b) => sum + b.amount);
+                monthBudgets.fold(Decimal.zero, (sum, b) => sum + b.amount);
             final budgetBalance = totalBudget - monthExpense;
 
             // WHY: 按日期分组交易，计算每日收支汇总显示在日期标签右侧
@@ -778,17 +779,19 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
                                 _formatDate(transaction.date);
 
                         // WHY: 计算当日收支汇总，显示在日期标签右侧
-                        double? dayIncome, dayExpense;
+                        Decimal? dayIncome, dayExpense;
                         if (isFirstOfDay) {
                           final dayKey = DateTime(transaction.date.year,
                               transaction.date.month, transaction.date.day);
                           final dayTx = groupedTransactions[dayKey] ?? [];
                           dayIncome = dayTx
                               .where((t) => t.isIncome)
-                              .fold<double>(0.0, (sum, t) => sum + t.amount);
+                              .fold<Decimal>(
+                                  Decimal.zero, (sum, t) => sum + t.amount);
                           dayExpense = dayTx
                               .where((t) => !t.isIncome)
-                              .fold<double>(0.0, (sum, t) => sum + t.amount);
+                              .fold<Decimal>(
+                                  Decimal.zero, (sum, t) => sum + t.amount);
                         }
 
                         return Column(
@@ -821,7 +824,7 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
                                       ),
                                     ),
                                     // WHY: 在日期最右侧显示当日收支汇总
-                                    if (dayExpense! > 0)
+                                    if (dayExpense! > Decimal.zero)
                                       Padding(
                                         padding: const EdgeInsets.only(
                                             left: AppTheme.spaceSmall),
@@ -835,7 +838,7 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
                                           ),
                                         ),
                                       ),
-                                    if (dayIncome! > 0)
+                                    if (dayIncome! > Decimal.zero)
                                       Padding(
                                         padding: const EdgeInsets.only(
                                             left: AppTheme.spaceSmall),
@@ -1140,14 +1143,19 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
   /// @return 月度预算卡片 Widget
   Widget _buildMonthlyBudgetCard(
     BuildContext context,
-    double monthExpense,
-    double totalBudget,
-    double budgetBalance,
+    Decimal monthExpense,
+    Decimal totalBudget,
+    Decimal budgetBalance,
   ) {
     // WHY: 预算余额为负表示超支
-    final isOverBudget = budgetBalance < 0;
-    final progress =
-        totalBudget > 0 ? (monthExpense / totalBudget).clamp(0.0, 1.0) : 0.0;
+    final isOverBudget = budgetBalance < Decimal.zero;
+    // WHY: Decimal 除法返回 Rational，转 double 供 LinearProgressIndicator 使用
+    double progress = 0.0;
+    if (totalBudget > Decimal.zero) {
+      progress = (monthExpense / totalBudget).toDouble();
+      if (progress < 0) progress = 0;
+      if (progress > 1) progress = 1;
+    }
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(
@@ -1207,7 +1215,7 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
                       const SizedBox(height: AppTheme.spaceXSmall),
                       Text(
                         // WHY: 超支时显示负号，让用户直观感知负结余
-                        '${budgetBalance < 0 ? '-' : ''}¥${budgetBalance.abs().toStringAsFixed(2)}',
+                        '${budgetBalance < Decimal.zero ? '-' : ''}¥${budgetBalance.abs().toStringAsFixed(2)}',
                         style: TextStyle(
                           fontSize: AppTheme.textHeadlineSmall,
                           fontWeight: FontWeight.w700,
@@ -1250,7 +1258,7 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        totalBudget > 0
+                        totalBudget > Decimal.zero
                             ? '预算 ¥${totalBudget.toStringAsFixed(2)}'
                             : '未设置预算',
                         style: TextStyle(
@@ -1309,9 +1317,9 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
 
   Widget _buildTodaySummary(
     BuildContext context,
-    double income,
-    double expense,
-    double balance,
+    Decimal income,
+    Decimal expense,
+    Decimal balance,
   ) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
@@ -1496,10 +1504,14 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
                   itemCount: goals.length,
                   itemBuilder: (context, index) {
                     final goal = goals[index];
-                    final progress = goal.targetAmount > 0
-                        ? (goal.currentAmount / goal.targetAmount)
-                            .clamp(0.0, 1.0)
-                        : 0.0;
+                    // WHY: Decimal 除法返回 Rational，转 double 并 clamp 到 [0,1]
+                    double progress = 0.0;
+                    if (goal.targetAmount > Decimal.zero) {
+                      progress = (goal.currentAmount / goal.targetAmount)
+                          .toDouble();
+                      if (progress < 0) progress = 0;
+                      if (progress > 1) progress = 1;
+                    }
                     return Container(
                       width: 160,
                       margin:
@@ -1760,7 +1772,7 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
   Widget _buildTransactionCard(BuildContext context, Transaction transaction) {
     final categoryColor = _getCategoryColor(transaction.category);
     // WHY: 当存在优惠时，金额下方追加"优惠 ¥X.XX"小字，使用成功色标注
-    final hasCoupon = !transaction.isIncome && transaction.coupon > 0;
+    final hasCoupon = !transaction.isIncome && transaction.coupon > Decimal.zero;
     return Container(
       margin: const EdgeInsets.only(bottom: 2),
       child: Material(

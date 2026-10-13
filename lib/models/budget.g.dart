@@ -1,4 +1,5 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
+// 金额字段 read 已手动改为 parseDecimal 兼容旧 double 数据，勿重新 build_runner 覆盖
 
 part of 'budget.dart';
 
@@ -19,7 +20,7 @@ class BudgetAdapter extends TypeAdapter<Budget> {
     return Budget(
       id: fields[0] as String,
       category: fields[1] as String,
-      amount: fields[2] as double,
+      amount: parseDecimal(fields[2]),
       year: fields[3] as int,
       month: fields[4] as int,
     );

@@ -8,6 +8,7 @@ import '../models/savings_goal.dart';
 import '../models/debt.dart';
 import '../models/recurring_transaction.dart';
 import '../models/pending_transaction.dart';
+import '../utils/decimal_util.dart';
 import 'category_service.dart';
 import 'account_service.dart';
 import 'tag_service.dart';
@@ -75,6 +76,10 @@ class DatabaseService {
     }
     if (!Hive.isAdapterRegistered(10)) {
       Hive.registerAdapter(PendingStatusAdapter());
+    }
+    // WHY: Decimal 类型适配器（typeId 100），将金额序列化为 String 存储，避免浮点误差
+    if (!Hive.isAdapterRegistered(100)) {
+      Hive.registerAdapter(DecimalAdapter());
     }
 
     _transactionBox = await Hive.openBox<Transaction>(_transactionBoxName);

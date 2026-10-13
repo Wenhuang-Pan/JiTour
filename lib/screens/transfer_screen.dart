@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:decimal/decimal.dart';
 import '../theme/app_theme.dart';
 import '../models/account.dart';
 import '../services/account_service.dart';
@@ -132,10 +133,12 @@ class _TransferScreenState extends State<TransferScreen> {
               ),
               decoration: InputDecoration(
                 prefixText: '¥ ',
-                prefixStyle: const TextStyle(
+                // WHY: ¥ 前缀与输入框填充改用主题自适应颜色，
+                // 避免暗色模式下深色文字/白色输入框与背景不协调
+                prefixStyle: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.w700,
-                  color: AppTheme.neutral800,
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
                 hintText: '0.00',
                 hintStyle: const TextStyle(
@@ -144,7 +147,7 @@ class _TransferScreenState extends State<TransferScreen> {
                   color: AppTheme.neutral300,
                 ),
                 filled: true,
-                fillColor: AppTheme.neutral50,
+                fillColor: AppTheme.getSecondaryBackground(context),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
                   borderSide: BorderSide.none,
@@ -400,8 +403,8 @@ class _TransferScreenState extends State<TransferScreen> {
     if (_fromAccount == null || _toAccount == null) return false;
     if (_fromAccount!.id == _toAccount!.id) return false;
 
-    final amount = double.tryParse(_amountController.text);
-    if (amount == null || amount <= 0) return false;
+    final amount = Decimal.tryParse(_amountController.text);
+    if (amount == null || amount <= Decimal.zero) return false;
 
     if (amount > _fromAccount!.currentBalance) return false;
 
@@ -414,7 +417,7 @@ class _TransferScreenState extends State<TransferScreen> {
     });
 
     try {
-      final amount = double.parse(_amountController.text);
+      final amount = Decimal.parse(_amountController.text);
       final note = _noteController.text.trim();
 
       await AccountService.transfer(

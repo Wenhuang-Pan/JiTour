@@ -1,3 +1,4 @@
+import 'package:decimal/decimal.dart';
 import '../models/pending_transaction.dart';
 import '../models/parsed_payment.dart';
 
@@ -47,8 +48,8 @@ class NotificationParserService {
     final amtMatch = _alipayAmountPattern.firstMatch(text);
     if (amtMatch == null) return null;
 
-    final amount = double.tryParse(amtMatch.group(1) ?? '');
-    if (amount == null || amount <= 0) return null;
+    final amount = Decimal.tryParse(amtMatch.group(1) ?? '');
+    if (amount == null || amount <= Decimal.zero) return null;
 
     final merMatch = _alipayMerchantPattern.firstMatch(text);
     String? merchant;
@@ -75,8 +76,8 @@ class NotificationParserService {
     final amtMatch = _wechatAmountPattern.firstMatch(text);
     if (amtMatch == null) return null;
 
-    final amount = double.tryParse(amtMatch.group(1) ?? '');
-    if (amount == null || amount <= 0) return null;
+    final amount = Decimal.tryParse(amtMatch.group(1) ?? '');
+    if (amount == null || amount <= Decimal.zero) return null;
 
     final merMatch = _wechatMerchantPattern.firstMatch(text);
     String? merchant;

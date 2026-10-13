@@ -146,7 +146,8 @@ class _TagsManagementScreenState extends State<TagsManagementScreen> {
   Widget _buildTagCard(BuildContext context, Tag tag, int usageCount) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        // WHY: 卡片背景改用主题卡片色，避免暗色模式下出现刺眼的白卡片
+        color: AppTheme.getCardColor(context),
         borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
         boxShadow: [
           BoxShadow(

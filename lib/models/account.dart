@@ -1,4 +1,6 @@
 import 'package:hive/hive.dart';
+import 'package:decimal/decimal.dart';
+import '../utils/decimal_util.dart';
 
 part 'account.g.dart';
 
@@ -17,10 +19,10 @@ class Account extends HiveObject {
   int colorValue;
 
   @HiveField(4)
-  double initialBalance;
+  Decimal initialBalance;
 
   @HiveField(5)
-  double currentBalance;
+  Decimal currentBalance;
 
   @HiveField(6)
   bool isActive;
@@ -39,13 +41,15 @@ class Account extends HiveObject {
     required this.name,
     required this.iconName,
     required this.colorValue,
-    this.initialBalance = 0.0,
-    this.currentBalance = 0.0,
+    Decimal? initialBalance,
+    Decimal? currentBalance,
     this.isActive = true,
     this.sortOrder = 0,
     DateTime? createdAt,
     DateTime? updatedAt,
-  })  : createdAt = createdAt ?? DateTime.now(),
+  })  : initialBalance = initialBalance ?? Decimal.zero,
+        currentBalance = currentBalance ?? Decimal.zero,
+        createdAt = createdAt ?? DateTime.now(),
         updatedAt = updatedAt ?? DateTime.now();
 
   Account copyWith({
@@ -53,8 +57,8 @@ class Account extends HiveObject {
     String? name,
     String? iconName,
     int? colorValue,
-    double? initialBalance,
-    double? currentBalance,
+    Decimal? initialBalance,
+    Decimal? currentBalance,
     bool? isActive,
     int? sortOrder,
     DateTime? createdAt,
@@ -80,8 +84,8 @@ class Account extends HiveObject {
       'name': name,
       'iconName': iconName,
       'colorValue': colorValue,
-      'initialBalance': initialBalance,
-      'currentBalance': currentBalance,
+      'initialBalance': initialBalance.toString(),
+      'currentBalance': currentBalance.toString(),
       'isActive': isActive,
       'sortOrder': sortOrder,
       'createdAt': createdAt.toIso8601String(),
@@ -95,8 +99,8 @@ class Account extends HiveObject {
       name: json['name'] as String,
       iconName: json['iconName'] as String,
       colorValue: json['colorValue'] as int,
-      initialBalance: (json['initialBalance'] as num?)?.toDouble() ?? 0.0,
-      currentBalance: (json['currentBalance'] as num?)?.toDouble() ?? 0.0,
+      initialBalance: parseDecimal(json['initialBalance']),
+      currentBalance: parseDecimal(json['currentBalance']),
       isActive: json['isActive'] as bool? ?? true,
       sortOrder: json['sortOrder'] as int? ?? 0,
       createdAt: json['createdAt'] != null

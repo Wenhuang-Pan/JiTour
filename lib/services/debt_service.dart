@@ -1,4 +1,5 @@
 import 'package:hive/hive.dart';
+import 'package:decimal/decimal.dart';
 import '../models/debt.dart';
 import '../utils/uuid_util.dart';
 
@@ -60,20 +61,20 @@ class DebtService {
 
   /// 获取总负债金额
   /// @return 总负债金额
-  static double getTotalDebtAmount() {
-    return getAllDebts().fold(0.0, (sum, d) => sum + d.totalAmount);
+  static Decimal getTotalDebtAmount() {
+    return getAllDebts().fold(Decimal.zero, (sum, d) => sum + d.totalAmount);
   }
 
   /// 获取待还金额
   /// @return 待还金额
-  static double getRemainingAmount() {
-    return getAllDebts().fold(0.0, (sum, d) => sum + d.remainingAmount);
+  static Decimal getRemainingAmount() {
+    return getAllDebts()
+        .fold(Decimal.zero, (sum, d) => sum + d.remainingAmount);
   }
 
-  /// 获取已还金额
   /// @return 已还金额
-  static double getPaidAmount() {
-    return getAllDebts().fold(0.0, (sum, d) => sum + d.paidAmount);
+  static Decimal getPaidAmount() {
+    return getAllDebts().fold(Decimal.zero, (sum, d) => sum + d.paidAmount);
   }
 
   /// 获取负债数量
@@ -101,7 +102,7 @@ class DebtService {
   static Debt createDebt({
     required String name,
     required String creditor,
-    required double totalAmount,
+    required Decimal totalAmount,
     required DateTime dueDate,
     double interestRate = 0.0,
     String? note,
@@ -113,7 +114,7 @@ class DebtService {
       name: name,
       creditor: creditor,
       totalAmount: totalAmount,
-      paidAmount: 0.0,
+      paidAmount: Decimal.zero,
       interestRate: interestRate,
       dueDate: dueDate,
       status: 'pending',
@@ -127,10 +128,10 @@ class DebtService {
   /// @param id 负债ID
   /// @param amount 还款金额
   /// @return 是否还款成功
-  static Future<bool> payDebt(String id, double amount) async {
+  static Future<bool> payDebt(String id, Decimal amount) async {
     final debt = getDebtById(id);
     if (debt == null) return false;
-    if (amount <= 0) return false;
+    if (amount <= Decimal.zero) return false;
 
     debt.pay(amount);
     await updateDebt(debt);
@@ -150,10 +151,10 @@ class DebtService {
       'activeCount': activeDebts.length,
       'completedCount': completedDebts.length,
       'overdueCount': overdueDebts.length,
-      'totalAmount': debts.fold(0.0, (sum, d) => sum + d.totalAmount),
-      'remainingAmount': activeDebts.fold(0.0, (sum, d) => sum + d.remainingAmount),
-      'paidAmount': debts.fold(0.0, (sum, d) => sum + d.paidAmount),
-      'overdueAmount': overdueDebts.fold(0.0, (sum, d) => sum + d.remainingAmount),
+      'totalAmount': debts.fold(Decimal.zero, (sum, d) => sum + d.totalAmount),
+      'remainingAmount': activeDebts.fold(Decimal.zero, (sum, d) => sum + d.remainingAmount),
+      'paidAmount': debts.fold(Decimal.zero, (sum, d) => sum + d.paidAmount),
+      'overdueAmount': overdueDebts.fold(Decimal.zero, (sum, d) => sum + d.remainingAmount),
     };
   }
 
@@ -163,7 +164,10 @@ class DebtService {
     final now = DateTime.now();
     final deadline = now.add(Duration(days: days));
     return getAllDebts()
-        .where((d) => !d.isCompleted && d.dueDate.isAfter(now) && d.dueDate.isBefore(deadline))
+        .where((d) =>
+            !d.isCompleted &&
+            d.dueDate.isAfter(now) &&
+            d.dueDate.isBefore(deadline))
         .toList();
   }
 
@@ -173,9 +177,11 @@ class DebtService {
   static List<Debt> searchDebts(String query) {
     if (query.isEmpty) return getAllDebts();
     final lowerQuery = query.toLowerCase();
-    return getAllDebts().where((d) =>
-        d.name.toLowerCase().contains(lowerQuery) ||
-        d.creditor.toLowerCase().contains(lowerQuery) ||
-        (d.note ?? '').toLowerCase().contains(lowerQuery)).toList();
+    return getAllDebts()
+        .where((d) =>
+            d.name.toLowerCase().contains(lowerQuery) ||
+            d.creditor.toLowerCase().contains(lowerQuery) ||
+            (d.note ?? '').toLowerCase().contains(lowerQuery))
+        .toList();
   }
 }

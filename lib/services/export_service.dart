@@ -1,4 +1,5 @@
 import 'package:intl/intl.dart';
+import 'package:decimal/decimal.dart';
 import '../models/transaction.dart';
 
 class ExportService {
@@ -54,15 +55,16 @@ class ExportService {
     // 分组统计
     final income = transactions
         .where((t) => t.isIncome)
-        .fold(0.0, (sum, t) => sum + t.amount);
+        .fold(Decimal.zero, (sum, t) => sum + t.amount);
     final expense = transactions
         .where((t) => !t.isIncome)
-        .fold(0.0, (sum, t) => sum + t.amount);
+        .fold(Decimal.zero, (sum, t) => sum + t.amount);
 
     buffer.writeln('【收支概况】');
-    buffer.writeln('总收入: ${moneyFormat.format(income)}');
-    buffer.writeln('总支出: ${moneyFormat.format(expense)}');
-    buffer.writeln('结余:   ${moneyFormat.format(income - expense)}');
+    buffer.writeln('总收入: ${moneyFormat.format(income.toDouble())}');
+    buffer.writeln('总支出: ${moneyFormat.format(expense.toDouble())}');
+    buffer
+        .writeln('结余:   ${moneyFormat.format((income - expense).toDouble())}');
     buffer.writeln();
     buffer.writeln('='.padRight(50, '='));
     buffer.writeln('【详细记录】');
@@ -80,7 +82,7 @@ class ExportService {
       buffer.writeln('--- ${entry.key} ---');
       for (var t in entry.value) {
         final type = t.isIncome ? '[收入]' : '[支出]';
-        final amountStr = moneyFormat.format(t.amount);
+        final amountStr = moneyFormat.format(t.amount.toDouble());
         buffer.writeln('${t.category.padRight(8)} $type $amountStr');
         if (t.note != null && t.note!.isNotEmpty) {
           buffer.writeln('  备注: ${t.note}');

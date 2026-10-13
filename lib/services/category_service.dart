@@ -3,6 +3,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:uuid/uuid.dart';
 import '../models/category.dart';
 import 'database_service.dart';
+import 'notification_bridge_service.dart';
 
 /// 分类定义辅助类，用于初始化默认分类数据
 class _CategoryDef {
@@ -33,6 +34,8 @@ class CategoryService {
     } else {
       // 迁移旧版本分类数据
       await migrateCategories();
+      // WHY: 旧版本数据无 sortOrder 字段（读取补 0），按 createdAt 初始化一次排序
+      await _migrateSortOrders();
     }
   }
 
@@ -75,8 +78,9 @@ class CategoryService {
       _CategoryDef('其他收入', Icons.add_business_rounded, '#6B7280'),
     ];
 
-    // 创建支出分类
-    for (final def in defaultExpenseCategories) {
+    // 创建支出分类（sortOrder 按默认顺序递增）
+    for (var i = 0; i < defaultExpenseCategories.length; i++) {
+      final def = defaultExpenseCategories[i];
       final id = _uuid.v4();
       await _box.put(
         id,
@@ -85,12 +89,13 @@ class CategoryService {
           name: def.name,
           iconName: def.iconName,
           color: def.color,
-        ),
+        )..sortOrder = i,
       );
     }
 
-    // 创建收入分类
-    for (final def in defaultIncomeCategories) {
+    // 创建收入分类（sortOrder 按默认顺序递增）
+    for (var i = 0; i < defaultIncomeCategories.length; i++) {
+      final def = defaultIncomeCategories[i];
       final id = _uuid.v4();
       await _box.put(
         id,
@@ -99,9 +104,16 @@ class CategoryService {
           name: def.name,
           iconName: def.iconName,
           color: def.color,
-        ),
+        )..sortOrder = i,
       );
     }
+  }
+
+  /// 排序比较器：优先按用户手动排序值 sortOrder 升序，
+  /// 相同（旧数据未迁移时全为 0）则回退按创建时间升序，保证显示稳定
+  static int _compareBySortOrder(Category a, Category b) {
+    final c = a.sortOrder.compareTo(b.sortOrder);
+    return c != 0 ? c : a.createdAt.compareTo(b.createdAt);
   }
 
   // 获取所有收入分类
@@ -109,7 +121,7 @@ class CategoryService {
     return _box.values
         .where((category) => category.isIncome && !category.isDeleted)
         .toList()
-      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      ..sort(_compareBySortOrder);
   }
 
   // 获取所有支出分类
@@ -117,7 +129,28 @@ class CategoryService {
     return _box.values
         .where((category) => !category.isIncome && !category.isDeleted)
         .toList()
-      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      ..sort(_compareBySortOrder);
+  }
+
+  /// 初始化旧数据的排序字段：收入/支出分别检测，
+  /// 该类型非删除分类全部 sortOrder == 0 且数量 > 1 时视为未迁移，
+  /// 按 createdAt 顺序赋 0..n-1。
+  ///
+  /// WHY: 用户手动排序后列表中会出现非零值，不会重复触发覆盖用户顺序；
+  /// 新装用户默认分类已带递增 sortOrder，同样不会触发。
+  static Future<void> _migrateSortOrders() async {
+    for (final isIncome in [true, false]) {
+      final list = _box.values
+          .where((c) => c.isIncome == isIncome && !c.isDeleted)
+          .toList()
+        ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      if (list.length > 1 && list.every((c) => c.sortOrder == 0)) {
+        for (var i = 0; i < list.length; i++) {
+          list[i].sortOrder = i;
+          await _box.put(list[i].id, list[i]);
+        }
+      }
+    }
   }
 
   /// 迁移旧版本分类数据到新的精简分类体系
@@ -390,12 +423,25 @@ class CategoryService {
 
   // 添加分类
   static Future<void> addCategory(Category category) async {
+    // WHY: 新分类排到同类型末尾，避免打乱用户已手动调整的顺序
+    category.sortOrder = _nextSortOrder(category.isIncome);
     await _box.put(category.id, category);
+    _syncCategoriesToNative();
+  }
+
+  /// 获取同类型分类的下一个排序值（当前最大值 + 1，空列表为 0）
+  static int _nextSortOrder(bool isIncome) {
+    final orders = _box.values
+        .where((c) => c.isIncome == isIncome && !c.isDeleted)
+        .map((c) => c.sortOrder);
+    if (orders.isEmpty) return 0;
+    return orders.reduce((a, b) => a > b ? a : b) + 1;
   }
 
   // 更新分类
   static Future<void> updateCategory(Category category) async {
     await _box.put(category.id, category);
+    _syncCategoriesToNative();
   }
 
   // 删除分类（软删除）
@@ -404,6 +450,7 @@ class CategoryService {
     if (category != null) {
       category.softDelete();
       await _box.put(id, category);
+      _syncCategoriesToNative();
     }
   }
 
@@ -412,13 +459,56 @@ class CategoryService {
     final category = _box.get(id);
     if (category != null) {
       category.restore();
+      // WHY: 恢复的分类排到末尾，避免历史 sortOrder 与现有值冲突
+      category.sortOrder = _nextSortOrder(category.isIncome);
       await _box.put(id, category);
+      _syncCategoriesToNative();
     }
+  }
+
+  /// 手动拖动排序：调整同类型分类的显示顺序并持久化。
+  ///
+  /// WHY: 排序变更后同步推送原生悬浮窗缓存，保持 chips 顺序一致。
+  /// 时间复杂度 O(n)：需重写同类型全部分类的 sortOrder。
+  ///
+  /// @param isIncome 是否为收入分类
+  /// @param oldIndex 拖动项在当前排序列表中的起始索引
+  /// @param newIndex ReorderableListView 语义的目标索引（向下拖动时含自身占位）
+  /// @return 无返回值；索引越界时静默忽略
+  static Future<void> reorderCategories(
+      bool isIncome, int oldIndex, int newIndex) async {
+    final list = isIncome ? getIncomeCategories() : getExpenseCategories();
+    if (oldIndex < 0 || oldIndex >= list.length) return;
+    // ReorderableListView 约定：向下移动时 newIndex 包含了被拖项自身占位
+    if (oldIndex < newIndex) newIndex -= 1;
+    if (newIndex < 0 || newIndex >= list.length) return;
+    if (oldIndex == newIndex) return;
+
+    final item = list.removeAt(oldIndex);
+    list.insert(newIndex, item);
+
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].sortOrder != i) {
+        list[i].sortOrder = i;
+        await _box.put(list[i].id, list[i]);
+      }
+    }
+    _syncCategoriesToNative();
   }
 
   // 永久删除分类
   static Future<void> permanentlyDeleteCategory(String id) async {
     await _box.delete(id);
+    _syncCategoriesToNative();
+  }
+
+  /// 将最新支出分类推送到原生悬浮窗缓存
+  ///
+  /// WHY: 分类增删改后若不重新推送，后台悬浮窗 Chip 仍是旧列表，
+  /// 用户无法选择新建分类。fire-and-forget，失败仅打日志不影响主流程。
+  static void _syncCategoriesToNative() {
+    final names = getExpenseCategories().map((c) => c.name).toList();
+    NotificationBridgeService.pushCategories(names);
   }
 
   // 获取已删除的分类

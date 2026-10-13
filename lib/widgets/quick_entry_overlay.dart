@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:decimal/decimal.dart';
 import '../models/account.dart';
 import '../models/category.dart';
 import '../models/pending_transaction.dart';
@@ -195,17 +196,20 @@ class _QuickEntrySheetState extends State<_QuickEntrySheet> {
   /// 获取用户输入的最终金额
   ///
   /// @return 解析后的金额；解析失败回退到 pending 原金额
-  double get _effectiveAmount {
-    final parsed = double.tryParse(_amountController.text.trim());
-    return parsed != null && parsed > 0 ? parsed : widget.pending.amount;
+  Decimal get _effectiveAmount {
+    final parsed = Decimal.tryParse(_amountController.text.trim());
+    return parsed != null && parsed > Decimal.zero
+        ? parsed
+        : widget.pending.amount;
   }
 
   /// 格式化金额为千分位、两位小数
   ///
   /// @param amount 金额
   /// @return 格式化后的字符串，如 "1,234.56"
-  String formatAmount(double amount) {
-    return NumberFormat('#,##0.00', 'zh_CN').format(amount);
+  String formatAmount(Decimal amount) {
+    // WHY: NumberFormat 需要 double，Decimal 转 double 仅用于展示
+    return NumberFormat('#,##0.00', 'zh_CN').format(amount.toDouble());
   }
 
   /// 根据支付来源获取标签颜色

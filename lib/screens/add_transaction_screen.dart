@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:decimal/decimal.dart';
 import '../theme/app_theme.dart';
 import '../models/transaction.dart';
 import '../models/category.dart';
@@ -43,8 +44,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   String _amountText = '0.0';
   DateTime _selectedDate = DateTime.now();
   bool _isReimbursed = false;
-  double _couponAmount = 0.0;
-  double _feeAmount = 0.0;
+  Decimal _couponAmount = Decimal.zero;
+  Decimal _feeAmount = Decimal.zero;
 
   // 位置信息
   String? _selectedLocationName;
@@ -94,7 +95,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     // WHY: 编辑模式下，回填用户输入的"原价"金额
     // 由于 amount 字段已扣除优惠，需反向加回 coupon 并减去 fee，得到原输入金额
     if (!transaction.isIncome &&
-        (transaction.coupon > 0 || transaction.fee > 0)) {
+        (transaction.coupon > Decimal.zero || transaction.fee > Decimal.zero)) {
       final originalAmount =
           transaction.amount + transaction.coupon - transaction.fee;
       _amountText = originalAmount.toStringAsFixed(2);
@@ -178,7 +179,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
             tagText:
                 _selectedTags.isNotEmpty ? '${_selectedTags.length}个标签' : '标签',
             onCouponTap: _showCouponDialog,
-            couponText: _couponAmount > 0
+            couponText: _couponAmount > Decimal.zero
                 ? '优惠 ¥${_couponAmount.toStringAsFixed(2)}'
                 : '优惠',
             onLocationTap: _showLocationPicker,
@@ -235,11 +236,13 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   Widget _buildAmountSection() {
     final isIncome = _currentTab == 1;
     final isTransfer = _currentTab == 2;
+    // WHY: 支出金额使用 onSurface 而非硬编码 neutral900，
+    // 暗色模式下自动切换为浅色，避免黑底看不见数字
     final color = isIncome
         ? AppTheme.successColor
         : (isTransfer
             ? AppTheme.getPrimaryColor(context)
-            : AppTheme.neutral900);
+            : Theme.of(context).colorScheme.onSurface);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceMedium),
@@ -512,10 +515,10 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
 
   void _showCouponDialog() {
     final couponController = TextEditingController(
-      text: _couponAmount > 0 ? _couponAmount.toString() : '',
+      text: _couponAmount > Decimal.zero ? _couponAmount.toString() : '',
     );
     final feeController = TextEditingController(
-      text: _feeAmount > 0 ? _feeAmount.toString() : '',
+      text: _feeAmount > Decimal.zero ? _feeAmount.toString() : '',
     );
 
     showDialog(
@@ -557,7 +560,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                 prefixText: '-¥',
               ),
               onChanged: (value) {
-                setState(() => _couponAmount = double.tryParse(value) ?? 0);
+                setState(() =>
+                    _couponAmount = Decimal.tryParse(value) ?? Decimal.zero);
               },
             ),
             const SizedBox(height: AppTheme.spaceMedium),
@@ -570,7 +574,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                 prefixText: '+¥',
               ),
               onChanged: (value) {
-                setState(() => _feeAmount = double.tryParse(value) ?? 0);
+                setState(
+                    () => _feeAmount = Decimal.tryParse(value) ?? Decimal.zero);
               },
             ),
           ],
@@ -777,7 +782,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
             _buildMoreOptionItem(
               Icons.percent_rounded,
               '优惠/手续费',
-              _couponAmount > 0 || _feeAmount > 0
+              _couponAmount > Decimal.zero || _feeAmount > Decimal.zero
                   ? '优惠${_couponAmount}元 手续费${_feeAmount}元'
                   : '添加优惠或手续费',
               () {
@@ -1426,12 +1431,12 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     try {
       // WHY: 使用正则按 +/- 分割，再按顺序累加，避免引入 eval 类库
       final tokens = expression.split(RegExp(r'(?=[+-])'));
-      double result = 0;
+      Decimal result = Decimal.zero;
       bool first = true;
       for (final token in tokens) {
         if (token.isEmpty) continue;
         if (token == '+' || token == '-') continue;
-        final value = double.tryParse(token);
+        final value = Decimal.tryParse(token);
         if (value == null) return expression; // 解析失败，返回原文本
         if (first) {
           result = value;
@@ -1445,8 +1450,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         }
       }
       // WHY: 整数时不显示小数点，提升可读性
-      return result == result.toInt()
-          ? result.toInt().toString()
+      return result == result.round()
+          ? result.round().toString()
           : result.toStringAsFixed(2);
     } catch (_) {
       return expression;
@@ -1454,17 +1459,17 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   }
 
   /// 获取最终金额数值（解析表达式）
-  /// @return double 金额值；解析失败返回 0
-  double get _finalAmount {
+  /// @return Decimal 金额值；解析失败返回 0
+  Decimal get _finalAmount {
     final text = _amountText.contains(RegExp(r'[+-]'))
         ? _evaluateExpression(_amountText)
         : _amountText;
-    return double.tryParse(text) ?? 0;
+    return Decimal.tryParse(text) ?? Decimal.zero;
   }
 
   bool get _canSave {
     final amount = _finalAmount;
-    return amount > 0 && _selectedCategory != null;
+    return amount > Decimal.zero && _selectedCategory != null;
   }
 
   Future<void> _selectDate() async {
@@ -1940,9 +1945,10 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     // WHY: 用户输入的金额为"原价"，实际入账金额需扣除优惠并加上手续费
     // 例如原价 100、优惠 10、手续费 0，则 amount 字段存 90，
     // coupon/fee 字段保留作为元信息，主界面显示 ¥90 + "优惠 ¥10" 注释
-    final effectiveAmount = isIncome
-        ? rawAmount
-        : (rawAmount - _couponAmount + _feeAmount).clamp(0.0, double.infinity);
+    var effectiveAmount =
+        isIncome ? rawAmount : rawAmount - _couponAmount + _feeAmount;
+    // WHY: Decimal 无 clamp 方法，手动保证非负
+    if (effectiveAmount < Decimal.zero) effectiveAmount = Decimal.zero;
 
     final transaction = Transaction(
       id: _editingId ?? UuidUtil.generate(),
@@ -1999,8 +2005,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           _amountText = '0.0';
           _noteController.clear();
           _isReimbursed = false;
-          _couponAmount = 0.0;
-          _feeAmount = 0.0;
+          _couponAmount = Decimal.zero;
+          _feeAmount = Decimal.zero;
         });
       } else {
         Navigator.pop(context);

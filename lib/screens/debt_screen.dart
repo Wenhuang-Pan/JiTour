@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:decimal/decimal.dart';
 import '../models/debt.dart';
 import '../services/debt_service.dart';
 import '../theme/app_theme.dart';
@@ -523,7 +524,7 @@ class _AddDebtModalState extends State<AddDebtModal> {
     final debt = DebtService.createDebt(
       name: _nameController.text,
       creditor: _creditorController.text,
-      totalAmount: double.parse(_amountController.text),
+      totalAmount: Decimal.parse(_amountController.text),
       dueDate: _dueDate,
       interestRate: double.tryParse(_rateController.text) ?? 0.0,
       note: _noteController.text.isNotEmpty ? _noteController.text : null,
@@ -615,8 +616,8 @@ class _AddDebtModalState extends State<AddDebtModal> {
                   if (value == null || value.isEmpty) {
                     return '请输入金额';
                   }
-                  final amount = double.tryParse(value);
-                  if (amount == null || amount <= 0) {
+                  final amount = Decimal.tryParse(value);
+                  if (amount == null || amount <= Decimal.zero) {
                     return '请输入有效的金额';
                   }
                   return null;
@@ -824,8 +825,8 @@ class _DebtDetailModalState extends State<DebtDetailModal> {
             ),
             TextButton(
               onPressed: () {
-                final amount = double.tryParse(_payAmountController.text);
-                if (amount != null && amount > 0) {
+                final amount = Decimal.tryParse(_payAmountController.text);
+                if (amount != null && amount > Decimal.zero) {
                   DebtService.payDebt(widget.debt.id, amount);
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('还款成功')),

@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
 import 'package:jitu/services/category_service.dart';
+import 'package:jitu/services/database_service.dart';
 import 'package:jitu/models/category.dart';
 
 void main() {
@@ -11,12 +12,13 @@ void main() {
     setUp(() async {
       tmpDir = await Directory.systemTemp.createTemp('hive_test_');
       Hive.init(tmpDir.path);
-      await CategoryService.init();
-      await Hive.box('categories').clear();
+      // WHY: 必须先由 DatabaseService 打开 box 并注册适配器，CategoryService 才能访问
+      await DatabaseService.init();
+      await DatabaseService.categories.clear();
     });
 
     tearDown(() async {
-      await Hive.box('categories').clear();
+      await DatabaseService.categories.clear();
       try {
         await Hive.close();
         tmpDir.delete(recursive: true);
@@ -453,6 +455,126 @@ void main() {
         expect(stats['totalExpenseCategories'], 1);
         expect(stats['totalCategories'], 2);
         expect(stats['deletedCategories'], 1);
+      });
+    });
+
+    group('reorderCategories', () {
+      test('向下拖动后顺序正确且 sortOrder 已持久化', () async {
+        await CategoryService.addCategory(Category.createExpense(
+            id: 'exp-a', name: '餐饮', iconName: '餐饮', color: '#F59E0B'));
+        await CategoryService.addCategory(Category.createExpense(
+            id: 'exp-b', name: '交通', iconName: '交通', color: '#3B82F6'));
+        await CategoryService.addCategory(Category.createExpense(
+            id: 'exp-c', name: '购物', iconName: '购物', color: '#8B5CF6'));
+
+        // 将第 1 项拖到末尾（ReorderableListView 语义 newIndex=3）
+        await CategoryService.reorderCategories(false, 0, 3);
+
+        final categories = CategoryService.getExpenseCategories();
+        expect(
+            categories.map((c) => c.id).toList(), ['exp-b', 'exp-c', 'exp-a']);
+        expect(CategoryService.getCategoryById('exp-b')?.sortOrder, 0);
+        expect(CategoryService.getCategoryById('exp-c')?.sortOrder, 1);
+        expect(CategoryService.getCategoryById('exp-a')?.sortOrder, 2);
+      });
+
+      test('向上拖动后顺序正确', () async {
+        await CategoryService.addCategory(Category.createExpense(
+            id: 'exp-a', name: '餐饮', iconName: '餐饮', color: '#F59E0B'));
+        await CategoryService.addCategory(Category.createExpense(
+            id: 'exp-b', name: '交通', iconName: '交通', color: '#3B82F6'));
+        await CategoryService.addCategory(Category.createExpense(
+            id: 'exp-c', name: '购物', iconName: '购物', color: '#8B5CF6'));
+
+        // 将最后 1 项拖到最前
+        await CategoryService.reorderCategories(false, 2, 0);
+
+        final categories = CategoryService.getExpenseCategories();
+        expect(
+            categories.map((c) => c.id).toList(), ['exp-c', 'exp-a', 'exp-b']);
+        expect(CategoryService.getCategoryById('exp-c')?.sortOrder, 0);
+        expect(CategoryService.getCategoryById('exp-a')?.sortOrder, 1);
+        expect(CategoryService.getCategoryById('exp-b')?.sortOrder, 2);
+      });
+
+      test('收入和支出排序互不影响', () async {
+        await CategoryService.addCategory(Category.createIncome(
+            id: 'inc-1', name: '工资', iconName: '工资', color: '#10B981'));
+        await CategoryService.addCategory(Category.createIncome(
+            id: 'inc-2', name: '奖金', iconName: '奖金', color: '#F59E0B'));
+        await CategoryService.addCategory(Category.createExpense(
+            id: 'exp-1', name: '餐饮', iconName: '餐饮', color: '#F59E0B'));
+        await CategoryService.addCategory(Category.createExpense(
+            id: 'exp-2', name: '交通', iconName: '交通', color: '#3B82F6'));
+
+        await CategoryService.reorderCategories(false, 0, 2);
+
+        expect(CategoryService.getExpenseCategories().map((c) => c.id).toList(),
+            ['exp-2', 'exp-1']);
+        expect(CategoryService.getIncomeCategories().map((c) => c.id).toList(),
+            ['inc-1', 'inc-2']);
+        expect(CategoryService.getCategoryById('inc-1')?.sortOrder, 0);
+        expect(CategoryService.getCategoryById('inc-2')?.sortOrder, 1);
+      });
+
+      test('新增分类自动排到末尾', () async {
+        await CategoryService.addCategory(Category.createExpense(
+            id: 'exp-a', name: '餐饮', iconName: '餐饮', color: '#F59E0B'));
+        await CategoryService.addCategory(Category.createExpense(
+            id: 'exp-b', name: '交通', iconName: '交通', color: '#3B82F6'));
+        await CategoryService.reorderCategories(false, 1, 0);
+
+        await CategoryService.addCategory(Category.createExpense(
+            id: 'exp-c', name: '购物', iconName: '购物', color: '#8B5CF6'));
+
+        final categories = CategoryService.getExpenseCategories();
+        expect(
+            categories.map((c) => c.id).toList(), ['exp-b', 'exp-a', 'exp-c']);
+        expect(CategoryService.getCategoryById('exp-c')?.sortOrder, 2);
+      });
+
+      test('越界索引静默忽略', () async {
+        await CategoryService.addCategory(Category.createExpense(
+            id: 'exp-a', name: '餐饮', iconName: '餐饮', color: '#F59E0B'));
+
+        await CategoryService.reorderCategories(false, 5, 0);
+        await CategoryService.reorderCategories(false, 0, 5);
+
+        expect(CategoryService.getExpenseCategories().single.id, 'exp-a');
+      });
+    });
+
+    group('sortOrder 迁移', () {
+      test('旧数据全为 0 时按 createdAt 初始化排序', () async {
+        // WHY: 直接 put 模拟旧版本数据（无 sortOrder，读取补 0），
+        // 绕过 addCategory 的自动排序赋值
+        final box = DatabaseService.categories;
+        await box.put(
+            'old-1',
+            Category(
+                id: 'old-1',
+                name: '旧分类一',
+                iconName: '旧分类一',
+                isIncome: false,
+                color: '#111111',
+                createdAt: DateTime(2023, 1, 1)));
+        await box.put(
+            'old-2',
+            Category(
+                id: 'old-2',
+                name: '旧分类二',
+                iconName: '旧分类二',
+                isIncome: false,
+                color: '#222222',
+                createdAt: DateTime(2023, 1, 2)));
+
+        await CategoryService.init();
+
+        expect(CategoryService.getCategoryById('old-1')?.sortOrder, 0);
+        expect(CategoryService.getCategoryById('old-2')?.sortOrder, 1);
+        final ids =
+            CategoryService.getExpenseCategories().map((c) => c.id).toList();
+        expect(ids.indexOf('old-1') < ids.indexOf('old-2'), true);
       });
     });
   });

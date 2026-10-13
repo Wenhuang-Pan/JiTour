@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:decimal/decimal.dart';
 import 'package:jitu/services/csv_importer.dart';
 
 void main() {
@@ -109,26 +110,26 @@ void main() {
 
     group('parseAmount', () {
       test('解析普通数字', () {
-        expect(CsvImporter.parseAmount('100'), 100.0);
-        expect(CsvImporter.parseAmount('100.50'), 100.5);
+        expect(CsvImporter.parseAmount('100'), Decimal.parse('100'));
+        expect(CsvImporter.parseAmount('100.50'), Decimal.parse('100.50'));
       });
 
       test('解析带千位分隔符的数字', () {
-        expect(CsvImporter.parseAmount('1,000'), 1000.0);
-        expect(CsvImporter.parseAmount('1,234.56'), 1234.56);
-        expect(CsvImporter.parseAmount('1，234.56'), 1234.56);
+        expect(CsvImporter.parseAmount('1,000'), Decimal.parse('1000'));
+        expect(CsvImporter.parseAmount('1,234.56'), Decimal.parse('1234.56'));
+        expect(CsvImporter.parseAmount('1，234.56'), Decimal.parse('1234.56'));
       });
 
       test('解析带货币符号的数字', () {
-        expect(CsvImporter.parseAmount('¥100'), 100.0);
-        expect(CsvImporter.parseAmount('¥1,000.50'), 1000.5);
-        expect(CsvImporter.parseAmount(r'$100'), 100.0);
-        expect(CsvImporter.parseAmount('€100'), 100.0);
+        expect(CsvImporter.parseAmount('¥100'), Decimal.parse('100'));
+        expect(CsvImporter.parseAmount('¥1,000.50'), Decimal.parse('1000.50'));
+        expect(CsvImporter.parseAmount(r'$100'), Decimal.parse('100'));
+        expect(CsvImporter.parseAmount('€100'), Decimal.parse('100'));
       });
 
       test('解析无效金额返回0', () {
-        expect(CsvImporter.parseAmount('invalid'), 0.0);
-        expect(CsvImporter.parseAmount(''), 0.0);
+        expect(CsvImporter.parseAmount('invalid'), Decimal.zero);
+        expect(CsvImporter.parseAmount(''), Decimal.zero);
       });
     });
 
@@ -208,7 +209,7 @@ void main() {
         final transaction = CsvImporter.mappingToTransaction(mapping);
         
         expect(transaction, isNotNull);
-        expect(transaction!.amount, 100.0);
+        expect(transaction!.amount, Decimal.parse('100'));
         expect(transaction.isIncome, false);
         expect(transaction.category, '餐饮');
         expect(transaction.account, '现金');

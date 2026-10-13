@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:decimal/decimal.dart';
 import '../models/savings_goal.dart';
 import '../theme/app_theme.dart';
 import '../utils/uuid_util.dart';
@@ -64,7 +65,7 @@ class SavingsGoalService {
   static Future<SavingsGoal> createGoal({
     required String name,
     String? description,
-    required double targetAmount,
+    required Decimal targetAmount,
     required String iconName,
     required int colorValue,
     DateTime? startDate,
@@ -99,7 +100,7 @@ class SavingsGoalService {
   }
 
   // 添加存款
-  static Future<void> addSavings(String goalId, double amount) async {
+  static Future<void> addSavings(String goalId, Decimal amount) async {
     final goal = getGoalById(goalId);
     if (goal != null) {
       goal.addSavings(amount);
@@ -107,7 +108,7 @@ class SavingsGoalService {
   }
 
   // 提取存款
-  static Future<void> withdrawSavings(String goalId, double amount) async {
+  static Future<void> withdrawSavings(String goalId, Decimal amount) async {
     final goal = getGoalById(goalId);
     if (goal != null) {
       goal.withdrawSavings(amount);
@@ -123,20 +124,23 @@ class SavingsGoalService {
   }
 
   // 获取总目标金额
-  static double getTotalTargetAmount() {
-    return getActiveGoals().fold(0.0, (sum, g) => sum + g.targetAmount);
+  static Decimal getTotalTargetAmount() {
+    return getActiveGoals()
+        .fold(Decimal.zero, (sum, g) => sum + g.targetAmount);
   }
 
   // 获取总当前金额
-  static double getTotalCurrentAmount() {
-    return getActiveGoals().fold(0.0, (sum, g) => sum + g.currentAmount);
+  static Decimal getTotalCurrentAmount() {
+    return getActiveGoals()
+        .fold(Decimal.zero, (sum, g) => sum + g.currentAmount);
   }
 
   // 获取总进度
   static double getTotalProgressPercent() {
     final total = getTotalTargetAmount();
-    if (total <= 0) return 0;
-    return (getTotalCurrentAmount() / total) * 100;
+    if (total <= Decimal.zero) return 0;
+    // WHY: Decimal 除法返回 Rational，转 double 供 UI 进度条使用
+    return (getTotalCurrentAmount() / total).toDouble() * 100;
   }
 
   // 获取默认图标列表

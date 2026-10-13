@@ -1,3 +1,4 @@
+import 'package:decimal/decimal.dart';
 import '../models/transaction.dart';
 import 'tag_service.dart';
 
@@ -21,10 +22,10 @@ class FilterConditions {
   DateTime? endDate;
 
   /// 最小金额（可选）
-  double? minAmount;
+  Decimal? minAmount;
 
   /// 最大金额（可选）
-  double? maxAmount;
+  Decimal? maxAmount;
 
   /// 收支类型：null=全部, true=收入, false=支出
   bool? isIncome;
@@ -85,8 +86,8 @@ class FilterConditions {
     String? account,
     DateTime? startDate,
     DateTime? endDate,
-    double? minAmount,
-    double? maxAmount,
+    Decimal? minAmount,
+    Decimal? maxAmount,
     bool? isIncome,
     bool? hasTag,
     String? tag,

@@ -12,12 +12,16 @@ import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.IBinder
+import android.text.InputType
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
+import android.view.inputmethod.InputMethodManager
 import android.widget.Button
+import android.widget.EditText
+import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.app.NotificationCompat
@@ -61,6 +65,10 @@ class OverlayService : Service() {
     private var selectedCategory: String? = null
     private var selectedAccount: String? = null
 
+    // WHY: 金额/商户改为可编辑 EditText，确认时从控件读取用户修改后的值
+    private var amountEdit: EditText? = null
+    private var merchantEdit: EditText? = null
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
@@ -86,9 +94,20 @@ class OverlayService : Service() {
             inferredCategory = it.getStringExtra(EXTRA_INFERRED_CATEGORY)
             confidence = it.getDoubleExtra(EXTRA_CONFIDENCE, 0.0)
             rawText = it.getStringExtra(EXTRA_RAW_TEXT) ?: ""
+            // WHY: 进程被杀后内存缓存丢失，先从 SharedPreferences 恢复，
+            // 否则分类/账户 Chip 显示"暂无数据"导致无法修改分类
+            AutoAccountingPlugin.restoreCacheIfNeeded(this)
             selectedCategory = inferredCategory
+            // WHY: 推断分类缺失时兜底选第一个，保证用户可在此基础上修改
+            if (selectedCategory == null) {
+                selectedCategory =
+                    AutoAccountingPlugin.getCachedCategories().firstOrNull()?.get("name")
+            }
             // WHY: 默认选第一个账户，提升确认速度
-            selectedAccount = AutoAccountingPlugin.getCachedAccounts().firstOrNull()?.get("name")
+            if (selectedAccount == null) {
+                selectedAccount =
+                    AutoAccountingPlugin.getCachedAccounts().firstOrNull()?.get("name")
+            }
             showOverlay()
         }
         return START_NOT_STICKY
@@ -242,26 +261,49 @@ class OverlayService : Service() {
         titleRow.addView(closeBtn)
         container.addView(titleRow)
 
-        // 金额
-        val amountText = TextView(context).apply {
-            text = "¥ ${String.format("%.2f", amount)}"
+        // 金额（可编辑）
+        val amountRow = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.BOTTOM
+            setPadding(0, dpToPx(12), 0, dpToPx(4))
+        }
+        val currencyText = TextView(context).apply {
+            text = "¥ "
             setTextColor(Color.parseColor("#6366F1"))
             textSize = 32f
             setTypeface(typeface, Typeface.BOLD)
-            setPadding(0, dpToPx(12), 0, dpToPx(4))
         }
-        container.addView(amountText)
+        val amountField = EditText(context).apply {
+            setText(String.format("%.2f", amount))
+            inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
+            setTextColor(Color.parseColor("#6366F1"))
+            textSize = 32f
+            setTypeface(typeface, Typeface.BOLD)
+            // WHY: 去掉默认下划线背景，保持卡片简洁风格
+            setBackgroundColor(Color.TRANSPARENT)
+            setSelectAllOnFocus(true)
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        }
+        enableKeyboardOnFocus(amountField)
+        amountEdit = amountField
+        amountRow.addView(currencyText)
+        amountRow.addView(amountField)
+        container.addView(amountRow)
 
-        // 商户名
-        if (merchant.isNotEmpty()) {
-            val merchantText = TextView(context).apply {
-                text = merchant
-                setTextColor(Color.parseColor("#6B7280"))
-                textSize = 14f
-                setPadding(0, 0, 0, dpToPx(16))
-            }
-            container.addView(merchantText)
+        // 商户名（可编辑，始终展示便于补录）
+        val merchantField = EditText(context).apply {
+            setText(merchant)
+            hint = "商户（可修改）"
+            setHintTextColor(Color.parseColor("#D1D5DB"))
+            inputType = InputType.TYPE_CLASS_TEXT
+            setTextColor(Color.parseColor("#6B7280"))
+            textSize = 14f
+            setBackgroundColor(Color.TRANSPARENT)
+            setPadding(0, 0, 0, dpToPx(16))
         }
+        enableKeyboardOnFocus(merchantField)
+        merchantEdit = merchantField
+        container.addView(merchantField)
 
         // 分类标签
         val categoryLabel = TextView(context).apply {
@@ -324,19 +366,51 @@ class OverlayService : Service() {
     }
 
     /**
-     * 构建 Chip 选择行。
-     * WHY: 用横向 LinearLayout + TextView 实现 Chip 效果，避免引入 Material 依赖。
+     * 让悬浮窗内的 EditText 聚焦时可弹出软键盘。
+     *
+     * WHY: 悬浮窗默认带 FLAG_NOT_FOCUSABLE（避免抢下层应用的返回键与焦点），
+     * 该 flag 会阻断 IME。聚焦时动态移除、失焦后恢复，兼顾两者。
+     *
+     * @param editText 目标输入框。
+     */
+    private fun enableKeyboardOnFocus(editText: EditText) {
+        editText.setOnFocusChangeListener { _, hasFocus ->
+            val lp = layoutParams ?: return@setOnFocusChangeListener
+            val view = overlayView ?: return@setOnFocusChangeListener
+            lp.flags = if (hasFocus) {
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
+            } else {
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
+            }
+            windowManager?.updateViewLayout(view, lp)
+            if (hasFocus) {
+                // WHY: flag 切换后需下一帧再请求 IME，否则系统仍认为窗口不可聚焦
+                editText.post {
+                    val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                    imm.showSoftInput(editText, InputMethodManager.SHOW_IMPLICIT)
+                }
+            }
+        }
+    }
+
+    /**
+     * 构建 Chip 选择行（横向滚动，展示全部条目）。
+     *
+     * WHY: 外层套 HorizontalScrollView 突破"最多 5 个"限制，
+     * 用户可选择任意分类/账户；横向滑动手势由 ScrollView 消费，
+     * 与根 View 的拖动监听天然隔离。
      *
      * @param items 待渲染的数据列表，每个 Map 至少含 `name` 字段。
      * @param selected 当前选中项名称，用于初始高亮。
      * @param onSelect 选中回调，参数为被点击项的 `name`。
-     * @return 横向 LinearLayout 容器。
+     * @return 横向可滚动的 Chip 容器。
      */
     private fun buildChipRow(
         items: List<Map<String, String>>,
         selected: String?,
         onSelect: (String) -> Unit
-    ): LinearLayout {
+    ): View {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding(0, dpToPx(4), 0, 0)
@@ -348,39 +422,65 @@ class OverlayService : Service() {
                 textSize = 12f
             }
             row.addView(empty)
-            return row
-        }
-        // WHY: 最多显示 5 个，避免横向溢出；时间复杂度 O(n)，n ≤ 5
-        items.take(5).forEach { item ->
-            val name = item["name"] ?: return@forEach
-            val chip = TextView(this).apply {
-                text = name
-                val isSelected = name == selected
-                setBackgroundColor(
-                    if (isSelected) Color.parseColor("#6366F1")
-                    else Color.parseColor("#F3F4F6")
-                )
-                setTextColor(
-                    if (isSelected) Color.WHITE
-                    else Color.parseColor("#374151")
-                )
-                textSize = 13f
-                setPadding(dpToPx(12), dpToPx(6), dpToPx(12), dpToPx(6))
-                val lp = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.WRAP_CONTENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
-                )
-                lp.setMargins(0, 0, dpToPx(8), 0)
-                layoutParams = lp
-                setOnClickListener {
-                    onSelect(name)
-                    // WHY: 点击后刷新整个悬浮窗以更新选中态
-                    showOverlay()
+        } else {
+            // WHY: 展示全部条目，时间复杂度 O(n)
+            items.forEach { item ->
+                val name = item["name"] ?: return@forEach
+                val chip = TextView(this).apply {
+                    text = name
+                    val isSelected = name == selected
+                    setBackgroundColor(
+                        if (isSelected) Color.parseColor("#6366F1")
+                        else Color.parseColor("#F3F4F6")
+                    )
+                    setTextColor(
+                        if (isSelected) Color.WHITE
+                        else Color.parseColor("#374151")
+                    )
+                    textSize = 13f
+                    setPadding(dpToPx(12), dpToPx(6), dpToPx(12), dpToPx(6))
+                    val lp = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                    )
+                    lp.setMargins(0, 0, dpToPx(8), 0)
+                    layoutParams = lp
+                    setOnClickListener {
+                        onSelect(name)
+                        // WHY: 局部刷新 Chip 选中色，不重建整个悬浮窗，
+                        // 避免重建导致金额/商户输入框内容被重置
+                        refreshChipSelection(row, name)
+                    }
                 }
+                row.addView(chip)
             }
-            row.addView(chip)
         }
-        return row
+        return HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            addView(row)
+        }
+    }
+
+    /**
+     * 局部刷新 Chip 行的选中态颜色。
+     *
+     * @param row Chip 所在 LinearLayout。
+     * @param selectedName 当前选中的名称。
+     */
+    private fun refreshChipSelection(row: LinearLayout, selectedName: String) {
+        // WHY: 时间复杂度 O(n)，n 为分类/账户数量，通常 < 30
+        for (i in 0 until row.childCount) {
+            val child = row.getChildAt(i) as? TextView ?: continue
+            val isSelected = child.text.toString() == selectedName
+            child.setBackgroundColor(
+                if (isSelected) Color.parseColor("#6366F1")
+                else Color.parseColor("#F3F4F6")
+            )
+            child.setTextColor(
+                if (isSelected) Color.WHITE
+                else Color.parseColor("#374151")
+            )
+        }
     }
 
     /**
@@ -401,11 +501,18 @@ class OverlayService : Service() {
      * 处理"确认记账"：通过 [AutoAccountingPlugin.handleOverlayResult] 回调 Flutter，然后关闭 Service。
      */
     private fun handleConfirm() {
-        // WHY: 通过 AutoAccountingPlugin 回调 Flutter 处理确认逻辑
+        // WHY: 金额/商户以用户修改后的输入框内容为准；解析失败回退原始识别值
+        val finalAmount = amountEdit?.text?.toString()
+            ?.replace(",", "")
+            ?.toDoubleOrNull()
+            ?.takeIf { it > 0 } ?: amount
+        val finalMerchant = merchantEdit?.text?.toString()?.trim()
+            .orEmpty()
+            .ifEmpty { merchant }
         AutoAccountingPlugin.handleOverlayResult(
             action = "confirm",
-            amount = amount,
-            merchant = merchant,
+            amount = finalAmount,
+            merchant = finalMerchant,
             packageName = packageName,
             category = selectedCategory,
             account = selectedAccount,
@@ -443,6 +550,9 @@ class OverlayService : Service() {
             overlayView = null
         }
         layoutParams = null
+        // WHY: 清空输入框引用，防止悬浮窗重建后读到已销毁的 View
+        amountEdit = null
+        merchantEdit = null
     }
 
     override fun onDestroy() {

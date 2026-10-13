@@ -32,7 +32,7 @@ void main() {
 
     testWidgets('数字按钮点击回调', (WidgetTester tester) async {
       String pressedNumber = '';
-      
+
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -57,7 +57,7 @@ void main() {
 
     testWidgets('删除按钮点击回调', (WidgetTester tester) async {
       bool deletePressed = false;
-      
+
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -76,7 +76,7 @@ void main() {
 
     testWidgets('保存按钮点击回调', (WidgetTester tester) async {
       bool savePressed = false;
-      
+
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -96,7 +96,7 @@ void main() {
 
     testWidgets('保存按钮在canSave为false时禁用', (WidgetTester tester) async {
       bool savePressed = false;
-      
+
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -116,7 +116,7 @@ void main() {
 
     testWidgets('再记按钮点击回调', (WidgetTester tester) async {
       bool saveAndAddPressed = false;
-      
+
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -136,7 +136,7 @@ void main() {
 
     testWidgets('显示备注输入框', (WidgetTester tester) async {
       final noteController = TextEditingController();
-      
+
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -151,12 +151,12 @@ void main() {
       );
 
       expect(find.byType(TextField), findsOneWidget);
-      expect(find.text('备注...'), findsOneWidget);
+      expect(find.text('添加备注...'), findsOneWidget);
     });
 
     testWidgets('备注输入框可以输入内容', (WidgetTester tester) async {
       final noteController = TextEditingController();
-      
+
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -213,14 +213,15 @@ void main() {
         ),
       );
 
-      expect(find.text('报销'), findsOneWidget);
+      // WHY: 激活状态下组件展示'已报销'文案
+      expect(find.text('已报销'), findsOneWidget);
     });
 
     testWidgets('选项按钮点击回调', (WidgetTester tester) async {
       bool accountTapped = false;
       bool dateTapped = false;
       bool reimbursedTapped = false;
-      
+
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(

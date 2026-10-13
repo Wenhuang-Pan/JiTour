@@ -1,14 +1,16 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:decimal/decimal.dart';
 import '../models/parsed_payment.dart';
 import '../models/pending_transaction.dart';
 import '../models/transaction.dart';
 import '../services/account_service.dart';
 import '../services/category_service.dart';
 import '../services/database_service.dart';
-import '../services/pending_transaction_service.dart';
 import '../services/notification_bridge_service.dart';
+import '../services/pending_transaction_service.dart';
 import '../services/category_inference_service.dart';
+import '../utils/decimal_util.dart';
 
 /// 支付通知自动记账状态管理
 ///
@@ -190,7 +192,7 @@ class AutoAccountingProvider extends ChangeNotifier {
   /// @param data Overlay 结果数据，含 action/amount/merchant/category/account/rawText
   Future<void> _handleOverlayResult(Map<String, dynamic> data) async {
     final action = data['action'] as String? ?? '';
-    final amount = (data['amount'] as num?)?.toDouble() ?? 0.0;
+    final amount = parseDecimal(data['amount']);
     final merchant = data['merchant'] as String? ?? '';
     final category = data['category'] as String?;
     final account = data['account'] as String?;
@@ -310,7 +312,7 @@ class AutoAccountingProvider extends ChangeNotifier {
     required String category,
     required String account,
     String? note,
-    double? amount,
+    Decimal? amount,
   }) async {
     final Transaction? result = await PendingTransactionService.confirm(
       pendingId,

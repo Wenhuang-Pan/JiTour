@@ -543,10 +543,11 @@ class _ExportScreenState extends State<ExportScreen> {
                       flex: 2,
                       child: Text(
                         '${t.category} ¥${t.amount.toStringAsFixed(2)}',
-                        style: const TextStyle(
+                        // WHY: 预览金额改用 onSurface，暗色模式下自动变为浅色
+                        style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: AppTheme.neutral900,
+                          color: Theme.of(context).colorScheme.onSurface,
                         ),
                       ),
                     ),

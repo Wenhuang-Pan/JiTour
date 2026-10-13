@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
+import 'package:decimal/decimal.dart';
+import '../utils/decimal_util.dart';
 
 part 'debt.g.dart';
 
@@ -23,10 +25,10 @@ class Debt extends HiveObject {
   String creditor;
 
   @HiveField(3)
-  double totalAmount;
+  Decimal totalAmount;
 
   @HiveField(4)
-  double paidAmount;
+  Decimal paidAmount;
 
   @HiveField(5)
   double interestRate;
@@ -57,7 +59,7 @@ class Debt extends HiveObject {
     required this.name,
     required this.creditor,
     required this.totalAmount,
-    this.paidAmount = 0.0,
+    Decimal? paidAmount,
     this.interestRate = 0.0,
     required this.dueDate,
     this.status = 'pending',
@@ -66,15 +68,17 @@ class Debt extends HiveObject {
     this.colorValue = 0xFF6366F1,
     DateTime? createdAt,
     DateTime? updatedAt,
-  })  : createdAt = createdAt ?? DateTime.now(),
+  })  : paidAmount = paidAmount ?? Decimal.zero,
+        createdAt = createdAt ?? DateTime.now(),
         updatedAt = updatedAt ?? DateTime.now();
 
   /// 获取未还金额
-  double get remainingAmount => totalAmount - paidAmount;
+  Decimal get remainingAmount => totalAmount - paidAmount;
 
   /// 获取还款进度百分比
-  double get progressPercent =>
-      totalAmount > 0 ? (paidAmount / totalAmount) * 100 : 0;
+  double get progressPercent => totalAmount > Decimal.zero
+      ? (paidAmount / totalAmount).toDouble() * 100
+      : 0;
 
   /// 是否已还清
   bool get isCompleted => status == 'completed' || paidAmount >= totalAmount;
@@ -82,7 +86,7 @@ class Debt extends HiveObject {
   /// 获取负债状态枚举
   DebtStatus get debtStatus {
     if (isCompleted) return DebtStatus.completed;
-    if (paidAmount > 0) return DebtStatus.paying;
+    if (paidAmount > Decimal.zero) return DebtStatus.paying;
     return DebtStatus.pending;
   }
 
@@ -105,12 +109,16 @@ class Debt extends HiveObject {
 
   /// 还款
   /// @param amount 还款金额
-  void pay(double amount) {
-    if (amount <= 0) return;
-    paidAmount = (paidAmount + amount).clamp(0, totalAmount);
+  void pay(Decimal amount) {
+    if (amount <= Decimal.zero) return;
+    // WHY: Decimal 无 clamp 方法，用比较实现上下界约束
+    var newPaid = paidAmount + amount;
+    if (newPaid < Decimal.zero) newPaid = Decimal.zero;
+    if (newPaid > totalAmount) newPaid = totalAmount;
+    paidAmount = newPaid;
     if (paidAmount >= totalAmount) {
       status = 'completed';
-    } else if (paidAmount > 0) {
+    } else if (paidAmount > Decimal.zero) {
       status = 'paying';
     }
     updatedAt = DateTime.now();
@@ -158,15 +166,23 @@ class Debt extends HiveObject {
   /// @param days 天数
   /// @return 利息金额
   double calculateInterest(int days) {
-    return totalAmount * interestRate / 100 / 365 * days;
+    // WHY: interestRate 是百分比 double，与 Decimal 总额混合运算时先转 Decimal
+    final rate = Decimal.parse(interestRate.toString());
+    // WHY: 先算乘法（Decimal*Decimal=Decimal），最后一次除法返回 Rational 再转 double
+    final interest = (totalAmount *
+            rate *
+            Decimal.fromInt(days) /
+            (Decimal.fromInt(100) * Decimal.fromInt(365)))
+        .toDouble();
+    return interest;
   }
 
   Debt copyWith({
     String? id,
     String? name,
     String? creditor,
-    double? totalAmount,
-    double? paidAmount,
+    Decimal? totalAmount,
+    Decimal? paidAmount,
     double? interestRate,
     DateTime? dueDate,
     String? status,
@@ -198,8 +214,8 @@ class Debt extends HiveObject {
       'id': id,
       'name': name,
       'creditor': creditor,
-      'totalAmount': totalAmount,
-      'paidAmount': paidAmount,
+      'totalAmount': totalAmount.toString(),
+      'paidAmount': paidAmount.toString(),
       'interestRate': interestRate,
       'dueDate': dueDate.toIso8601String(),
       'status': status,
@@ -216,8 +232,8 @@ class Debt extends HiveObject {
       id: json['id'] as String,
       name: json['name'] as String,
       creditor: json['creditor'] as String,
-      totalAmount: (json['totalAmount'] as num?)?.toDouble() ?? 0.0,
-      paidAmount: (json['paidAmount'] as num?)?.toDouble() ?? 0.0,
+      totalAmount: parseDecimal(json['totalAmount']),
+      paidAmount: parseDecimal(json['paidAmount']),
       interestRate: (json['interestRate'] as num?)?.toDouble() ?? 0.0,
       dueDate: DateTime.parse(json['dueDate'] as String),
       status: json['status'] as String? ?? 'pending',

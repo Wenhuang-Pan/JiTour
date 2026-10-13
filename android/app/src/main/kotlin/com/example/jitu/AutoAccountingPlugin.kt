@@ -17,6 +17,8 @@ import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
+import org.json.JSONArray
+import org.json.JSONObject
 
 class AutoAccountingPlugin : FlutterPlugin, ActivityAware, EventChannel.StreamHandler, MethodChannel.MethodCallHandler {
 
@@ -39,6 +41,12 @@ class AutoAccountingPlugin : FlutterPlugin, ActivityAware, EventChannel.StreamHa
         // WHY: 分类/账户缓存，供 OverlayService 渲染 Chip 选择项
         private var cachedCategories: List<Map<String, String>> = emptyList()
         private var cachedAccounts: List<Map<String, String>> = emptyList()
+
+        // WHY: 缓存持久化到 SharedPreferences，进程被杀后悬浮窗仍能渲染分类/账户，
+        // 否则用户遇到"暂无数据"无法修改分类
+        private const val PREFS_NAME = "jitu_overlay_cache"
+        private const val KEY_CACHED_CATEGORIES = "cached_categories"
+        private const val KEY_CACHED_ACCOUNTS = "cached_accounts"
 
         /**
          * 供 NotificationListenerService 调用，跨组件传递通知事件。
@@ -103,6 +111,7 @@ class AutoAccountingPlugin : FlutterPlugin, ActivityAware, EventChannel.StreamHa
          */
         fun updateCachedCategories(list: List<Map<String, String>>) {
             cachedCategories = list
+            persistCache(KEY_CACHED_CATEGORIES, list)
         }
 
         /**
@@ -112,6 +121,68 @@ class AutoAccountingPlugin : FlutterPlugin, ActivityAware, EventChannel.StreamHa
          */
         fun updateCachedAccounts(list: List<Map<String, String>>) {
             cachedAccounts = list
+            persistCache(KEY_CACHED_ACCOUNTS, list)
+        }
+
+        /**
+         * 将缓存列表持久化到 SharedPreferences（JSON 数组字符串）。
+         *
+         * @param key 存储键名。
+         * @param list 待持久化的列表。
+         */
+        private fun persistCache(key: String, list: List<Map<String, String>>) {
+            val ctx = appContext ?: return
+            val arr = JSONArray()
+            list.forEach { map ->
+                val obj = JSONObject()
+                map.forEach { (k, v) -> obj.put(k, v) }
+                arr.put(obj)
+            }
+            ctx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .edit()
+                .putString(key, arr.toString())
+                .apply()
+        }
+
+        /**
+         * 进程被杀后内存缓存丢失时，从 SharedPreferences 恢复缓存。
+         *
+         * WHY: OverlayService 可能由 NotificationListener 在 Flutter 未启动时拉起，
+         * 此时内存缓存为空，需从磁盘恢复才能渲染分类/账户 Chip。
+         *
+         * @param context 任意 Context（Service/Activity 均可）。
+         */
+        fun restoreCacheIfNeeded(context: Context) {
+            if (cachedCategories.isEmpty()) {
+                cachedCategories = readCache(context, KEY_CACHED_CATEGORIES)
+            }
+            if (cachedAccounts.isEmpty()) {
+                cachedAccounts = readCache(context, KEY_CACHED_ACCOUNTS)
+            }
+        }
+
+        /**
+         * 从 SharedPreferences 读取缓存列表。
+         *
+         * @param context 任意 Context。
+         * @param key 存储键名。
+         * @return 解析出的列表；无数据或解析失败返回空列表。
+         */
+        private fun readCache(context: Context, key: String): List<Map<String, String>> {
+            val json = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .getString(key, null) ?: return emptyList()
+            return try {
+                val arr = JSONArray(json)
+                (0 until arr.length()).map { i ->
+                    val obj = arr.getJSONObject(i)
+                    val map = mutableMapOf<String, String>()
+                    obj.keys().forEach { k -> map[k] = obj.getString(k) }
+                    map
+                }
+            } catch (e: Exception) {
+                // WHY: 缓存损坏时静默降级为空列表，不影响悬浮窗主流程
+                emptyList()
+            }
         }
 
         /**

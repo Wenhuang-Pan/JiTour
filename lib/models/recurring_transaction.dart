@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
+import 'package:decimal/decimal.dart';
+import '../utils/decimal_util.dart';
 
 part 'recurring_transaction.g.dart';
 
@@ -24,7 +26,7 @@ class RecurringTransaction extends HiveObject {
   bool isIncome;
 
   @HiveField(3)
-  double amount;
+  Decimal amount;
 
   @HiveField(4)
   String category;
@@ -155,14 +157,14 @@ class RecurringTransaction extends HiveObject {
   DateTime calculateNextExecutionDate({DateTime? fromDate}) {
     final baseDate = fromDate ?? lastExecutedDate ?? startDate;
     final now = DateTime.now();
-    
+
     // 如果基准日期在未来，返回基准日期
     if (baseDate.isAfter(now)) {
       return baseDate;
     }
 
     DateTime nextDate;
-    
+
     switch (frequencyEnum) {
       case RecurringFrequency.daily:
         nextDate = baseDate.add(const Duration(days: 1));
@@ -202,7 +204,8 @@ class RecurringTransaction extends HiveObject {
           break;
         case RecurringFrequency.monthly:
           try {
-            nextDate = DateTime(nextDate.year, nextDate.month + 1, nextDate.day);
+            nextDate =
+                DateTime(nextDate.year, nextDate.month + 1, nextDate.day);
           } catch (_) {
             nextDate = DateTime(nextDate.year, nextDate.month + 2, 1)
                 .subtract(const Duration(days: 1));
@@ -210,7 +213,8 @@ class RecurringTransaction extends HiveObject {
           break;
         case RecurringFrequency.yearly:
           try {
-            nextDate = DateTime(nextDate.year + 1, nextDate.month, nextDate.day);
+            nextDate =
+                DateTime(nextDate.year + 1, nextDate.month, nextDate.day);
           } catch (_) {
             nextDate = DateTime(nextDate.year + 1, nextDate.month + 1, 1)
                 .subtract(const Duration(days: 1));
@@ -238,14 +242,14 @@ class RecurringTransaction extends HiveObject {
   /// 获取下次执行日期的显示文本
   String get nextExecutionDateText {
     if (nextExecutionDate == null) return '未设置';
-    
+
     final now = DateTime.now();
     final diff = nextExecutionDate!.difference(now).inDays;
-    
+
     if (diff == 0) return '今天';
     if (diff == 1) return '明天';
     if (diff < 7) return '$diff天后';
-    
+
     return '${nextExecutionDate!.month}月${nextExecutionDate!.day}日';
   }
 
@@ -264,7 +268,7 @@ class RecurringTransaction extends HiveObject {
     String? id,
     String? name,
     bool? isIncome,
-    double? amount,
+    Decimal? amount,
     String? category,
     String? subCategory,
     String? account,
@@ -307,7 +311,7 @@ class RecurringTransaction extends HiveObject {
       'id': id,
       'name': name,
       'isIncome': isIncome,
-      'amount': amount,
+      'amount': amount.toString(),
       'category': category,
       'subCategory': subCategory,
       'account': account,
@@ -330,7 +334,7 @@ class RecurringTransaction extends HiveObject {
       id: json['id'] as String,
       name: json['name'] as String,
       isIncome: json['isIncome'] as bool? ?? false,
-      amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
+      amount: parseDecimal(json['amount']),
       category: json['category'] as String,
       subCategory: json['subCategory'] as String?,
       account: json['account'] as String,

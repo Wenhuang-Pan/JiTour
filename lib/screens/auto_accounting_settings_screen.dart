@@ -561,7 +561,8 @@ class _AutoAccountingSettingsScreenState
                   child: Text(
                     steps[i],
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: AppTheme.neutral700,
+                          // WHY: 改用 onSurfaceVariant，暗色模式下自动变为浅灰
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                   ),
                 ),

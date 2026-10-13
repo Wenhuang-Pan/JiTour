@@ -1,7 +1,9 @@
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:uuid/uuid.dart';
+import 'package:decimal/decimal.dart';
 import '../models/account.dart';
 import 'database_service.dart';
+import 'notification_bridge_service.dart';
 
 class AccountService {
   static const _uuid = Uuid();
@@ -23,7 +25,7 @@ class AccountService {
         name: '现金',
         iconName: '现金',
         colorValue: 0xFFFFB020,
-        initialBalance: 0.0,
+        initialBalance: Decimal.zero,
         sortOrder: 0,
       ),
       Account(
@@ -31,7 +33,7 @@ class AccountService {
         name: '银行卡',
         iconName: '银行卡',
         colorValue: 0xFF2979FF,
-        initialBalance: 0.0,
+        initialBalance: Decimal.zero,
         sortOrder: 1,
       ),
       Account(
@@ -39,7 +41,7 @@ class AccountService {
         name: '支付宝',
         iconName: '支付宝',
         colorValue: 0xFF00C853,
-        initialBalance: 0.0,
+        initialBalance: Decimal.zero,
         sortOrder: 2,
       ),
       Account(
@@ -47,7 +49,7 @@ class AccountService {
         name: '微信',
         iconName: '微信',
         colorValue: 0xFF07C160,
-        initialBalance: 0.0,
+        initialBalance: Decimal.zero,
         sortOrder: 3,
       ),
     ];
@@ -92,19 +94,20 @@ class AccountService {
     required String name,
     required String iconName,
     required int colorValue,
-    double initialBalance = 0.0,
+    Decimal? initialBalance,
   }) async {
     final account = Account(
       id: _uuid.v4(),
       name: name,
       iconName: iconName,
       colorValue: colorValue,
-      initialBalance: initialBalance,
-      currentBalance: initialBalance,
+      initialBalance: initialBalance ?? Decimal.zero,
+      currentBalance: initialBalance ?? Decimal.zero,
       sortOrder: getAllAccounts().length,
     );
 
     await box.put(account.id, account);
+    _syncAccountsToNative();
     return account;
   }
 
@@ -112,6 +115,7 @@ class AccountService {
   static Future<Account> updateAccount(Account account) async {
     account.updatedAt = DateTime.now();
     await box.put(account.id, account);
+    _syncAccountsToNative();
     return account;
   }
 
@@ -122,17 +126,28 @@ class AccountService {
       account.isActive = false;
       account.updatedAt = DateTime.now();
       await account.save();
+      _syncAccountsToNative();
     }
   }
 
   // 永久删除账户
   static Future<void> permanentDeleteAccount(String id) async {
     await box.delete(id);
+    _syncAccountsToNative();
+  }
+
+  /// 将最新活跃账户推送到原生悬浮窗缓存
+  ///
+  /// WHY: 账户增删改后若不重新推送，后台悬浮窗 Chip 仍是旧列表，
+  /// 用户无法选择新建账户。fire-and-forget，失败仅打日志不影响主流程。
+  static void _syncAccountsToNative() {
+    final names = getActiveAccounts().map((a) => a.name).toList();
+    NotificationBridgeService.pushAccounts(names);
   }
 
   // 更新账户余额
   static Future<void> updateAccountBalance(
-      String accountId, double newBalance) async {
+      String accountId, Decimal newBalance) async {
     final account = getAccountById(accountId);
     if (account != null) {
       account.currentBalance = newBalance;
@@ -141,22 +156,21 @@ class AccountService {
   }
 
   // 获取账户余额
-  static double getAccountBalance(String accountId) {
+  static Decimal getAccountBalance(String accountId) {
     final account = getAccountById(accountId);
-    return account?.currentBalance ?? 0.0;
+    return account?.currentBalance ?? Decimal.zero;
   }
 
-  // 获取总资产
-  static double getTotalBalance() {
+  static Decimal getTotalBalance() {
     return getActiveAccounts()
-        .fold(0.0, (sum, account) => sum + account.currentBalance);
+        .fold(Decimal.zero, (sum, account) => sum + account.currentBalance);
   }
 
   // 账户间转账
   static Future<void> transfer({
     required String fromAccountId,
     required String toAccountId,
-    required double amount,
+    required Decimal amount,
     String? note,
   }) async {
     final fromAccount = getAccountById(fromAccountId);
@@ -170,7 +184,7 @@ class AccountService {
       throw Exception('不能向同一账户转账');
     }
 
-    if (amount <= 0) {
+    if (amount <= Decimal.zero) {
       throw Exception('转账金额必须大于0');
     }
 
@@ -229,6 +243,10 @@ class AccountService {
       }
     }
 
+    // WHY: 批量导入绕过了 createAccount，需显式同步原生悬浮窗缓存
+    if (importedCount > 0) {
+      _syncAccountsToNative();
+    }
     return importedCount;
   }
 }

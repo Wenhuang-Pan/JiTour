@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:intl/intl.dart';
+import '../utils/decimal_util.dart';
 import '../models/transaction.dart';
 import '../models/budget.dart';
 import '../models/account.dart';
@@ -29,7 +30,7 @@ class BackupService {
     for (var transaction in transactionsBox.values) {
       backupData['transactions'].add({
         'id': transaction.id,
-        'amount': transaction.amount,
+        'amount': transaction.amount.toString(),
         'isIncome': transaction.isIncome,
         'category': transaction.category,
         'account': transaction.account,
@@ -39,8 +40,8 @@ class BackupService {
         'currency': transaction.currency,
         'account2': transaction.account2,
         'isReimbursed': transaction.isReimbursed,
-        'fee': transaction.fee,
-        'coupon': transaction.coupon,
+        'fee': transaction.fee.toString(),
+        'coupon': transaction.coupon.toString(),
         'tags': transaction.tags,
         'deletedAt': transaction.deletedAt?.toIso8601String(),
       });
@@ -52,7 +53,7 @@ class BackupService {
       backupData['budgets'].add({
         'id': budget.id,
         'category': budget.category,
-        'amount': budget.amount,
+        'amount': budget.amount.toString(),
         'year': budget.year,
         'month': budget.month,
       });
@@ -66,8 +67,8 @@ class BackupService {
         'name': account.name,
         'iconName': account.iconName,
         'colorValue': account.colorValue,
-        'initialBalance': account.initialBalance,
-        'currentBalance': account.currentBalance,
+        'initialBalance': account.initialBalance.toString(),
+        'currentBalance': account.currentBalance.toString(),
         'isActive': account.isActive,
         'sortOrder': account.sortOrder,
         'createdAt': account.createdAt.toIso8601String(),
@@ -97,8 +98,8 @@ class BackupService {
         'id': goal.id,
         'name': goal.name,
         'description': goal.description,
-        'targetAmount': goal.targetAmount,
-        'currentAmount': goal.currentAmount,
+        'targetAmount': goal.targetAmount.toString(),
+        'currentAmount': goal.currentAmount.toString(),
         'iconName': goal.iconName,
         'colorValue': goal.colorValue,
         'startDate': goal.startDate.toIso8601String(),
@@ -161,7 +162,7 @@ class BackupService {
         for (var t in data['transactions']) {
           final transaction = Transaction(
             id: t['id'],
-            amount: (t['amount'] as num).toDouble(),
+            amount: parseDecimal(t['amount']),
             isIncome: t['isIncome'],
             category: t['category'],
             account: t['account'],
@@ -171,8 +172,8 @@ class BackupService {
             currency: t['currency'] ?? 'CNY',
             account2: t['account2'],
             isReimbursed: t['isReimbursed'] ?? false,
-            fee: (t['fee'] as num?)?.toDouble() ?? 0.0,
-            coupon: (t['coupon'] as num?)?.toDouble() ?? 0.0,
+            fee: parseDecimal(t['fee']),
+            coupon: parseDecimal(t['coupon']),
             tags: t['tags'],
             deletedAt:
                 t['deletedAt'] != null ? DateTime.parse(t['deletedAt']) : null,
@@ -187,7 +188,7 @@ class BackupService {
           final budget = Budget(
             id: b['id'],
             category: b['category'],
-            amount: (b['amount'] as num).toDouble(),
+            amount: parseDecimal(b['amount']),
             year: b['year'],
             month: b['month'],
           );
@@ -203,8 +204,8 @@ class BackupService {
             name: a['name'],
             iconName: a['iconName'],
             colorValue: a['colorValue'] as int,
-            initialBalance: (a['initialBalance'] as num?)?.toDouble() ?? 0.0,
-            currentBalance: (a['currentBalance'] as num?)?.toDouble() ?? 0.0,
+            initialBalance: parseDecimal(a['initialBalance']),
+            currentBalance: parseDecimal(a['currentBalance']),
             isActive: a['isActive'] ?? true,
             sortOrder: a['sortOrder'] as int? ?? 0,
             createdAt: a['createdAt'] != null
@@ -246,8 +247,8 @@ class BackupService {
             id: g['id'],
             name: g['name'],
             description: g['description'],
-            targetAmount: (g['targetAmount'] as num).toDouble(),
-            currentAmount: (g['currentAmount'] as num?)?.toDouble() ?? 0.0,
+            targetAmount: parseDecimal(g['targetAmount']),
+            currentAmount: parseDecimal(g['currentAmount']),
             iconName: g['iconName'],
             colorValue: g['colorValue'] as int,
             startDate: DateTime.parse(g['startDate']),

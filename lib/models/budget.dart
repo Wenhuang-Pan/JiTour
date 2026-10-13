@@ -1,4 +1,6 @@
 import 'package:hive/hive.dart';
+import 'package:decimal/decimal.dart';
+import '../utils/decimal_util.dart';
 
 part 'budget.g.dart';
 
@@ -11,7 +13,7 @@ class Budget extends HiveObject {
   String category;
 
   @HiveField(2)
-  double amount;
+  Decimal amount;
 
   @HiveField(3)
   int year;

@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:decimal/decimal.dart';
 import '../services/csv_importer.dart';
 import '../services/database_service.dart';
 import '../models/transaction.dart';
@@ -117,7 +118,7 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
             final amount = CsvImporter.parseAmount(mapping['amount'] ?? '');
             if (date == null) {
               firstFailReason = '日期解析失败: "${mapping['date']}"';
-            } else if (amount <= 0) {
+            } else if (amount <= Decimal.zero) {
               firstFailReason = '金额解析失败: "${mapping['amount']}" → $amount';
             } else {
               firstFailReason = '未知原因';
@@ -492,7 +493,8 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
                       style: TextStyle(
                         fontFamily: 'Monospace',
                         fontSize: 11,
-                        color: AppTheme.neutral700,
+                        // WHY: 改用 onSurfaceVariant，暗色模式下自动变为浅灰
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ),

@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:decimal/decimal.dart';
 import '../models/account.dart';
 import '../models/recurring_transaction.dart';
 import '../models/transaction.dart';
@@ -136,8 +137,8 @@ class RecurringTransactionService {
       date: DateTime.now(),
       note: recurringTransaction.note,
       isReimbursed: false,
-      fee: 0.0,
-      coupon: 0.0,
+      fee: Decimal.zero,
+      coupon: Decimal.zero,
     );
 
     await DatabaseService.addTransaction(transaction);
@@ -217,8 +218,8 @@ class RecurringTransactionService {
     final enabled = all.where((t) => t.isEnabled).toList();
     final pending = getPendingRecurringTransactions();
 
-    double totalIncome = 0;
-    double totalExpense = 0;
+    Decimal totalIncome = Decimal.zero;
+    Decimal totalExpense = Decimal.zero;
 
     for (final t in enabled) {
       if (t.isIncome) {

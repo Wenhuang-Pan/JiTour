@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:decimal/decimal.dart';
 import '../models/account.dart';
 import '../models/pending_transaction.dart';
 import '../models/transaction.dart';
@@ -35,7 +36,7 @@ class PendingTransactionService {
   /// @param confidence 置信度
   /// @return 创建的待确认交易
   static Future<PendingTransaction> create({
-    required double amount,
+    required Decimal amount,
     required PaymentSource source,
     required String rawText,
     String? merchant,
@@ -91,7 +92,7 @@ class PendingTransactionService {
     required String category,
     required String account,
     String? note,
-    double? amount,
+    Decimal? amount,
   }) async {
     final pending = DatabaseService.pendingTransactions.get(pendingId);
     if (pending == null || pending.status != PendingStatus.pending) {
@@ -112,15 +113,16 @@ class PendingTransactionService {
       date: pending.paymentTime,
       note: note ?? pending.merchant,
       isReimbursed: false,
-      fee: 0.0,
-      coupon: 0.0,
+      fee: Decimal.zero,
+      coupon: Decimal.zero,
     );
     await DatabaseService.addTransaction(transaction);
 
     // WHY: 必须先把 pending 置为 confirmed 并落盘，再扣账户余额。
     // status==pending 是 confirm 的幂等闸门，若先扣款后改状态，
     // 中途崩溃会导致重试时重复建交易、重复扣款；先落状态最坏只漏扣，危害更小。
-    if (amount != null && (amount - pending.amount).abs() > 0.001) {
+    // WHY: Decimal 无 abs 方法且与 int 不可比较；用差的正负判断金额是否被修改
+    if (amount != null && amount != pending.amount) {
       pending.amount = amount;
     }
     pending.status = PendingStatus.confirmed;

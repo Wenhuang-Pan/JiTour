@@ -24,13 +24,14 @@ class CategoryAdapter extends TypeAdapter<Category> {
       color: fields[4] as String,
       createdAt: fields[5] as DateTime,
       deletedAt: fields[6] as DateTime?,
+      sortOrder: fields[7] == null ? 0 : fields[7] as int,
     );
   }
 
   @override
   void write(BinaryWriter writer, Category obj) {
     writer
-      ..writeByte(7)
+      ..writeByte(8)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -44,7 +45,9 @@ class CategoryAdapter extends TypeAdapter<Category> {
       ..writeByte(5)
       ..write(obj.createdAt)
       ..writeByte(6)
-      ..write(obj.deletedAt);
+      ..write(obj.deletedAt)
+      ..writeByte(7)
+      ..write(obj.sortOrder);
   }
 
   @override

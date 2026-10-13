@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:decimal/decimal.dart';
 import 'package:provider/provider.dart';
 import '../services/csv_importer.dart';
 import '../services/export_service.dart';
@@ -169,8 +170,8 @@ class _DataManagementScreenState extends State<DataManagementScreen>
     int skipped = 0;
     for (var row in _mappedData!) {
       try {
-        final amount = double.tryParse(row['amount'] ?? '');
-        if (amount == null || amount <= 0) {
+        final amount = Decimal.tryParse(row['amount'] ?? '');
+        if (amount == null || amount <= Decimal.zero) {
           skipped++;
           continue;
         }

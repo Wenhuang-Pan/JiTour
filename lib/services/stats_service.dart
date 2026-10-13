@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:decimal/decimal.dart';
 import '../models/transaction.dart';
 import '../theme/app_theme.dart';
 import 'tag_service.dart';
@@ -10,7 +11,7 @@ class TagStatEntry {
   final String tagId;
 
   /// 关联交易金额合计（一笔交易带多个标签时，会在每个标签下各计一次）
-  final double amount;
+  final Decimal amount;
 
   /// 关联交易笔数
   final int count;
@@ -59,19 +60,19 @@ class StatsService {
   }
 
   /// 计算总收入或总支出
-  static double calculateTotal(List<Transaction> transactions, bool isIncome) {
+  static Decimal calculateTotal(List<Transaction> transactions, bool isIncome) {
     return transactions
         .where((t) => t.isIncome == isIncome)
-        .fold(0.0, (sum, t) => sum + t.amount);
+        .fold(Decimal.zero, (sum, t) => sum + t.amount);
   }
 
   /// 计算分类统计
-  static Map<String, double> calculateCategoryStats(
+  static Map<String, Decimal> calculateCategoryStats(
       List<Transaction> transactions, bool isIncome) {
     final filtered = transactions.where((t) => t.isIncome == isIncome).toList();
-    final stats = <String, double>{};
+    final stats = <String, Decimal>{};
     for (final t in filtered) {
-      stats[t.category] = (stats[t.category] ?? 0) + t.amount;
+      stats[t.category] = (stats[t.category] ?? Decimal.zero) + t.amount;
     }
     return stats;
   }
@@ -90,7 +91,7 @@ class StatsService {
   /// @return 按金额倒序排列的标签统计条目
   static List<TagStatEntry> calculateTagStats(
       List<Transaction> transactions, bool isIncome) {
-    final amounts = <String, double>{};
+    final amounts = <String, Decimal>{};
     final counts = <String, int>{};
 
     for (final t in transactions) {
@@ -98,7 +99,7 @@ class StatsService {
       for (final tagId in t.tagIds) {
         // WHY: 物理删除的标签不可解析，跳过聚合防止金额"消失"进分母
         if (TagService.getTagById(tagId) == null) continue;
-        amounts[tagId] = (amounts[tagId] ?? 0) + t.amount;
+        amounts[tagId] = (amounts[tagId] ?? Decimal.zero) + t.amount;
         counts[tagId] = (counts[tagId] ?? 0) + 1;
       }
     }
@@ -115,9 +116,9 @@ class StatsService {
   }
 
   /// 计算趋势数据（近6个月）
-  static Map<String, Map<String, double>> calculateTrendData(
+  static Map<String, Map<String, Decimal>> calculateTrendData(
       List<Transaction> allTransactions) {
-    final trend = <String, Map<String, double>>{};
+    final trend = <String, Map<String, Decimal>>{};
     final now = DateTime.now();
 
     for (int i = 5; i >= 0; i--) {
@@ -132,10 +133,10 @@ class StatsService {
       trend[monthKey] = {
         'income': monthTransactions
             .where((t) => t.isIncome)
-            .fold(0.0, (sum, t) => sum + t.amount),
+            .fold(Decimal.zero, (sum, t) => sum + t.amount),
         'expense': monthTransactions
             .where((t) => !t.isIncome)
-            .fold(0.0, (sum, t) => sum + t.amount),
+            .fold(Decimal.zero, (sum, t) => sum + t.amount),
       };
     }
 
@@ -143,11 +144,13 @@ class StatsService {
   }
 
   /// 计算趋势图表的最大Y值
-  static double calculateMaxY(Map<String, Map<String, double>> trendData) {
+  /// WHY: fl_chart 需 double 坐标，Decimal 聚合后转 double
+  static double calculateMaxY(Map<String, Map<String, Decimal>> trendData) {
     double maxValue = 0;
     for (final data in trendData.values) {
       for (final value in data.values) {
-        if (value > maxValue) maxValue = value;
+        final v = value.toDouble();
+        if (v > maxValue) maxValue = v;
       }
     }
     return maxValue > 0 ? maxValue * 1.2 : 1000;
@@ -185,7 +188,7 @@ class StatsService {
 
   /// 计算月度对比数据（指定月 vs 上月）
   /// @return Map 包含 'current' 和 'previous' 的收支数据
-  static Map<String, Map<String, double>> calculateMonthComparison(
+  static Map<String, Map<String, Decimal>> calculateMonthComparison(
       List<Transaction> allTransactions) {
     final now = DateTime.now();
     return calculateMonthComparisonForMonth(
@@ -198,7 +201,7 @@ class StatsService {
   /// @param year 年份
   /// @param month 月份
   /// @return Map 包含 'current' 和 'previous' 的收支数据
-  static Map<String, Map<String, double>> calculateMonthComparisonForMonth(
+  static Map<String, Map<String, Decimal>> calculateMonthComparisonForMonth(
       List<Transaction> allTransactions, int year, int month) {
     final currentTransactions =
         getTransactionsForMonth(allTransactions, year, month);
@@ -220,7 +223,7 @@ class StatsService {
 
   /// 计算同比数据（本月 vs 去年同月）
   /// @return Map 包含 'current' 和 'yearAgo' 的收支数据
-  static Map<String, Map<String, double>> calculateYearComparison(
+  static Map<String, Map<String, Decimal>> calculateYearComparison(
       List<Transaction> allTransactions) {
     final now = DateTime.now();
     return calculateYearComparisonForMonth(
@@ -233,7 +236,7 @@ class StatsService {
   /// @param year 年份
   /// @param month 月份
   /// @return Map 包含 'current' 和 'yearAgo' 的收支数据
-  static Map<String, Map<String, double>> calculateYearComparisonForMonth(
+  static Map<String, Map<String, Decimal>> calculateYearComparisonForMonth(
       List<Transaction> allTransactions, int year, int month) {
     final currentTransactions =
         getTransactionsForMonth(allTransactions, year, month);
@@ -284,7 +287,7 @@ class StatsService {
   }
 
   /// 计算本周对比数据（本周 vs 上周）
-  static Map<String, Map<String, double>> calculateWeekComparison(
+  static Map<String, Map<String, Decimal>> calculateWeekComparison(
       List<Transaction> allTransactions) {
     final now = DateTime.now();
     // 获取本周一
@@ -327,7 +330,7 @@ class StatsService {
   /// @param transactions 交易列表
   /// @param n 排行数量
   /// @return 排序后的分类统计 Map
-  static Map<String, double> getTopExpenseCategories(
+  static Map<String, Decimal> getTopExpenseCategories(
       List<Transaction> transactions, int n) {
     final stats = calculateCategoryStats(transactions, false);
     final sorted = stats.entries.toList()
@@ -339,7 +342,7 @@ class StatsService {
   /// @param transactions 交易列表
   /// @param n 排行数量
   /// @return 排序后的分类统计 Map
-  static Map<String, double> getTopIncomeCategories(
+  static Map<String, Decimal> getTopIncomeCategories(
       List<Transaction> transactions, int n) {
     final stats = calculateCategoryStats(transactions, true);
     final sorted = stats.entries.toList()
@@ -352,12 +355,12 @@ class StatsService {
   /// @param n 排行数量
   /// @param isIncome 是否是收入
   /// @return 排序后的账户统计 Map
-  static Map<String, double> getTopAccountsByAmount(
+  static Map<String, Decimal> getTopAccountsByAmount(
       List<Transaction> transactions, int n, bool isIncome) {
     final filtered = transactions.where((t) => t.isIncome == isIncome).toList();
-    final stats = <String, double>{};
+    final stats = <String, Decimal>{};
     for (final t in filtered) {
-      stats[t.account] = (stats[t.account] ?? 0) + t.amount;
+      stats[t.account] = (stats[t.account] ?? Decimal.zero) + t.amount;
     }
     final sorted = stats.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
@@ -385,13 +388,13 @@ class StatsService {
   /// @param transactions 交易列表
   /// @param n 排行数量
   /// @return 排序后的商家统计 Map
-  static Map<String, double> getTopMerchants(
+  static Map<String, Decimal> getTopMerchants(
       List<Transaction> transactions, int n) {
     final expenseTransactions = transactions.where((t) => !t.isIncome).toList();
-    final stats = <String, double>{};
+    final stats = <String, Decimal>{};
     for (final t in expenseTransactions) {
       if (t.note != null && t.note!.isNotEmpty) {
-        stats[t.note!] = (stats[t.note!] ?? 0) + t.amount;
+        stats[t.note!] = (stats[t.note!] ?? Decimal.zero) + t.amount;
       }
     }
     final sorted = stats.entries.toList()

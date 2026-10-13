@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:decimal/decimal.dart';
 import '../theme/app_theme.dart';
 import '../models/account.dart';
 import '../services/account_service.dart';
@@ -98,7 +99,7 @@ class AccountsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildTotalBalanceCard(BuildContext context, double totalBalance) {
+  Widget _buildTotalBalanceCard(BuildContext context, Decimal totalBalance) {
     return Container(
       padding: const EdgeInsets.all(AppTheme.spaceXLarge),
       decoration: BoxDecoration(
@@ -139,7 +140,7 @@ class AccountsScreen extends StatelessWidget {
                   vertical: 4,
                 ),
                 decoration: BoxDecoration(
-                  color: totalBalance >= 0
+                  color: totalBalance >= Decimal.zero
                       ? AppTheme.successColor.withValues(alpha: 0.25)
                       : AppTheme.errorColor.withValues(alpha: 0.25),
                   borderRadius: BorderRadius.circular(AppTheme.radiusFull),
@@ -148,7 +149,7 @@ class AccountsScreen extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      totalBalance >= 0
+                      totalBalance >= Decimal.zero
                           ? Icons.trending_up_rounded
                           : Icons.trending_down_rounded,
                       size: 12,
@@ -156,7 +157,7 @@ class AccountsScreen extends StatelessWidget {
                     ),
                     const SizedBox(width: 2),
                     Text(
-                      totalBalance >= 0 ? '资产健康' : '负债状态',
+                      totalBalance >= Decimal.zero ? '资产健康' : '负债状态',
                       style: const TextStyle(
                         fontSize: AppTheme.textLabelSmall,
                         fontWeight: FontWeight.w600,
@@ -285,7 +286,7 @@ class AccountsScreen extends StatelessWidget {
                       fontSize: AppTheme.textTitleLarge,
                       fontWeight: FontWeight.w700,
                       letterSpacing: -0.4,
-                      color: account.currentBalance >= 0
+                      color: account.currentBalance >= Decimal.zero
                           ? AppTheme.successColor
                           : AppTheme.errorColor,
                     ),
@@ -297,18 +298,18 @@ class AccountsScreen extends StatelessWidget {
                       vertical: 2,
                     ),
                     decoration: BoxDecoration(
-                      color: (account.currentBalance >= 0
+                      color: (account.currentBalance >= Decimal.zero
                               ? AppTheme.successColor
                               : AppTheme.errorColor)
                           .withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(AppTheme.radiusFull),
                     ),
                     child: Text(
-                      account.currentBalance >= 0 ? '正常' : '透支',
+                      account.currentBalance >= Decimal.zero ? '正常' : '透支',
                       style: TextStyle(
                         fontSize: AppTheme.textLabelSmall,
                         fontWeight: FontWeight.w600,
-                        color: account.currentBalance >= 0
+                        color: account.currentBalance >= Decimal.zero
                             ? AppTheme.successColor
                             : AppTheme.errorColor,
                       ),
@@ -714,7 +715,7 @@ class AccountsScreen extends StatelessWidget {
       text: account.currentBalance.toStringAsFixed(2),
     );
 
-    final result = await showDialog<double>(
+    final result = await showDialog<Decimal>(
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(
@@ -736,7 +737,7 @@ class AccountsScreen extends StatelessWidget {
           ),
           ElevatedButton(
             onPressed: () {
-              final newBalance = double.tryParse(controller.text);
+              final newBalance = Decimal.tryParse(controller.text);
               Navigator.pop(context, newBalance);
             },
             child: const Text('保存'),
@@ -882,7 +883,7 @@ class AccountsScreen extends StatelessWidget {
               onPressed: () {
                 Navigator.pop(context, {
                   'account': selectedAccount,
-                  'balance': double.tryParse(controller.text) ??
+                  'balance': Decimal.tryParse(controller.text) ??
                       selectedAccount!.currentBalance,
                 });
               },
@@ -895,7 +896,7 @@ class AccountsScreen extends StatelessWidget {
 
     if (result != null) {
       final account = result['account'] as Account;
-      final balance = result['balance'] as double;
+      final balance = result['balance'] as Decimal;
 
       account.currentBalance = balance;
       await AccountService.updateAccount(account);
@@ -1302,7 +1303,7 @@ class _AccountFormDialogState extends State<_AccountFormDialog> {
       return;
     }
 
-    final balance = double.tryParse(_balanceController.text) ?? 0.0;
+    final balance = Decimal.tryParse(_balanceController.text) ?? Decimal.zero;
 
     final account = Account(
       id: widget.account?.id ?? '',

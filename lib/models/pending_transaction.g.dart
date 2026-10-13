@@ -1,4 +1,5 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
+// 金额字段 read 已手动改为 parseDecimal 兼容旧 double 数据，勿重新 build_runner 覆盖
 
 part of 'pending_transaction.dart';
 
@@ -18,7 +19,7 @@ class PendingTransactionAdapter extends TypeAdapter<PendingTransaction> {
     };
     return PendingTransaction(
       id: fields[0] as String,
-      amount: fields[1] as double,
+      amount: parseDecimal(fields[1]),
       source: fields[5] as PaymentSource,
       paymentTime: fields[6] as DateTime,
       rawText: fields[7] as String,

@@ -1,4 +1,6 @@
 import 'package:hive/hive.dart';
+import 'package:decimal/decimal.dart';
+import '../utils/decimal_util.dart';
 
 part 'transaction.g.dart';
 
@@ -8,7 +10,7 @@ class Transaction extends HiveObject {
   String id;
 
   @HiveField(1)
-  double amount;
+  Decimal amount;
 
   @HiveField(2)
   bool isIncome;
@@ -44,10 +46,10 @@ class Transaction extends HiveObject {
   bool isReimbursed;
 
   @HiveField(13)
-  double fee;
+  Decimal fee;
 
   @HiveField(14)
-  double coupon;
+  Decimal coupon;
 
   @HiveField(15)
   String? locationName;
@@ -72,12 +74,13 @@ class Transaction extends HiveObject {
     this.currency = 'CNY',
     this.account2,
     this.isReimbursed = false,
-    this.fee = 0.0,
-    this.coupon = 0.0,
+    Decimal? fee,
+    Decimal? coupon,
     this.locationName,
     this.latitude,
     this.longitude,
-  });
+  })  : fee = fee ?? Decimal.zero,
+        coupon = coupon ?? Decimal.zero;
 
   // 软删除
   void softDelete() {

@@ -276,12 +276,17 @@ class _CategoryList extends StatelessWidget {
           );
         }
 
-        return ListView.builder(
+        return ReorderableListView.builder(
           padding: const EdgeInsets.all(AppTheme.spaceMedium),
           itemCount: categories.length,
+          // WHY: 长按整卡拖动排序（buildDefaultDragHandles 默认开启），
+          // 拖动结果立即持久化到 Hive，ValueListenableBuilder 监听变更后自动重建
+          onReorder: (oldIndex, newIndex) =>
+              CategoryService.reorderCategories(isIncome, oldIndex, newIndex),
           itemBuilder: (context, index) {
             final category = categories[index];
             return _CategoryCard(
+              key: ValueKey(category.id),
               category: category,
               onTap: () => _showEditCategoryDialog(context, category),
               onDelete: () => _showDeleteConfirmDialog(context, category),
@@ -343,6 +348,7 @@ class _CategoryCard extends StatelessWidget {
   final VoidCallback onDelete;
 
   const _CategoryCard({
+    super.key,
     required this.category,
     required this.onTap,
     required this.onDelete,

@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:decimal/decimal.dart';
 import '../models/account.dart';
 import '../models/pending_transaction.dart';
 import '../models/transaction.dart';
@@ -48,7 +49,7 @@ class BalanceMigrationService {
 
       // WHY: 先按账户名聚合全部应扣金额，确认所有账户均可解析后再统一落库，
       // 避免部分账户缺失时产生半截扣减、重跑又无法幂等的问题
-      final Map<String, double> deductionByAccount = <String, double>{};
+      final Map<String, Decimal> deductionByAccount = <String, Decimal>{};
       int matchedCount = 0;
       int missingTxCount = 0;
       int missingAccountCount = 0;
@@ -78,14 +79,14 @@ class BalanceMigrationService {
         // WHY: 自动记账历史交易全部为支出（confirm 中 isIncome 固定 false）
         deductionByAccount.update(
           tx.account,
-          (double sum) => sum + tx.amount,
+          (Decimal sum) => sum + tx.amount,
           ifAbsent: () => tx.amount,
         );
         matchedCount++;
       }
 
       // WHY: 提前校验聚合中所有账户仍可解析（上面循环已保证），统一保存变更
-      for (final MapEntry<String, double> entry in deductionByAccount.entries) {
+      for (final MapEntry<String, Decimal> entry in deductionByAccount.entries) {
         final Account? account = AccountService.getAccountByName(entry.key);
         if (account == null) continue;
         account.currentBalance -= entry.value;

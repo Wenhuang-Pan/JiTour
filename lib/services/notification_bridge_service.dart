@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
+import 'package:decimal/decimal.dart';
 import '../models/parsed_payment.dart';
 import '../models/pending_transaction.dart';
 import 'notification_parser_service.dart';
@@ -297,7 +298,7 @@ class NotificationBridgeService {
   /// @param merchant 商户名
   /// @param source 支付来源
   static void injectMockPayment({
-    required double amount,
+    required Decimal amount,
     String? merchant,
     PaymentSource source = PaymentSource.alipay,
   }) {

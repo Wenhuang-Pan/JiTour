@@ -1,4 +1,6 @@
 import 'package:hive/hive.dart';
+import 'package:decimal/decimal.dart';
+import '../utils/decimal_util.dart';
 
 part 'savings_goal.g.dart';
 
@@ -14,10 +16,10 @@ class SavingsGoal extends HiveObject {
   String? description;
 
   @HiveField(3)
-  double targetAmount;
+  Decimal targetAmount;
 
   @HiveField(4)
-  double currentAmount;
+  Decimal currentAmount;
 
   @HiveField(5)
   String iconName;
@@ -48,7 +50,7 @@ class SavingsGoal extends HiveObject {
     required this.name,
     this.description,
     required this.targetAmount,
-    this.currentAmount = 0.0,
+    Decimal? currentAmount,
     required this.iconName,
     required this.colorValue,
     required this.startDate,
@@ -57,20 +59,22 @@ class SavingsGoal extends HiveObject {
     DateTime? createdAt,
     DateTime? updatedAt,
     this.accountId,
-  })  : createdAt = createdAt ?? DateTime.now(),
+  })  : currentAmount = currentAmount ?? Decimal.zero,
+        createdAt = createdAt ?? DateTime.now(),
         updatedAt = updatedAt ?? DateTime.now();
 
   // 进度百分比 (0-100)
   double get progressPercent {
-    if (targetAmount <= 0) return 0;
-    final percent = (currentAmount / targetAmount) * 100;
+    if (targetAmount <= Decimal.zero) return 0;
+    // WHY: Decimal 除法返回 Rational，转 double 供 UI 进度条使用
+    final percent = (currentAmount / targetAmount).toDouble() * 100;
     return percent > 100 ? 100 : percent;
   }
 
   // 距离目标还差多少
-  double get remainingAmount {
+  Decimal get remainingAmount {
     final remaining = targetAmount - currentAmount;
-    return remaining > 0 ? remaining : 0;
+    return remaining > Decimal.zero ? remaining : Decimal.zero;
   }
 
   // 是否已完成
@@ -79,15 +83,16 @@ class SavingsGoal extends HiveObject {
   // 预计完成天数（根据当前进度）
   int? get estimatedDaysToComplete {
     if (isCompleted) return 0;
-    if (currentAmount <= 0) return null;
+    if (currentAmount <= Decimal.zero) return null;
 
     final daysPassed = DateTime.now().difference(startDate).inDays;
     if (daysPassed <= 0) return null;
 
-    final dailyProgress = currentAmount / daysPassed;
+    final dailyProgress =
+        (currentAmount / Decimal.fromInt(daysPassed)).toDouble();
     if (dailyProgress <= 0) return null;
 
-    return (remainingAmount / dailyProgress).ceil();
+    return (remainingAmount.toDouble() / dailyProgress).ceil();
   }
 
   // 距离目标日期天数
@@ -110,7 +115,7 @@ class SavingsGoal extends HiveObject {
   }
 
   // 添加存款
-  void addSavings(double amount) {
+  void addSavings(Decimal amount) {
     currentAmount += amount;
     if (currentAmount >= targetAmount) {
       currentAmount = targetAmount;
@@ -121,9 +126,9 @@ class SavingsGoal extends HiveObject {
   }
 
   // 提取存款
-  void withdrawSavings(double amount) {
+  void withdrawSavings(Decimal amount) {
     currentAmount -= amount;
-    if (currentAmount < 0) currentAmount = 0;
+    if (currentAmount < Decimal.zero) currentAmount = Decimal.zero;
     isCompleted = false;
     updateTimestamp();
     save();
@@ -131,7 +136,7 @@ class SavingsGoal extends HiveObject {
 
   // 重置进度
   void reset() {
-    currentAmount = 0;
+    currentAmount = Decimal.zero;
     isCompleted = false;
     updateTimestamp();
     save();
@@ -141,7 +146,7 @@ class SavingsGoal extends HiveObject {
   SavingsGoal copyWith({
     String? name,
     String? description,
-    double? targetAmount,
+    Decimal? targetAmount,
     String? iconName,
     int? colorValue,
     DateTime? startDate,

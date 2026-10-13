@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
+import 'package:decimal/decimal.dart';
 import '../models/transaction.dart';
 import '../utils/uuid_util.dart';
 
@@ -574,21 +575,20 @@ class CsvImporter {
             hitCase = '收/支→isIncome';
             break;
           case '收入':
-            final income = double.tryParse(value.replaceAll(',', '')) ?? 0;
-            if (income > 0) {
-              mapping['amount'] = income % 1 == 0
-                  ? income.toInt().toString()
-                  : income.toString();
+            // WHY: 直接保留原始金额字符串，避免 double 往返造成精度损失；
+            // 仅当金额 > 0 时覆盖，防止 0 值的支出列把 isIncome 重置
+            final income = Decimal.tryParse(value.replaceAll(',', ''));
+            if (income != null && income > Decimal.zero) {
+              mapping['amount'] = value.replaceAll(',', '');
               mapping['isIncome'] = 'true';
             }
             hitCase = '收入→amount';
             break;
           case '支出':
-            final expense = double.tryParse(value.replaceAll(',', '')) ?? 0;
-            if (expense > 0) {
-              mapping['amount'] = expense % 1 == 0
-                  ? expense.toInt().toString()
-                  : expense.toString();
+            // WHY: 直接保留原始金额字符串，避免 double 往返造成精度损失
+            final expense = Decimal.tryParse(value.replaceAll(',', ''));
+            if (expense != null && expense > Decimal.zero) {
+              mapping['amount'] = value.replaceAll(',', '');
               mapping['isIncome'] = 'false';
             }
             hitCase = '支出→amount';
@@ -667,10 +667,10 @@ class CsvImporter {
   /// 解析金额字符串
   ///
   /// @param amountStr 金额字符串
-  /// @return 解析后的金额数值
-  static double parseAmount(String amountStr) {
+  /// @return 解析后的金额数值，失败返回 Decimal.zero
+  static Decimal parseAmount(String amountStr) {
     final cleaned = amountStr.replaceAll(RegExp(r'[¥$€,，]'), '').trim();
-    return double.tryParse(cleaned) ?? 0;
+    return Decimal.tryParse(cleaned) ?? Decimal.zero;
   }
 
   /// 将映射数据转换为交易对象
@@ -688,7 +688,7 @@ class CsvImporter {
       debugPrint('[CsvImporter]   mapping: $mapping');
       return null;
     }
-    if (amount <= 0) {
+    if (amount <= Decimal.zero) {
       debugPrint(
           '[CsvImporter] mappingToTransaction ❌ amount 无效: "$amountStr" → $amount');
       debugPrint('[CsvImporter]   mapping: $mapping');
@@ -714,8 +714,8 @@ class CsvImporter {
       account2:
           mapping['account2']?.isNotEmpty == true ? mapping['account2'] : null,
       isReimbursed: mapping['isReimbursed']?.toLowerCase() == 'true',
-      fee: double.tryParse(mapping['fee'] ?? '') ?? 0.0,
-      coupon: double.tryParse(mapping['coupon'] ?? '') ?? 0.0,
+      fee: Decimal.tryParse(mapping['fee'] ?? '') ?? Decimal.zero,
+      coupon: Decimal.tryParse(mapping['coupon'] ?? '') ?? Decimal.zero,
     );
   }
 }

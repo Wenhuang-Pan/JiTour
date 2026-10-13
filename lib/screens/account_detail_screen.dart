@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:decimal/decimal.dart';
 import '../theme/app_theme.dart';
 import '../models/account.dart';
 import '../models/transaction.dart';
@@ -173,14 +174,14 @@ class AccountDetailScreen extends StatelessWidget {
                   vertical: AppTheme.spaceSmall,
                 ),
                 decoration: BoxDecoration(
-                  color: (account.currentBalance >= 0
+                  color: (account.currentBalance >= Decimal.zero
                           ? AppTheme.successColor
                           : AppTheme.errorColor)
                       .withValues(alpha: 0.25),
                   borderRadius: BorderRadius.circular(AppTheme.radiusFull),
                 ),
                 child: Text(
-                  account.currentBalance >= 0 ? '正常' : '透支',
+                  account.currentBalance >= Decimal.zero ? '正常' : '透支',
                   style: const TextStyle(
                     fontSize: AppTheme.textLabelSmall,
                     fontWeight: FontWeight.w600,
@@ -198,10 +199,10 @@ class AccountDetailScreen extends StatelessWidget {
   /// 构建统计概览
   Widget _buildStatsOverview(
     BuildContext context,
-    double totalIncome,
-    double totalExpense,
-    double monthIncome,
-    double monthExpense,
+    Decimal totalIncome,
+    Decimal totalExpense,
+    Decimal monthIncome,
+    Decimal monthExpense,
   ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -295,7 +296,7 @@ class AccountDetailScreen extends StatelessWidget {
                       '¥${(monthIncome - monthExpense).toStringAsFixed(0)}',
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.w700,
-                            color: (monthIncome - monthExpense) >= 0
+                            color: (monthIncome - monthExpense) >= Decimal.zero
                                 ? AppTheme.successColor
                                 : AppTheme.errorColor,
                           ),

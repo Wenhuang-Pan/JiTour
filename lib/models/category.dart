@@ -25,6 +25,11 @@ class Category extends HiveObject {
   @HiveField(6)
   DateTime? deletedAt;
 
+  // WHY: defaultValue 保证旧版本数据（无此字段）读取时自动补 0，
+  // 配合 CategoryService 的排序迁移逻辑按 createdAt 初始化顺序
+  @HiveField(7, defaultValue: 0)
+  int sortOrder;
+
   Category({
     required this.id,
     required this.name,
@@ -33,6 +38,7 @@ class Category extends HiveObject {
     required this.color,
     required this.createdAt,
     this.deletedAt,
+    this.sortOrder = 0,
   });
 
   // 创建收入分类
@@ -93,6 +99,7 @@ class Category extends HiveObject {
     String? color,
     DateTime? createdAt,
     DateTime? deletedAt,
+    int? sortOrder,
   }) {
     return Category(
       id: id ?? this.id,
@@ -102,6 +109,7 @@ class Category extends HiveObject {
       color: color ?? this.color,
       createdAt: createdAt ?? this.createdAt,
       deletedAt: deletedAt ?? this.deletedAt,
+      sortOrder: sortOrder ?? this.sortOrder,
     );
   }
 
@@ -115,6 +123,7 @@ class Category extends HiveObject {
       'color': color,
       'createdAt': createdAt.toIso8601String(),
       'deletedAt': deletedAt?.toIso8601String(),
+      'sortOrder': sortOrder,
     };
   }
 
@@ -127,9 +136,11 @@ class Category extends HiveObject {
       isIncome: map['isIncome'] as bool,
       color: map['color'] as String,
       createdAt: DateTime.parse(map['createdAt'] as String),
-      deletedAt: map['deletedAt'] != null 
-          ? DateTime.parse(map['deletedAt'] as String) 
+      deletedAt: map['deletedAt'] != null
+          ? DateTime.parse(map['deletedAt'] as String)
           : null,
+      // WHY: 旧备份数据无 sortOrder 字段，缺省为 0 由迁移逻辑补齐
+      sortOrder: (map['sortOrder'] as int?) ?? 0,
     );
   }
 

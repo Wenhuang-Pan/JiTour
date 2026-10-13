@@ -1,7 +1,9 @@
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
+import 'package:decimal/decimal.dart';
 import 'package:jitu/services/account_service.dart';
+import 'package:jitu/services/database_service.dart';
 
 void main() {
   group('AccountService', () {
@@ -10,7 +12,8 @@ void main() {
     setUp(() async {
       tmpDir = await Directory.systemTemp.createTemp('hive_test_');
       Hive.init(tmpDir.path);
-      await AccountService.init();
+      // WHY: 必须先由 DatabaseService 打开 box 并注册适配器，AccountService 才能访问
+      await DatabaseService.init();
       await AccountService.box.clear();
     });
 
@@ -28,14 +31,14 @@ void main() {
           name: '测试账户',
           iconName: '现金',
           colorValue: 0xFFFFB020,
-          initialBalance: 1000.0,
+          initialBalance: Decimal.parse('1000.0'),
         );
 
         expect(account.name, '测试账户');
         expect(account.iconName, '现金');
         expect(account.colorValue, 0xFFFFB020);
-        expect(account.initialBalance, 1000.0);
-        expect(account.currentBalance, 1000.0);
+        expect(account.initialBalance, Decimal.parse('1000.0'));
+        expect(account.currentBalance, Decimal.parse('1000.0'));
         expect(account.isActive, true);
         expect(account.id, isNotEmpty);
       });
@@ -210,13 +213,13 @@ void main() {
           name: '测试账户',
           iconName: '现金',
           colorValue: 0xFFFFB020,
-          initialBalance: 1000.0,
+          initialBalance: Decimal.parse('1000.0'),
         );
 
-        await AccountService.updateAccountBalance(account.id, 1500.0);
+        await AccountService.updateAccountBalance(account.id, Decimal.parse('1500.0'));
 
         final updated = AccountService.getAccountById(account.id);
-        expect(updated?.currentBalance, 1500.0);
+        expect(updated?.currentBalance, Decimal.parse('1500.0'));
       });
     });
 
@@ -226,16 +229,16 @@ void main() {
           name: '测试账户',
           iconName: '现金',
           colorValue: 0xFFFFB020,
-          initialBalance: 500.0,
+          initialBalance: Decimal.parse('500.0'),
         );
 
         final balance = AccountService.getAccountBalance(account.id);
-        expect(balance, 500.0);
+        expect(balance, Decimal.parse('500.0'));
       });
 
       test('获取不存在账户的余额返回0', () {
         final balance = AccountService.getAccountBalance('nonexistent-id');
-        expect(balance, 0.0);
+        expect(balance, Decimal.parse('0.0'));
       });
     });
 
@@ -245,25 +248,25 @@ void main() {
           name: '账户1',
           iconName: '现金',
           colorValue: 0xFFFFB020,
-          initialBalance: 1000.0,
+          initialBalance: Decimal.parse('1000.0'),
         );
         await AccountService.createAccount(
           name: '账户2',
           iconName: '银行卡',
           colorValue: 0xFF2979FF,
-          initialBalance: 2000.0,
+          initialBalance: Decimal.parse('2000.0'),
         );
         final inactive = await AccountService.createAccount(
           name: '非活跃账户',
           iconName: '支付宝',
           colorValue: 0xFF00C853,
-          initialBalance: 500.0,
+          initialBalance: Decimal.parse('500.0'),
         );
         inactive.isActive = false;
         await inactive.save();
 
         final total = AccountService.getTotalBalance();
-        expect(total, 3000.0);
+        expect(total, Decimal.parse('3000.0'));
       });
     });
 
@@ -273,23 +276,23 @@ void main() {
           name: '转出账户',
           iconName: '现金',
           colorValue: 0xFFFFB020,
-          initialBalance: 1000.0,
+          initialBalance: Decimal.parse('1000.0'),
         );
         final toAccount = await AccountService.createAccount(
           name: '转入账户',
           iconName: '银行卡',
           colorValue: 0xFF2979FF,
-          initialBalance: 500.0,
+          initialBalance: Decimal.parse('500.0'),
         );
 
         await AccountService.transfer(
           fromAccountId: fromAccount.id,
           toAccountId: toAccount.id,
-          amount: 300.0,
+          amount: Decimal.parse('300.0'),
         );
 
-        expect(fromAccount.currentBalance, 700.0);
-        expect(toAccount.currentBalance, 800.0);
+        expect(fromAccount.currentBalance, Decimal.parse('700.0'));
+        expect(toAccount.currentBalance, Decimal.parse('800.0'));
       });
 
       test('转账金额必须大于0', () async {
@@ -297,20 +300,20 @@ void main() {
           name: '转出账户',
           iconName: '现金',
           colorValue: 0xFFFFB020,
-          initialBalance: 1000.0,
+          initialBalance: Decimal.parse('1000.0'),
         );
         final toAccount = await AccountService.createAccount(
           name: '转入账户',
           iconName: '银行卡',
           colorValue: 0xFF2979FF,
-          initialBalance: 500.0,
+          initialBalance: Decimal.parse('500.0'),
         );
 
         expect(
             () => AccountService.transfer(
                   fromAccountId: fromAccount.id,
                   toAccountId: toAccount.id,
-                  amount: 0.0,
+                  amount: Decimal.parse('0.0'),
                 ),
             throwsException);
       });
@@ -320,20 +323,20 @@ void main() {
           name: '转出账户',
           iconName: '现金',
           colorValue: 0xFFFFB020,
-          initialBalance: 100.0,
+          initialBalance: Decimal.parse('100.0'),
         );
         final toAccount = await AccountService.createAccount(
           name: '转入账户',
           iconName: '银行卡',
           colorValue: 0xFF2979FF,
-          initialBalance: 500.0,
+          initialBalance: Decimal.parse('500.0'),
         );
 
         expect(
             () => AccountService.transfer(
                   fromAccountId: fromAccount.id,
                   toAccountId: toAccount.id,
-                  amount: 200.0,
+                  amount: Decimal.parse('200.0'),
                 ),
             throwsException);
       });
@@ -343,14 +346,14 @@ void main() {
           name: '转出账户',
           iconName: '现金',
           colorValue: 0xFFFFB020,
-          initialBalance: 1000.0,
+          initialBalance: Decimal.parse('1000.0'),
         );
 
         expect(
             () => AccountService.transfer(
                   fromAccountId: fromAccount.id,
                   toAccountId: 'nonexistent-id',
-                  amount: 100.0,
+                  amount: Decimal.parse('100.0'),
                 ),
             throwsException);
       });
@@ -386,13 +389,14 @@ void main() {
           name: '现金',
           iconName: '现金',
           colorValue: 0xFFFFB020,
-          initialBalance: 100.0,
+          initialBalance: Decimal.parse('100.0'),
         );
 
         final exported = AccountService.exportAllAccounts();
         expect(exported.length, 1);
         expect(exported[0]['name'], '现金');
-        expect(exported[0]['initialBalance'], 100.0);
+        // WHY: v3 起金额以 Decimal 存储，JSON 导出为 String
+        expect(exported[0]['initialBalance'], '100');
       });
     });
 
@@ -442,7 +446,7 @@ void main() {
 
         final count = await AccountService.importAccounts(data);
         expect(count, 0);
-        expect(account.currentBalance, 0.0);
+        expect(account.currentBalance, Decimal.parse('0.0'));
       });
 
       test('导入重复账户并替换', () async {
@@ -470,7 +474,9 @@ void main() {
         final count =
             await AccountService.importAccounts(data, replaceExisting: true);
         expect(count, 1);
-        expect(account.currentBalance, 2000.0);
+        // WHY: 替换后 box 内为新实例，需重新读取，本地旧对象不会被更新
+        final replaced = AccountService.getAccountById(account.id);
+        expect(replaced?.currentBalance, Decimal.parse('2000.0'));
       });
     });
   });

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:decimal/decimal.dart';
 import '../models/recurring_transaction.dart';
 import '../services/recurring_transaction_service.dart';
 import '../services/category_service.dart';
@@ -367,7 +368,7 @@ class _TransactionFormModalState extends State<_TransactionFormModal> {
   final _formKey = GlobalKey<FormState>();
   late String _name;
   late bool _isIncome;
-  late double _amount;
+  late Decimal _amount;
   late String _category;
   String? _subCategory;
   late String _account;
@@ -403,7 +404,7 @@ class _TransactionFormModalState extends State<_TransactionFormModal> {
     } else {
       _name = '';
       _isIncome = false;
-      _amount = 0;
+      _amount = Decimal.zero;
       _category = '';
       _account = '';
       _currency = 'CNY';
@@ -414,7 +415,7 @@ class _TransactionFormModalState extends State<_TransactionFormModal> {
 
     // WHY: 用现有金额初始化 controller，新建时为空字符串，编辑时为金额字符串
     _amountInputController = TextEditingController(
-      text: _amount == 0 ? '' : _amount.toString(),
+      text: _amount == Decimal.zero ? '' : _amount.toString(),
     );
   }
 
@@ -564,19 +565,19 @@ class _TransactionFormModalState extends State<_TransactionFormModal> {
               _buildFormField(
                 label: '金额',
                 hintText: '请输入金额',
-                initialValue: _amount == 0 ? '' : _amount.toString(),
+                initialValue: _amount == Decimal.zero ? '' : _amount.toString(),
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
                 selectAllOnTap: true,
                 controller: _amountInputController,
                 validator: (value) {
-                  final amount = double.tryParse(value ?? '');
-                  if (amount == null || amount <= 0) {
+                  final amount = Decimal.tryParse(value ?? '');
+                  if (amount == null || amount <= Decimal.zero) {
                     return '请输入有效金额';
                   }
                   return null;
                 },
-                onSaved: (value) => _amount = double.parse(value!),
+                onSaved: (value) => _amount = Decimal.parse(value!),
               ),
 
               // 分类

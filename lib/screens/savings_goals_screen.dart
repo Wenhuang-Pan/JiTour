@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:decimal/decimal.dart';
 import '../theme/app_theme.dart';
 import '../models/savings_goal.dart';
 import '../services/savings_goal_service.dart';
@@ -653,9 +654,12 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
                               decoration: BoxDecoration(
                                 color: color,
                                 borderRadius: BorderRadius.circular(8),
+                                // WHY: 选中边框改用主题分割线颜色，暗色模式下可见
                                 border: isSelected
                                     ? Border.all(
-                                        color: AppTheme.neutral800, width: 2)
+                                        color:
+                                            AppTheme.getDividerColor(context),
+                                        width: 2)
                                     : null,
                                 boxShadow: isSelected
                                     ? [
@@ -686,7 +690,7 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
               ElevatedButton(
                 onPressed: () async {
                   final name = nameController.text.trim();
-                  final amount = double.tryParse(amountController.text);
+                  final amount = Decimal.tryParse(amountController.text);
 
                   if (name.isEmpty) {
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -695,7 +699,7 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
                     return;
                   }
 
-                  if (amount == null || amount <= 0) {
+                  if (amount == null || amount <= Decimal.zero) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('请输入有效的目标金额')),
                     );
@@ -809,8 +813,8 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
                 description: descController.text.trim().isNotEmpty
                     ? descController.text.trim()
                     : null,
-                targetAmount:
-                    double.tryParse(amountController.text) ?? goal.targetAmount,
+                targetAmount: Decimal.tryParse(amountController.text) ??
+                    goal.targetAmount,
                 targetDate: targetDate,
               );
               await SavingsGoalService.updateGoal(updatedGoal);
@@ -920,8 +924,8 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
           ),
           ElevatedButton(
             onPressed: () async {
-              final amount = double.tryParse(amountController.text);
-              if (amount == null || amount <= 0) {
+              final amount = Decimal.tryParse(amountController.text);
+              if (amount == null || amount <= Decimal.zero) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('请输入有效的金额')),
                 );
@@ -1058,8 +1062,8 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
           ),
           ElevatedButton(
             onPressed: () async {
-              final amount = double.tryParse(amountController.text);
-              if (amount == null || amount <= 0) {
+              final amount = Decimal.tryParse(amountController.text);
+              if (amount == null || amount <= Decimal.zero) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('请输入有效的金额')),
                 );
@@ -1190,7 +1194,7 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
           ),
           const Spacer(),
           Text(
-            '余额: ${currencyProvider.formatAmount(account.currentBalance)}',
+            '余额: ${currencyProvider.formatAmount(account.currentBalance.toDouble())}',
             style: const TextStyle(
               color: AppTheme.neutral500,
               fontSize: 12,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
+import 'package:decimal/decimal.dart';
 import '../theme/app_theme.dart';
 import '../models/transaction.dart';
 import '../models/tag.dart';
@@ -440,7 +441,7 @@ class _StatsScreenState extends State<StatsScreen> {
   }
 
   /// 年度对比：当前年 vs 上一年
-  Map<String, Map<String, double>> _calculateYearComparison(
+  Map<String, Map<String, Decimal>> _calculateYearComparison(
       List<Transaction> allTransactions) {
     final currentYearTransactions =
         StatsService.getTransactionsForYear(allTransactions, _selectedYear);
@@ -460,13 +461,13 @@ class _StatsScreenState extends State<StatsScreen> {
   }
 
   /// 年度同比：当前年 vs 去年同期
-  Map<String, Map<String, double>> _calculateYearComparison2(
+  Map<String, Map<String, Decimal>> _calculateYearComparison2(
       List<Transaction> allTransactions) {
     return _calculateYearComparison(allTransactions);
   }
 
   Widget _buildKpiSection(
-      BuildContext context, double income, double expense, double balance,
+      BuildContext context, Decimal income, Decimal expense, Decimal balance,
       {bool isYearView = false}) {
     return Container(
       padding: const EdgeInsets.all(AppTheme.spaceXXLarge),
@@ -608,7 +609,7 @@ class _StatsScreenState extends State<StatsScreen> {
   }
 
   Widget _buildTrendChart(
-      BuildContext context, Map<String, Map<String, double>> trendData) {
+      BuildContext context, Map<String, Map<String, Decimal>> trendData) {
     return Container(
       padding: const EdgeInsets.all(AppTheme.spaceLarge),
       decoration: BoxDecoration(
@@ -718,10 +719,12 @@ class _StatsScreenState extends State<StatsScreen> {
   }
 
   LineChartBarData _buildIncomeLine(
-      Map<String, Map<String, double>> trendData, BuildContext context) {
+      Map<String, Map<String, Decimal>> trendData, BuildContext context) {
     return LineChartBarData(
       spots: trendData.entries.toList().asMap().entries.map((e) {
-        return FlSpot(e.key.toDouble(), e.value.value['income'] ?? 0);
+        // WHY: fl_chart 需要 double，Decimal 转 double
+        return FlSpot(e.key.toDouble(),
+            (e.value.value['income'] ?? Decimal.zero).toDouble());
       }).toList(),
       isCurved: true,
       gradient: AppTheme.successGradient,
@@ -753,10 +756,12 @@ class _StatsScreenState extends State<StatsScreen> {
   }
 
   LineChartBarData _buildExpenseLine(
-      Map<String, Map<String, double>> trendData, BuildContext context) {
+      Map<String, Map<String, Decimal>> trendData, BuildContext context) {
     return LineChartBarData(
       spots: trendData.entries.toList().asMap().entries.map((e) {
-        return FlSpot(e.key.toDouble(), e.value.value['expense'] ?? 0);
+        // WHY: fl_chart 需要 double，Decimal 转 double
+        return FlSpot(e.key.toDouble(),
+            (e.value.value['expense'] ?? Decimal.zero).toDouble());
       }).toList(),
       isCurved: true,
       gradient: AppTheme.warningGradient,
@@ -789,8 +794,8 @@ class _StatsScreenState extends State<StatsScreen> {
 
   Widget _buildDonutChart(
     BuildContext context,
-    Map<String, double> categoryStats,
-    double total,
+    Map<String, Decimal> categoryStats,
+    Decimal total,
     Color primaryColor,
   ) {
     final sortedEntries = categoryStats.entries.toList()
@@ -818,7 +823,8 @@ class _StatsScreenState extends State<StatsScreen> {
                       final index = entry.key;
                       final data = entry.value;
                       return PieChartSectionData(
-                        value: data.value,
+                        // WHY: fl_chart 需要 double，Decimal 转 double
+                        value: data.value.toDouble(),
                         color: colors[index],
                         radius: 24,
                         showTitle: false,
@@ -832,7 +838,7 @@ class _StatsScreenState extends State<StatsScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      '¥${StatsService.formatAmount(total)}',
+                      '¥${StatsService.formatAmount(total.toDouble())}',
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.w700,
                             color: primaryColor,
@@ -857,7 +863,10 @@ class _StatsScreenState extends State<StatsScreen> {
                   sortedEntries.take(5).toList().asMap().entries.map((entry) {
                 final index = entry.key;
                 final data = entry.value;
-                final percentage = (data.value / total) * 100;
+                // WHY: Decimal 除法返回 Rational，转 double 计算百分比
+                final percentage = total > Decimal.zero
+                    ? (data.value / total).toDouble() * 100
+                    : 0.0;
                 return Padding(
                   padding: const EdgeInsets.symmetric(vertical: 4),
                   child: Row(
@@ -900,13 +909,14 @@ class _StatsScreenState extends State<StatsScreen> {
 
   Widget _buildCategoryList(
       BuildContext context,
-      Map<String, double> categoryStats,
+      Map<String, Decimal> categoryStats,
       Color primaryColor,
       List<Transaction> periodTransactions,
       bool isIncome) {
     final sortedEntries = categoryStats.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
-    final total = categoryStats.values.fold(0.0, (sum, val) => sum + val);
+    final total =
+        categoryStats.values.fold(Decimal.zero, (sum, val) => sum + val);
     final colors = StatsService.getCategoryColors(sortedEntries.length);
 
     return Container(
@@ -918,7 +928,9 @@ class _StatsScreenState extends State<StatsScreen> {
         children: sortedEntries.asMap().entries.map((entry) {
           final index = entry.key;
           final data = entry.value;
-          final percentage = (data.value / total) * 100;
+          // WHY: Decimal 除法返回 Rational，转 double 计算百分比
+          final percentage =
+              total > Decimal.zero ? (data.value / total).toDouble() * 100 : 0.0;
           final isLast = index == sortedEntries.length - 1;
 
           return InkWell(
@@ -1030,7 +1042,7 @@ class _StatsScreenState extends State<StatsScreen> {
       ..sort((a, b) => b.date.compareTo(a.date));
 
     final totalAmount =
-        categoryTransactions.fold(0.0, (sum, t) => sum + t.amount);
+        categoryTransactions.fold(Decimal.zero, (sum, t) => sum + t.amount);
 
     showModalBottomSheet(
       context: context,
@@ -1177,8 +1189,8 @@ class _StatsScreenState extends State<StatsScreen> {
         .toList()
       ..sort((a, b) => b.date.compareTo(a.date));
 
-    final double totalAmount =
-        tagTransactions.fold(0.0, (sum, t) => sum + t.amount);
+    final Decimal totalAmount =
+        tagTransactions.fold(Decimal.zero, (sum, t) => sum + t.amount);
 
     showModalBottomSheet(
       context: context,
@@ -1348,7 +1360,7 @@ class _StatsScreenState extends State<StatsScreen> {
       ..sort((a, b) => b.currentBalance.compareTo(a.currentBalance));
 
     final totalBalance = AccountService.getTotalBalance();
-    if (totalBalance <= 0) return const SizedBox.shrink();
+    if (totalBalance <= Decimal.zero) return const SizedBox.shrink();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1374,7 +1386,8 @@ class _StatsScreenState extends State<StatsScreen> {
                         sections: sortedAccounts.asMap().entries.map((entry) {
                           final account = entry.value;
                           return PieChartSectionData(
-                            value: account.currentBalance,
+                            // WHY: fl_chart 需要 double，Decimal 转 double
+                            value: account.currentBalance.toDouble(),
                             color: Color(account.colorValue),
                             radius: 20,
                             showTitle: false,
@@ -1388,7 +1401,7 @@ class _StatsScreenState extends State<StatsScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          '¥${StatsService.formatAmount(totalBalance)}',
+                          '¥${StatsService.formatAmount(totalBalance.toDouble())}',
                           style:
                               Theme.of(context).textTheme.titleMedium?.copyWith(
                                     fontWeight: FontWeight.w700,
@@ -1411,8 +1424,10 @@ class _StatsScreenState extends State<StatsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: sortedAccounts.take(5).map((account) {
+                    // WHY: Decimal 除法返回 Rational，转 double 计算百分比
                     final percentage =
-                        (account.currentBalance / totalBalance) * 100;
+                        (account.currentBalance / totalBalance).toDouble() *
+                            100;
                     return Padding(
                       padding: const EdgeInsets.symmetric(vertical: 4),
                       child: Row(
@@ -1526,7 +1541,8 @@ class _StatsScreenState extends State<StatsScreen> {
     required Color amountColor,
   }) {
     // WHY: 分母为该分区标签关联金额合计，一笔多标签会被累计多次（标签维度口径）
-    final double totalAmount = tagStats.fold(0.0, (sum, e) => sum + e.amount);
+    final Decimal totalAmount =
+        tagStats.fold(Decimal.zero, (sum, e) => sum + e.amount);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceLarge),
@@ -1584,7 +1600,7 @@ class _StatsScreenState extends State<StatsScreen> {
   Widget _buildTagStatRow(
     BuildContext context, {
     required TagStatEntry entry,
-    required double totalAmount,
+    required Decimal totalAmount,
     required Color amountColor,
     required bool isLast,
     required VoidCallback onTap,
@@ -1593,8 +1609,10 @@ class _StatsScreenState extends State<StatsScreen> {
     if (tag == null) return const SizedBox.shrink();
 
     final bool deactivated = !tag.isActive;
-    final double percentage =
-        totalAmount > 0 ? (entry.amount / totalAmount) * 100 : 0;
+    // WHY: Decimal 除法返回 Rational，转 double 计算百分比
+    final double percentage = totalAmount > Decimal.zero
+        ? (entry.amount / totalAmount).toDouble() * 100
+        : 0;
     final Color tagColor = Color(tag.colorValue);
 
     return InkWell(
@@ -1731,8 +1749,8 @@ class _StatsScreenState extends State<StatsScreen> {
   /// 构建对比分析区域
   Widget _buildComparisonSection(
     BuildContext context,
-    Map<String, Map<String, double>> monthComparison,
-    Map<String, Map<String, double>> yearComparison, {
+    Map<String, Map<String, Decimal>> monthComparison,
+    Map<String, Map<String, Decimal>> yearComparison, {
     bool isYearView = false,
   }) {
     return Column(
@@ -1746,20 +1764,36 @@ class _StatsScreenState extends State<StatsScreen> {
             ComparisonCard(
               title: isYearView ? '年度环比' : '月度对比',
               compareTitle: isYearView ? 'vs 上年' : 'vs 上月',
-              currentIncome: monthComparison['current']?['income'] ?? 0,
-              currentExpense: monthComparison['current']?['expense'] ?? 0,
-              compareIncome: monthComparison['previous']?['income'] ?? 0,
-              compareExpense: monthComparison['previous']?['expense'] ?? 0,
+              currentIncome:
+                  (monthComparison['current']?['income'] ?? Decimal.zero)
+                      .toDouble(),
+              currentExpense:
+                  (monthComparison['current']?['expense'] ?? Decimal.zero)
+                      .toDouble(),
+              compareIncome:
+                  (monthComparison['previous']?['income'] ?? Decimal.zero)
+                      .toDouble(),
+              compareExpense:
+                  (monthComparison['previous']?['expense'] ?? Decimal.zero)
+                      .toDouble(),
             ),
             const SizedBox(height: AppTheme.spaceMedium),
             // 同比对比
             ComparisonCard(
               title: isYearView ? '年度同比' : '同比分析',
               compareTitle: isYearView ? 'vs 去年' : 'vs 去年同月',
-              currentIncome: yearComparison['current']?['income'] ?? 0,
-              currentExpense: yearComparison['current']?['expense'] ?? 0,
-              compareIncome: yearComparison['yearAgo']?['income'] ?? 0,
-              compareExpense: yearComparison['yearAgo']?['expense'] ?? 0,
+              currentIncome:
+                  (yearComparison['current']?['income'] ?? Decimal.zero)
+                      .toDouble(),
+              currentExpense:
+                  (yearComparison['current']?['expense'] ?? Decimal.zero)
+                      .toDouble(),
+              compareIncome:
+                  (yearComparison['yearAgo']?['income'] ?? Decimal.zero)
+                      .toDouble(),
+              compareExpense:
+                  (yearComparison['yearAgo']?['expense'] ?? Decimal.zero)
+                      .toDouble(),
             ),
           ],
         ),
@@ -1831,13 +1865,13 @@ class _StatsScreenState extends State<StatsScreen> {
   Widget _buildRankingCard(
     BuildContext context,
     String title,
-    Map<String, double> data,
+    Map<String, Decimal> data,
     Color primaryColor, {
     bool isAmount = true,
   }) {
     final sortedEntries = data.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
-    final total = data.values.fold(0.0, (sum, val) => sum + val);
+    final total = data.values.fold(Decimal.zero, (sum, val) => sum + val);
 
     return Container(
       padding: const EdgeInsets.all(AppTheme.spaceLarge),
@@ -1858,7 +1892,9 @@ class _StatsScreenState extends State<StatsScreen> {
           ...sortedEntries.asMap().entries.map((entry) {
             final index = entry.key;
             final item = entry.value;
-            final percentage = total > 0 ? (item.value / total) * 100 : 0;
+            // WHY: Decimal 除法返回 Rational，转 double 计算百分比
+            final percentage =
+                total > Decimal.zero ? (item.value / total).toDouble() * 100 : 0.0;
 
             return Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
@@ -1902,14 +1938,14 @@ class _StatsScreenState extends State<StatsScreen> {
                     children: [
                       Text(
                         isAmount
-                            ? '¥${StatsService.formatAmount(item.value)}'
+                            ? '¥${StatsService.formatAmount(item.value.toDouble())}'
                             : '${item.value}笔',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                               fontWeight: FontWeight.w600,
                               color: primaryColor,
                             ),
                       ),
-                      if (isAmount && total > 0)
+                      if (isAmount && total > Decimal.zero)
                         Text(
                           '${percentage.toStringAsFixed(1)}%',
                           style:

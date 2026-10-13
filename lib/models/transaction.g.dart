@@ -18,7 +18,7 @@ class TransactionAdapter extends TypeAdapter<Transaction> {
     };
     return Transaction(
       id: fields[0] as String,
-      amount: fields[1] as double,
+      amount: fields[1] as Decimal,
       isIncome: fields[2] as bool,
       category: fields[3] as String,
       account: fields[4] as String,
@@ -30,8 +30,8 @@ class TransactionAdapter extends TypeAdapter<Transaction> {
       currency: fields[10] as String?,
       account2: fields[11] as String?,
       isReimbursed: fields[12] as bool,
-      fee: fields[13] as double,
-      coupon: fields[14] as double,
+      fee: fields[13] as Decimal?,
+      coupon: fields[14] as Decimal?,
       locationName: fields[15] as String?,
       latitude: fields[16] as double?,
       longitude: fields[17] as double?,

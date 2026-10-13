@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:decimal/decimal.dart';
 import '../services/filter_service.dart';
 import '../services/category_service.dart';
 import '../services/account_service.dart';
@@ -458,7 +459,7 @@ class _FilterModalState extends State<FilterModal> {
                 controller: _minAmountController,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 onChanged: (value) {
-                  _conditions.minAmount = double.tryParse(value);
+                  _conditions.minAmount = Decimal.tryParse(value);
                 },
                 decoration: const InputDecoration(
                   hintText: '最低金额',
@@ -478,7 +479,7 @@ class _FilterModalState extends State<FilterModal> {
                 controller: _maxAmountController,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 onChanged: (value) {
-                  _conditions.maxAmount = double.tryParse(value);
+                  _conditions.maxAmount = Decimal.tryParse(value);
                 },
                 decoration: const InputDecoration(
                   hintText: '最高金额',

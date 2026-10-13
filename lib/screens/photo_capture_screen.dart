@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:decimal/decimal.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import '../theme/app_theme.dart';
 import '../models/transaction.dart';
@@ -266,7 +267,7 @@ class _PhotoCaptureScreenState extends State<PhotoCaptureScreen> {
     });
 
     try {
-      final amount = double.parse(_amountController.text);
+      final amount = Decimal.parse(_amountController.text);
       final transaction = Transaction(
         id: UuidUtil.generate(),
         amount: amount,
@@ -276,8 +277,8 @@ class _PhotoCaptureScreenState extends State<PhotoCaptureScreen> {
         date: _selectedDate,
         note: _noteController.text.isNotEmpty ? _noteController.text : null,
         isReimbursed: _isReimbursed,
-        fee: 0.0,
-        coupon: 0.0,
+        fee: Decimal.zero,
+        coupon: Decimal.zero,
       );
 
       await DatabaseService.transactions.add(transaction);
@@ -953,8 +954,8 @@ class _PhotoCaptureScreenState extends State<PhotoCaptureScreen> {
             if (value == null || value.isEmpty) {
               return '请输入金额';
             }
-            final amount = double.tryParse(value);
-            if (amount == null || amount <= 0) {
+            final amount = Decimal.tryParse(value);
+            if (amount == null || amount <= Decimal.zero) {
               return '请输入有效的金额';
             }
             return null;

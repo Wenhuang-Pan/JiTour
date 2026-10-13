@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
+import 'package:decimal/decimal.dart';
 import '../theme/app_theme.dart';
 import '../models/budget.dart';
 import '../models/transaction.dart';
@@ -90,14 +91,14 @@ class _BudgetScreenState extends State<BudgetScreen> {
                       orElse: () => Budget(
                         id: '',
                         category: category,
-                        amount: 0,
+                        amount: Decimal.zero,
                         year: _selectedMonth.year,
                         month: _selectedMonth.month,
                       ),
                     );
                     final spent = transactions
                         .where((t) => t.category == category)
-                        .fold(0.0, (sum, t) => sum + t.amount);
+                        .fold(Decimal.zero, (sum, t) => sum + t.amount);
                     return Padding(
                       padding:
                           const EdgeInsets.only(bottom: AppTheme.spaceXSmall),
@@ -400,16 +401,21 @@ class _BudgetScreenState extends State<BudgetScreen> {
     // 获取分类预算总和（排除特殊的 __TOTAL__ 分类）
     final categoryBudgetSum = budgets
         .where((b) => b.category != '__TOTAL__')
-        .fold(0.0, (sum, b) => sum + b.amount);
+        .fold(Decimal.zero, (sum, b) => sum + b.amount);
 
     // 获取总预算（如果设置了的话）
     final totalBudget = budgets
         .where((b) => b.category == '__TOTAL__')
-        .fold(0.0, (sum, b) => sum + b.amount);
+        .fold(Decimal.zero, (sum, b) => sum + b.amount);
 
-    final displayBudget = totalBudget > 0 ? totalBudget : categoryBudgetSum;
-    final totalSpent = transactions.fold(0.0, (sum, t) => sum + t.amount);
-    final progress = displayBudget > 0 ? (totalSpent / displayBudget) * 100 : 0;
+    final displayBudget =
+        totalBudget > Decimal.zero ? totalBudget : categoryBudgetSum;
+    final totalSpent =
+        transactions.fold(Decimal.zero, (sum, t) => sum + t.amount);
+    // WHY: Decimal 除法返回 Rational，转 double 供进度条使用
+    final progress = displayBudget > Decimal.zero
+        ? (totalSpent / displayBudget).toDouble() * 100
+        : 0.0;
     final isOverBudget = progress > 100;
 
     return Container(
@@ -574,21 +580,24 @@ class _BudgetScreenState extends State<BudgetScreen> {
     // 获取总预算（使用特殊的 "__TOTAL__" 分类名存储）
     final totalBudget = budgets
         .where((b) => b.category == '__TOTAL__')
-        .fold(0.0, (sum, b) => sum + b.amount);
+        .fold(Decimal.zero, (sum, b) => sum + b.amount);
 
     // 获取分类预算总和
     final categoryBudgetSum = budgets
         .where((b) => b.category != '__TOTAL__')
-        .fold(0.0, (sum, b) => sum + b.amount);
+        .fold(Decimal.zero, (sum, b) => sum + b.amount);
 
-    final totalSpent = transactions.fold(0.0, (sum, t) => sum + t.amount);
-    final remaining = totalBudget > 0
+    final totalSpent =
+        transactions.fold(Decimal.zero, (sum, t) => sum + t.amount);
+    final remaining = totalBudget > Decimal.zero
         ? totalBudget - totalSpent
         : categoryBudgetSum - totalSpent;
-    final progress = (totalBudget > 0 ? totalBudget : categoryBudgetSum) > 0
-        ? (totalSpent / (totalBudget > 0 ? totalBudget : categoryBudgetSum)) *
-            100
-        : 0;
+    final budgetBase =
+        totalBudget > Decimal.zero ? totalBudget : categoryBudgetSum;
+    // WHY: Decimal 除法返回 Rational，转 double 供进度条使用
+    final progress = budgetBase > Decimal.zero
+        ? (totalSpent / budgetBase).toDouble() * 100
+        : 0.0;
     final isOverBudget = progress > 100;
 
     return Container(
@@ -665,8 +674,8 @@ class _BudgetScreenState extends State<BudgetScreen> {
             child: Container(
               padding: const EdgeInsets.all(AppTheme.spaceMedium),
               decoration: BoxDecoration(
-                gradient: totalBudget > 0 ? AppTheme.primaryGradient : null,
-                color: totalBudget > 0
+                gradient: totalBudget > Decimal.zero ? AppTheme.primaryGradient : null,
+                color: totalBudget > Decimal.zero
                     ? null
                     : AppTheme.getSecondaryBackground(context),
                 borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
@@ -674,19 +683,19 @@ class _BudgetScreenState extends State<BudgetScreen> {
               child: Column(
                 children: [
                   Text(
-                    totalBudget > 0
+                    totalBudget > Decimal.zero
                         ? '¥${totalBudget.toStringAsFixed(2)}'
                         : '¥0.00',
                     style: TextStyle(
                       fontSize: 32,
                       fontWeight: FontWeight.w700,
-                      color: totalBudget > 0
+                      color: totalBudget > Decimal.zero
                           ? Colors.white
                           : Theme.of(context).colorScheme.onSurfaceVariant,
                       letterSpacing: -1,
                     ),
                   ),
-                  if (totalBudget <= 0)
+                  if (totalBudget <= Decimal.zero)
                     Text(
                       '点击设置总预算',
                       style: TextStyle(
@@ -694,14 +703,14 @@ class _BudgetScreenState extends State<BudgetScreen> {
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                     ),
-                  if (categoryBudgetSum > 0)
+                  if (categoryBudgetSum > Decimal.zero)
                     Padding(
                       padding: const EdgeInsets.only(top: 4),
                       child: Text(
                         '分类预算汇总: ¥${categoryBudgetSum.toStringAsFixed(0)}',
                         style: TextStyle(
                           fontSize: 12,
-                          color: totalBudget > 0
+                          color: totalBudget > Decimal.zero
                               ? Colors.white.withValues(alpha: 0.8)
                               : AppTheme.neutral500,
                         ),
@@ -771,7 +780,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w700,
-                          color: remaining >= 0
+                          color: remaining >= Decimal.zero
                               ? AppTheme.successColor
                               : AppTheme.errorColor,
                         ),
@@ -799,7 +808,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
                     ),
                   ),
                   Text(
-                    totalBudget > 0 ? '${progress.toStringAsFixed(1)}%' : '-',
+                    totalBudget > Decimal.zero ? '${progress.toStringAsFixed(1)}%' : '-',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -814,7 +823,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
               ClipRRect(
                 borderRadius: BorderRadius.circular(4),
                 child: LinearProgressIndicator(
-                  value: totalBudget > 0
+                  value: totalBudget > Decimal.zero
                       ? (progress > 100 ? 1.0 : progress / 100)
                       : 0,
                   backgroundColor: AppTheme.getSecondaryBackground(context),
@@ -828,7 +837,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
           ),
           const SizedBox(height: AppTheme.spaceMedium),
           // 提示信息
-          if (totalBudget > 0)
+          if (totalBudget > Decimal.zero)
             Container(
               padding: const EdgeInsets.all(AppTheme.spaceSmall),
               decoration: BoxDecoration(
@@ -906,8 +915,11 @@ class _BudgetScreenState extends State<BudgetScreen> {
   }
 
   Widget _buildBudgetItem(
-      BuildContext context, String category, Budget budget, double spent) {
-    final progress = budget.amount > 0 ? (spent / budget.amount) * 100 : 0;
+      BuildContext context, String category, Budget budget, Decimal spent) {
+    // WHY: Decimal 除法返回 Rational，转 double 供进度条使用
+    final progress = budget.amount > Decimal.zero
+        ? (spent / budget.amount).toDouble() * 100
+        : 0.0;
     final isOverBudget = progress > 100;
     final categoryColor = _getCategoryColor(category);
 
@@ -1077,7 +1089,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
         budgets.where((b) => b.category == '__TOTAL__').firstOrNull;
     final categoryBudgetSum = budgets
         .where((b) => b.category != '__TOTAL__')
-        .fold(0.0, (sum, b) => sum + b.amount);
+        .fold(Decimal.zero, (sum, b) => sum + b.amount);
     final controller = TextEditingController(
       text:
           existingTotal != null ? existingTotal.amount.toStringAsFixed(2) : '',
@@ -1119,8 +1131,9 @@ class _BudgetScreenState extends State<BudgetScreen> {
                 labelText: '预算金额',
                 hintText: '请输入金额',
                 prefixText: '¥ ',
-                prefixStyle: const TextStyle(
-                  color: AppTheme.neutral800,
+                // WHY: ¥ 前缀改用 onSurface，暗色模式下自动变为浅色
+                prefixStyle: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface,
                   fontWeight: FontWeight.w600,
                 ),
                 border: OutlineInputBorder(
@@ -1136,7 +1149,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
               ),
               autofocus: true,
             ),
-            if (categoryBudgetSum > 0)
+            if (categoryBudgetSum > Decimal.zero)
               Padding(
                 padding: const EdgeInsets.only(top: AppTheme.spaceSmall),
                 child: TextButton(
@@ -1173,8 +1186,8 @@ class _BudgetScreenState extends State<BudgetScreen> {
           ),
           ElevatedButton(
             onPressed: () async {
-              final amount = double.tryParse(controller.text) ?? 0;
-              if (amount <= 0) {
+              final amount = Decimal.tryParse(controller.text) ?? Decimal.zero;
+              if (amount <= Decimal.zero) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('请输入有效的金额')),
                 );
@@ -1206,7 +1219,9 @@ class _BudgetScreenState extends State<BudgetScreen> {
 
   void _showBudgetDialog(String category, Budget budget) {
     final controller = TextEditingController(
-        text: budget.amount > 0 ? budget.amount.toStringAsFixed(2) : '');
+        text: budget.amount > Decimal.zero
+            ? budget.amount.toStringAsFixed(2)
+            : '');
 
     showDialog(
       context: context,
@@ -1255,8 +1270,9 @@ class _BudgetScreenState extends State<BudgetScreen> {
                 labelText: '预算金额',
                 hintText: '请输入金额',
                 prefixText: '¥ ',
-                prefixStyle: const TextStyle(
-                  color: AppTheme.neutral800,
+                // WHY: ¥ 前缀改用 onSurface，暗色模式下自动变为浅色
+                prefixStyle: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface,
                   fontWeight: FontWeight.w600,
                 ),
                 border: OutlineInputBorder(
@@ -1292,8 +1308,8 @@ class _BudgetScreenState extends State<BudgetScreen> {
           ),
           ElevatedButton(
             onPressed: () async {
-              final amount = double.tryParse(controller.text) ?? 0;
-              if (amount <= 0) {
+              final amount = Decimal.tryParse(controller.text) ?? Decimal.zero;
+              if (amount <= Decimal.zero) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('请输入有效的金额')),
                 );
@@ -1420,7 +1436,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
     );
   }
 
-  Widget _buildBalanceCard(double totalBalance) {
+  Widget _buildBalanceCard(Decimal totalBalance) {
     return Container(
       padding: const EdgeInsets.all(AppTheme.spaceMedium),
       decoration: BoxDecoration(
@@ -1471,9 +1487,14 @@ class _BudgetScreenState extends State<BudgetScreen> {
   }
 
   Widget _buildSavingsOverviewCard(List<SavingsGoal> goals) {
-    final totalSaved = goals.fold(0.0, (sum, g) => sum + g.currentAmount);
-    final totalTarget = goals.fold(0.0, (sum, g) => sum + g.targetAmount);
-    final progress = totalTarget > 0 ? (totalSaved / totalTarget) * 100 : 0;
+    final totalSaved =
+        goals.fold(Decimal.zero, (sum, g) => sum + g.currentAmount);
+    final totalTarget =
+        goals.fold(Decimal.zero, (sum, g) => sum + g.targetAmount);
+    // WHY: Decimal 除法返回 Rational，转 double 供进度条使用
+    final progress = totalTarget > Decimal.zero
+        ? (totalSaved / totalTarget).toDouble() * 100
+        : 0.0;
 
     return Container(
       padding: const EdgeInsets.all(AppTheme.spaceMedium),
@@ -2066,8 +2087,8 @@ class _BudgetScreenState extends State<BudgetScreen> {
                                 AccountService.getAccountById(
                                     selectedAccountId);
                             final accountBalance =
-                                selectedAccount?.currentBalance ?? 0;
-                            if (accountBalance > 0) {
+                                selectedAccount?.currentBalance ?? Decimal.zero;
+                            if (accountBalance > Decimal.zero) {
                               amountController.text =
                                   accountBalance.toStringAsFixed(2);
                             } else {
@@ -2124,8 +2145,9 @@ class _BudgetScreenState extends State<BudgetScreen> {
                       child: ElevatedButton(
                         onPressed: () async {
                           final amount =
-                              double.tryParse(amountController.text) ?? 0;
-                          if (amount <= 0) {
+                              Decimal.tryParse(amountController.text) ??
+                                  Decimal.zero;
+                          if (amount <= Decimal.zero) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(content: Text('请输入有效的金额')),
                             );
@@ -2232,8 +2254,9 @@ class _BudgetScreenState extends State<BudgetScreen> {
           ),
           ElevatedButton(
             onPressed: () async {
-              final amount = double.tryParse(amountController.text) ?? 0;
-              if (amount <= 0) {
+              final amount =
+                  Decimal.tryParse(amountController.text) ?? Decimal.zero;
+              if (amount <= Decimal.zero) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('请输入有效的金额')),
                 );
@@ -2291,7 +2314,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
               style: const TextStyle(fontSize: 14),
             ),
             const SizedBox(height: AppTheme.spaceSmall),
-            if (goal.currentAmount > 0)
+            if (goal.currentAmount > Decimal.zero)
               Text(
                 '该目标当前有 ¥${goal.currentAmount.toStringAsFixed(2)} 存款，删除后余额将返还到关联账户。',
                 style: TextStyle(
@@ -2309,7 +2332,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
           ElevatedButton(
             onPressed: () async {
               // 如果有余额，返还到关联账户
-              if (goal.currentAmount > 0 && goal.accountId != null) {
+              if (goal.currentAmount > Decimal.zero && goal.accountId != null) {
                 final account = AccountService.getAccountById(goal.accountId!);
                 if (account != null) {
                   await AccountService.updateAccountBalance(
@@ -2340,34 +2363,34 @@ class _BudgetScreenState extends State<BudgetScreen> {
 
   Widget _buildQuickAmountButton(
       BuildContext context, String label, TextEditingController controller,
-      {double? amount}) {
+      {Decimal? amount}) {
     return ElevatedButton(
       onPressed: () {
-        double value;
+        Decimal value;
         switch (label) {
           case '1万':
-            value = 10000;
+            value = Decimal.fromInt(10000);
             break;
           case '5万':
-            value = 50000;
+            value = Decimal.fromInt(50000);
             break;
           case '10万':
-            value = 100000;
+            value = Decimal.fromInt(100000);
             break;
           case '50万':
-            value = 500000;
+            value = Decimal.fromInt(500000);
             break;
           case '100万':
-            value = 1000000;
+            value = Decimal.fromInt(1000000);
             break;
           case '500万':
-            value = 5000000;
+            value = Decimal.fromInt(5000000);
             break;
           case '全部':
-            value = amount ?? 0;
+            value = amount ?? Decimal.zero;
             break;
           default:
-            value = double.tryParse(label) ?? 0;
+            value = Decimal.tryParse(label) ?? Decimal.zero;
         }
         controller.text = value.toStringAsFixed(2);
       },
@@ -2581,7 +2604,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
                     child: ElevatedButton(
                       onPressed: () async {
                         final name = nameController.text.trim();
-                        final amount = double.tryParse(amountController.text);
+                        final amount = Decimal.tryParse(amountController.text);
 
                         if (name.isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -2590,7 +2613,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
                           return;
                         }
 
-                        if (amount == null || amount <= 0) {
+                        if (amount == null || amount <= Decimal.zero) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(content: Text('请输入有效的目标金额')),
                           );

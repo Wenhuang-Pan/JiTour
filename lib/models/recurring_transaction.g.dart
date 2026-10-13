@@ -1,4 +1,5 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
+// 金额字段 read 已手动改为 parseDecimal 兼容旧 double 数据，勿重新 build_runner 覆盖
 
 part of 'recurring_transaction.dart';
 
@@ -20,7 +21,7 @@ class RecurringTransactionAdapter extends TypeAdapter<RecurringTransaction> {
       id: fields[0] as String,
       name: fields[1] as String,
       isIncome: fields[2] as bool,
-      amount: fields[3] as double,
+      amount: parseDecimal(fields[3]),
       category: fields[4] as String,
       subCategory: fields[5] as String?,
       account: fields[6] as String,

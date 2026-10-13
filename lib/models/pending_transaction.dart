@@ -1,4 +1,6 @@
 import 'package:hive/hive.dart';
+import 'package:decimal/decimal.dart';
+import '../utils/decimal_util.dart';
 
 part 'pending_transaction.g.dart';
 
@@ -49,7 +51,7 @@ class PendingTransaction extends HiveObject {
 
   /// 支付金额
   @HiveField(1)
-  double amount;
+  Decimal amount;
 
   /// 商户名称（可能为空，通知解析失败时）
   @HiveField(2)

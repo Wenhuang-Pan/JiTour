@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:uuid/uuid.dart';
+import 'package:decimal/decimal.dart';
 import '../models/transaction.dart';
 import '../models/budget.dart';
 import '../services/database_service.dart';
@@ -80,7 +81,7 @@ class TestDataService {
 
       for (var category in _expenseCategories) {
         final amount = _generateBudgetAmount(category);
-        if (amount > 0) {
+        if (amount > Decimal.zero) {
           final budget = Budget(
             id: _uuid.v4(),
             category: category,
@@ -94,56 +95,56 @@ class TestDataService {
     }
   }
 
-  static double _generateIncomeAmount(String category) {
+  static Decimal _generateIncomeAmount(String category) {
     switch (category) {
       case '工资':
-        return 5000 + _random.nextInt(15000).toDouble();
+        return Decimal.fromInt(5000 + _random.nextInt(15000));
       case '奖金':
-        return 1000 + _random.nextInt(5000).toDouble();
+        return Decimal.fromInt(1000 + _random.nextInt(5000));
       case '投资':
-        return 100 + _random.nextInt(2000).toDouble();
+        return Decimal.fromInt(100 + _random.nextInt(2000));
       default:
-        return 50 + _random.nextInt(500).toDouble();
+        return Decimal.fromInt(50 + _random.nextInt(500));
     }
   }
 
-  static double _generateExpenseAmount(String category) {
+  static Decimal _generateExpenseAmount(String category) {
     switch (category) {
       case '餐饮':
-        return 15 + _random.nextInt(200).toDouble();
+        return Decimal.fromInt(15 + _random.nextInt(200));
       case '交通':
-        return 5 + _random.nextInt(100).toDouble();
+        return Decimal.fromInt(5 + _random.nextInt(100));
       case '购物':
-        return 50 + _random.nextInt(500).toDouble();
+        return Decimal.fromInt(50 + _random.nextInt(500));
       case '娱乐':
-        return 30 + _random.nextInt(300).toDouble();
+        return Decimal.fromInt(30 + _random.nextInt(300));
       case '居住':
-        return 500 + _random.nextInt(2000).toDouble();
+        return Decimal.fromInt(500 + _random.nextInt(2000));
       case '医疗':
-        return 20 + _random.nextInt(300).toDouble();
+        return Decimal.fromInt(20 + _random.nextInt(300));
       default:
-        return 10 + _random.nextInt(100).toDouble();
+        return Decimal.fromInt(10 + _random.nextInt(100));
     }
   }
 
-  static double _generateBudgetAmount(String category) {
+  static Decimal _generateBudgetAmount(String category) {
     switch (category) {
       case '餐饮':
-        return 2000;
+        return Decimal.fromInt(2000);
       case '交通':
-        return 800;
+        return Decimal.fromInt(800);
       case '购物':
-        return 1500;
+        return Decimal.fromInt(1500);
       case '娱乐':
-        return 1000;
+        return Decimal.fromInt(1000);
       case '居住':
-        return 3000;
+        return Decimal.fromInt(3000);
       case '医疗':
-        return 500;
+        return Decimal.fromInt(500);
       case '其他':
-        return 500;
+        return Decimal.fromInt(500);
       default:
-        return 0;
+        return Decimal.zero;
     }
   }
 

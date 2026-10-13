@@ -1,3 +1,4 @@
+import 'package:decimal/decimal.dart';
 import 'pending_transaction.dart';
 
 /// 解析后的支付信息
@@ -6,7 +7,7 @@ import 'pending_transaction.dart';
 /// 不需要持久化，转为 [PendingTransaction] 后即丢弃。
 class ParsedPayment {
   /// 支付金额
-  final double amount;
+  final Decimal amount;
 
   /// 商户名称
   final String? merchant;
