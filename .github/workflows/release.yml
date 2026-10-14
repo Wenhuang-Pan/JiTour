@@ -58,6 +58,21 @@ jobs:
           fi
           echo "$JITU_KEYSTORE_BASE64" | base64 -d > android/app/jitu.jks
 
+      # WHY: gradle.properties 为本地低内存开发机调优（-Xmx1280m/MaxMetaspaceSize=384m），
+      # CI runner（7G 内存）执行 R8+AOT 的 release 构建时 384m Metaspace 不足导致 OOM，
+      # 故 CI 单独覆盖内存参数，不影响本地开发机构建
+      - name: 调整 CI 构建内存参数
+        run: |
+          cat > android/gradle.properties <<'EOF'
+          org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g -XX:ReservedCodeCacheSize=256m -XX:+UseG1GC
+          android.useAndroidX=true
+          org.gradle.daemon=false
+          org.gradle.parallel=false
+          org.gradle.workers.max=2
+          org.gradle.caching=true
+          kotlin.compiler.execution.strategy=in-process
+          EOF
+
       - name: 构建 release APK
         run: flutter build apk --release
 
