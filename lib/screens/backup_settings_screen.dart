@@ -26,12 +26,12 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
 
   Future<void> _loadSettings() async {
     setState(() => _isLoading = true);
-    
+
     final enabled = await AutoBackupService.isAutoBackupEnabled();
     final frequency = await AutoBackupService.getBackupFrequency();
     final lastTime = await AutoBackupService.getLastBackupTime();
     final history = await AutoBackupService.getBackupHistory();
-    
+
     setState(() {
       _autoBackupEnabled = enabled;
       _backupFrequency = frequency;
@@ -43,8 +43,10 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
 
   Future<void> _toggleAutoBackup(bool value) async {
     await AutoBackupService.setAutoBackupEnabled(value);
+    // WHY: 异步调用后组件可能已销毁，使用 context 前须校验 mounted
+    if (!mounted) return;
     setState(() => _autoBackupEnabled = value);
-    
+
     if (value) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('自动备份已开启')),
@@ -58,8 +60,10 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
 
   Future<void> _setFrequency(int days) async {
     await AutoBackupService.setBackupFrequency(days);
+    // WHY: 异步调用后组件可能已销毁，使用 context 前须校验 mounted
+    if (!mounted) return;
     setState(() => _backupFrequency = days);
-    
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('备份频率已设置为${_getFrequencyText(days)}')),
     );
@@ -67,11 +71,12 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
 
   Future<void> _backupNow() async {
     setState(() => _isLoading = true);
-    
+
     final file = await AutoBackupService.performBackupNow();
-    
+    // WHY: 异步备份后组件可能已销毁，使用 context 前须校验 mounted
+    if (!mounted) return;
     setState(() => _isLoading = false);
-    
+
     if (file != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('备份成功！\n文件位置：${file.path}')),
@@ -202,14 +207,14 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: _autoBackupEnabled 
+              color: _autoBackupEnabled
                   ? AppTheme.successColor.withValues(alpha: 0.10)
                   : AppTheme.getSecondaryBackground(context),
               borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
             ),
             child: Icon(
               Icons.schedule_rounded,
-              color: _autoBackupEnabled 
+              color: _autoBackupEnabled
                   ? AppTheme.successColor
                   : Theme.of(context).colorScheme.onSurfaceVariant,
               size: 24,
@@ -223,17 +228,17 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
                 Text(
                   '自动备份',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+                        fontWeight: FontWeight.w600,
+                      ),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  _autoBackupEnabled 
+                  _autoBackupEnabled
                       ? '已开启 · ${_getFrequencyText(_backupFrequency)}'
                       : '已关闭',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                 ),
               ],
             ),
@@ -255,8 +260,8 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
         Text(
           '备份频率',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
+                fontWeight: FontWeight.w600,
+              ),
         ),
         const SizedBox(height: AppTheme.spaceSmall),
         Row(
@@ -274,7 +279,7 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
 
   Widget _buildFrequencyOption(BuildContext context, int days, String label) {
     final isSelected = _backupFrequency == days;
-    
+
     return Expanded(
       child: InkWell(
         onTap: () => _setFrequency(days),
@@ -282,12 +287,12 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
         child: Container(
           padding: const EdgeInsets.all(AppTheme.spaceMedium),
           decoration: BoxDecoration(
-            color: isSelected 
+            color: isSelected
                 ? AppTheme.primaryColor.withValues(alpha: 0.10)
                 : AppTheme.getCardColor(context),
             borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
             border: Border.all(
-              color: isSelected 
+              color: isSelected
                   ? AppTheme.primaryColor
                   : AppTheme.getDividerColor(context),
               width: isSelected ? 2 : 1,
@@ -297,7 +302,7 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
             children: [
               Icon(
                 isSelected ? Icons.check_circle : Icons.circle_outlined,
-                color: isSelected 
+                color: isSelected
                     ? AppTheme.primaryColor
                     : Theme.of(context).colorScheme.onSurfaceVariant,
                 size: 20,
@@ -308,7 +313,7 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                  color: isSelected 
+                  color: isSelected
                       ? AppTheme.primaryColor
                       : Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
@@ -341,7 +346,7 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
 
   Widget _buildLastBackupInfo(BuildContext context) {
     final dateFormat = DateFormat('yyyy-MM-dd HH:mm');
-    
+
     return Container(
       padding: const EdgeInsets.all(AppTheme.spaceMedium),
       decoration: BoxDecoration(
@@ -366,15 +371,15 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
                 Text(
                   '上次备份时间',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                 ),
                 Text(
                   dateFormat.format(_lastBackupTime!),
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.successColor,
-                  ),
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.successColor,
+                      ),
                 ),
               ],
             ),
@@ -386,15 +391,15 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
 
   Widget _buildBackupHistory(BuildContext context) {
     final dateFormat = DateFormat('yyyy-MM-dd HH:mm');
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           '备份历史（最近5次）',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
+                fontWeight: FontWeight.w600,
+              ),
         ),
         const SizedBox(height: AppTheme.spaceSmall),
         Container(
@@ -408,7 +413,7 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
               final file = File(path);
               final fileName = path.split('/').last;
               final stat = file.statSync();
-              
+
               return ListTile(
                 leading: const Icon(
                   Icons.file_present_rounded,
@@ -463,9 +468,9 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
               Text(
                 '云盘同步指南',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.warningColor,
-                ),
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.warningColor,
+                    ),
               ),
             ],
           ),

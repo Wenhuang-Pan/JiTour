@@ -674,7 +674,9 @@ class _BudgetScreenState extends State<BudgetScreen> {
             child: Container(
               padding: const EdgeInsets.all(AppTheme.spaceMedium),
               decoration: BoxDecoration(
-                gradient: totalBudget > Decimal.zero ? AppTheme.primaryGradient : null,
+                gradient: totalBudget > Decimal.zero
+                    ? AppTheme.primaryGradient
+                    : null,
                 color: totalBudget > Decimal.zero
                     ? null
                     : AppTheme.getSecondaryBackground(context),
@@ -808,7 +810,9 @@ class _BudgetScreenState extends State<BudgetScreen> {
                     ),
                   ),
                   Text(
-                    totalBudget > Decimal.zero ? '${progress.toStringAsFixed(1)}%' : '-',
+                    totalBudget > Decimal.zero
+                        ? '${progress.toStringAsFixed(1)}%'
+                        : '-',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -1173,7 +1177,8 @@ class _BudgetScreenState extends State<BudgetScreen> {
             TextButton(
               onPressed: () async {
                 await DatabaseService.deleteBudget(existingTotal.id);
-                if (mounted) Navigator.pop(context);
+                // WHY: await 之后弹窗可能已被销毁，使用 context 前须校验该弹窗 BuildContext 的 mounted
+                if (context.mounted) Navigator.pop(context);
               },
               style: TextButton.styleFrom(
                 foregroundColor: AppTheme.errorColor,
@@ -1208,7 +1213,8 @@ class _BudgetScreenState extends State<BudgetScreen> {
                 await DatabaseService.addBudget(budget);
               }
 
-              if (mounted) Navigator.pop(context);
+              // WHY: await 之后弹窗可能已被销毁，使用 context 前须校验该弹窗 BuildContext 的 mounted
+              if (context.mounted) Navigator.pop(context);
             },
             child: const Text('保存'),
           ),
@@ -1295,7 +1301,8 @@ class _BudgetScreenState extends State<BudgetScreen> {
             TextButton(
               onPressed: () async {
                 await DatabaseService.deleteBudget(budget.id);
-                if (mounted) Navigator.pop(context);
+                // WHY: await 之后弹窗可能已被销毁，使用 context 前须校验该弹窗 BuildContext 的 mounted
+                if (context.mounted) Navigator.pop(context);
               },
               style: TextButton.styleFrom(
                 foregroundColor: AppTheme.errorColor,
@@ -1330,7 +1337,8 @@ class _BudgetScreenState extends State<BudgetScreen> {
                 await DatabaseService.addBudget(newBudget);
               }
 
-              if (mounted) Navigator.pop(context);
+              // WHY: await 之后弹窗可能已被销毁，使用 context 前须校验该弹窗 BuildContext 的 mounted
+              if (context.mounted) Navigator.pop(context);
             },
             child: const Text('保存'),
           ),
@@ -1832,31 +1840,31 @@ class _BudgetScreenState extends State<BudgetScreen> {
                 Expanded(
                   child: TextButton(
                     onPressed: () => _showSavingsGoalDetailDialog(goal),
-                    child: const Text('存款'),
                     style: TextButton.styleFrom(
                       foregroundColor: AppTheme.successColor,
                       padding: const EdgeInsets.symmetric(vertical: 8),
                     ),
+                    child: const Text('存款'),
                   ),
                 ),
                 Expanded(
                   child: TextButton(
                     onPressed: () => _showWithdrawSavingsDialog(goal),
-                    child: const Text('提取'),
                     style: TextButton.styleFrom(
                       foregroundColor: AppTheme.warningColor,
                       padding: const EdgeInsets.symmetric(vertical: 8),
                     ),
+                    child: const Text('提取'),
                   ),
                 ),
                 Expanded(
                   child: TextButton(
                     onPressed: () => _showDeleteSavingsGoalDialog(goal),
-                    child: const Text('删除'),
                     style: TextButton.styleFrom(
                       foregroundColor: AppTheme.errorColor,
                       padding: const EdgeInsets.symmetric(vertical: 8),
                     ),
+                    child: const Text('删除'),
                   ),
                 ),
               ],
@@ -2171,7 +2179,8 @@ class _BudgetScreenState extends State<BudgetScreen> {
                           }
 
                           await SavingsGoalService.addSavings(goal.id, amount);
-                          if (mounted) {
+                          // WHY: await 之后弹窗可能已被销毁，使用 context 前须校验该弹窗 BuildContext 的 mounted
+                          if (context.mounted) {
                             Navigator.pop(context);
                             setState(() {});
                             ScaffoldMessenger.of(context).showSnackBar(
@@ -2280,6 +2289,8 @@ class _BudgetScreenState extends State<BudgetScreen> {
               }
 
               await SavingsGoalService.withdrawSavings(goal.id, amount);
+              // WHY: await 之后弹窗可能已被销毁，使用 context 前须校验其 mounted
+              if (!context.mounted) return;
               Navigator.pop(context);
               setState(() {});
             },
@@ -2317,7 +2328,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
             if (goal.currentAmount > Decimal.zero)
               Text(
                 '该目标当前有 ¥${goal.currentAmount.toStringAsFixed(2)} 存款，删除后余额将返还到关联账户。',
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 12,
                   color: AppTheme.neutral500,
                 ),
@@ -2341,6 +2352,8 @@ class _BudgetScreenState extends State<BudgetScreen> {
               }
 
               await SavingsGoalService.deleteGoal(goal.id);
+              // WHY: await 之后弹窗可能已被销毁，使用 context 前须校验其 mounted
+              if (!context.mounted) return;
               Navigator.pop(context);
               setState(() {});
               ScaffoldMessenger.of(context).showSnackBar(
@@ -2415,7 +2428,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
     final descController = TextEditingController();
     final amountController = TextEditingController();
     String selectedIconName = 'savings_rounded';
-    int selectedColorValue = AppTheme.primaryColor.value;
+    int selectedColorValue = AppTheme.primaryColor.toARGB32();
     DateTime? targetDate;
     String? selectedAccountId;
     final accounts = AccountService.getAllAccounts();
@@ -2631,7 +2644,8 @@ class _BudgetScreenState extends State<BudgetScreen> {
                           targetDate: targetDate,
                           accountId: selectedAccountId,
                         );
-                        if (mounted) {
+                        // WHY: await 之后弹窗可能已被销毁，使用 context 前须校验该弹窗 BuildContext 的 mounted
+                        if (context.mounted) {
                           Navigator.pop(context);
                           setState(() {});
                           ScaffoldMessenger.of(context).showSnackBar(

@@ -50,6 +50,11 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
+# Android 签名密钥（通过 GitHub Secrets 注入 CI，禁止入库）
+*.jks
+*.keystore
+/android/key.properties
+
 # Hive database
 /hive/
 *.hive

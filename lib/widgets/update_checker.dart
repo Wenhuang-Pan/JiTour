@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:url_launcher/url_launcher.dart';
+import '../services/apk_download_service.dart';
 import '../services/update_service.dart';
 import '../theme/app_theme.dart';
 
@@ -19,9 +20,8 @@ class UpdateCheckerWidget extends StatefulWidget {
 
   static Widget _buildUpdateDialogContent(
     BuildContext context,
-    UpdateInfo updateInfo, {
-    required VoidCallback onUpdate,
-  }) {
+    UpdateInfo updateInfo,
+  ) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -137,8 +137,7 @@ class UpdateCheckerWidget extends StatefulWidget {
           ],
         ),
         const SizedBox(height: AppTheme.spaceMedium),
-        // WHY: 更新方式按平台区分——Web 端刷新即可；Android 端需下载 APK 覆盖安装，
-        // 旧版本硬编码为 Web 提示导致手机 App 用户无法更新
+        // WHY: 更新方式按平台区分——Web 端刷新即可；Android 端应用内下载 APK 覆盖安装
         Container(
           padding: const EdgeInsets.all(AppTheme.spaceSmall),
           decoration: BoxDecoration(
@@ -146,19 +145,19 @@ class UpdateCheckerWidget extends StatefulWidget {
                 .withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
           ),
-          child: Row(
+          child: const Row(
             children: [
               Icon(
                 kIsWeb ? Icons.check_circle_rounded : Icons.download_rounded,
                 color: kIsWeb ? AppTheme.successColor : AppTheme.primaryColor,
                 size: 16,
               ),
-              const SizedBox(width: AppTheme.spaceXSmall),
+              SizedBox(width: AppTheme.spaceXSmall),
               Expanded(
                 child: Text(
                   kIsWeb
                       ? 'Web 应用自动更新，无需重装，数据安全保留'
-                      : '点击“立即更新”将下载 APK 安装包，覆盖安装即可，记账数据自动保留',
+                      : '点击“立即更新”将在应用内下载并调起安装，记账数据自动保留',
                   style: TextStyle(
                     color:
                         kIsWeb ? AppTheme.successColor : AppTheme.primaryColor,
@@ -174,13 +173,13 @@ class UpdateCheckerWidget extends StatefulWidget {
     );
   }
 
-  /// 执行更新动作。
+  /// 通过系统浏览器下载新版本（应用内下载失败时的降级路径，兼作 Web 端入口）。
   ///
   /// WHY: Web 端为免安装应用，刷新页面即可加载新版本；
-  /// Android 端通过系统浏览器打开 APK 下载链接，下载完成后由系统安装器覆盖安装，
-  /// 避免在应用内自行处理下载与 REQUEST_INSTALL_PACKAGES 权限的复杂逻辑。
+  /// Android 端优先走 [_UpdateActionDialog] 应用内下载，仅当用户主动选择
+  /// "浏览器下载"或应用内下载失败时才走该路径，由系统浏览器/安装器接力完成
   ///
-  /// @param context 用于获取 ScaffoldMessenger 的上下文
+  /// @param context 用于获取 ScaffoldMessenger 的上下文（需为页面级持久 context）
   /// @param updateInfo 包含下载地址的版本信息
   /// @return 无返回值；失败时通过 SnackBar 提示
   static Future<void> performUpdateAction(
@@ -304,56 +303,20 @@ class UpdateCheckerWidget extends StatefulWidget {
     );
   }
 
+  /// 弹出更新对话框（带应用内下载进度）。
+  ///
+  /// WHY: barrierDismissible 设为 false——下载过程中点击外部关闭会导致
+  /// 下载中断且无法调起安装器，用户必须通过对话框内按钮显式操作
+  ///
+  /// @param context 页面级上下文，同时作为下载完成后 SnackBar 的持久 context
+  /// @param updateInfo 新版本信息
   static void showUpdateDialog(BuildContext context, UpdateInfo updateInfo) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Theme.of(context).colorScheme.surface,
-        surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppTheme.radiusXLarge),
-        ),
-        contentPadding: const EdgeInsets.all(AppTheme.spaceLarge),
-        content: _buildUpdateDialogContent(
-          context,
-          updateInfo,
-          onUpdate: () {
-            Navigator.pop(context);
-            UpdateService.skipVersion(updateInfo.version);
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('已跳过此版本，下次更新时将重新提醒'),
-                duration: Duration(seconds: 2),
-              ),
-            );
-          },
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              UpdateService.skipVersion(updateInfo.version);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('已跳过此版本，下次更新时将重新提醒'),
-                  duration: Duration(seconds: 2),
-                ),
-              );
-            },
-            child: const Text('跳过此版本'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('稍后提醒'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              performUpdateAction(context, updateInfo);
-            },
-            child: const Text('立即更新'),
-          ),
-        ],
+      barrierDismissible: false,
+      builder: (dialogContext) => _UpdateActionDialog(
+        updateInfo: updateInfo,
+        parentContext: context,
       ),
     );
   }
@@ -361,6 +324,324 @@ class UpdateCheckerWidget extends StatefulWidget {
   static String _formatDateStatic(DateTime date) {
     return '${date.year}/${date.month.toString().padLeft(2, '0')}/${date.day.toString().padLeft(2, '0')}';
   }
+}
+
+/// 更新对话框的下载阶段状态机
+enum _DownloadPhase { ready, downloading, done, failed }
+
+/// 带应用内下载进度的更新对话框
+///
+/// 状态流转：ready（更新内容）→ downloading（进度条，可取消）→ done（调起安装器）；
+/// 下载异常进入 failed，可重试或降级为浏览器下载
+class _UpdateActionDialog extends StatefulWidget {
+  final UpdateInfo updateInfo;
+
+  /// 页面级持久 context：对话框 pop 后其自身 context 失活，
+  /// SnackBar 与浏览器降级下载必须挂在页面级 context 上
+  final BuildContext parentContext;
+
+  const _UpdateActionDialog({
+    required this.updateInfo,
+    required this.parentContext,
+  });
+
+  @override
+  State<_UpdateActionDialog> createState() => _UpdateActionDialogState();
+}
+
+class _UpdateActionDialogState extends State<_UpdateActionDialog> {
+  _DownloadPhase _phase = _DownloadPhase.ready;
+  int _received = 0;
+  int _total = 0;
+  String? _apkFilePath;
+  bool _installLaunchFailed = false;
+
+  Future<void> _startDownload() async {
+    setState(() {
+      _phase = _DownloadPhase.downloading;
+      _received = 0;
+      _total = 0;
+    });
+    try {
+      final filePath = await ApkDownloadService.downloadApk(
+        widget.updateInfo.downloadUrl,
+        (received, total) {
+          if (mounted) {
+            setState(() {
+              _received = received;
+              _total = total;
+            });
+          }
+        },
+      );
+      if (!mounted) return;
+      _apkFilePath = filePath;
+      setState(() => _phase = _DownloadPhase.done);
+      await _launchInstaller();
+    } catch (e) {
+      debugPrint('[Update] 应用内下载失败: $e');
+      if (!mounted) return;
+      // WHY: 用户主动取消时 _phase 已被 _cancelDownload 重置为 ready，不再覆盖为 failed
+      if (_phase != _DownloadPhase.downloading) return;
+      setState(() => _phase = _DownloadPhase.failed);
+    }
+  }
+
+  void _cancelDownload() {
+    setState(() {
+      _phase = _DownloadPhase.ready;
+      _received = 0;
+      _total = 0;
+    });
+    ApkDownloadService.cancelDownload();
+  }
+
+  Future<void> _launchInstaller() async {
+    final path = _apkFilePath;
+    if (path == null) return;
+    final ok = await ApkDownloadService.installApk(path);
+    if (!mounted) return;
+    // WHY: 调起失败不弹 SnackBar（会被对话框遮挡），改为在 done 视图中内联警示
+    setState(() => _installLaunchFailed = !ok);
+  }
+
+  void _downloadViaBrowser() {
+    Navigator.of(context).pop();
+    UpdateCheckerWidget.performUpdateAction(
+        widget.parentContext, widget.updateInfo);
+  }
+
+  void _skipVersion() {
+    Navigator.of(context).pop();
+    UpdateService.skipVersion(widget.updateInfo.version);
+    ScaffoldMessenger.of(widget.parentContext).showSnackBar(
+      const SnackBar(
+        content: Text('已跳过此版本，下次更新时将重新提醒'),
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _onUpdatePressed() {
+    if (kIsWeb) {
+      // WHY: Web 端免安装，关闭对话框后提示刷新即可
+      Navigator.of(context).pop();
+      UpdateCheckerWidget.performUpdateAction(
+          widget.parentContext, widget.updateInfo);
+      return;
+    }
+    _startDownload();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      // WHY: 下载中拦截系统返回键，防止对话框被关导致下载中断且无法调起安装
+      canPop: _phase != _DownloadPhase.downloading,
+      child: AlertDialog(
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.radiusXLarge),
+        ),
+        contentPadding: const EdgeInsets.all(AppTheme.spaceLarge),
+        content: switch (_phase) {
+          _DownloadPhase.ready => UpdateCheckerWidget._buildUpdateDialogContent(
+              context, widget.updateInfo),
+          _DownloadPhase.downloading => _buildDownloading(context),
+          _DownloadPhase.done => _buildDone(context),
+          _DownloadPhase.failed => _buildFailed(context),
+        },
+        actions: _buildActions(),
+      ),
+    );
+  }
+
+  Widget _buildDownloading(BuildContext context) {
+    final hasTotal = _total > 0;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(AppTheme.spaceSmall),
+          decoration: BoxDecoration(
+            color: AppTheme.primaryColor.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+          ),
+          child: const Icon(
+            Icons.download_rounded,
+            color: AppTheme.primaryColor,
+            size: 28,
+          ),
+        ),
+        const SizedBox(height: AppTheme.spaceMedium),
+        Text(
+          '正在下载 v${widget.updateInfo.version}',
+          style: TextStyle(
+            fontSize: AppTheme.textTitleLarge,
+            fontWeight: FontWeight.w700,
+            color: Theme.of(context).colorScheme.onSurface,
+          ),
+        ),
+        const SizedBox(height: AppTheme.spaceLarge),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(AppTheme.radiusFull),
+          child: LinearProgressIndicator(
+            value: hasTotal ? _received / _total : null,
+            minHeight: 6,
+            backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.12),
+            valueColor:
+                const AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
+          ),
+        ),
+        const SizedBox(height: AppTheme.spaceSmall),
+        Text(
+          hasTotal
+              ? '${(_received / _total * 100).toStringAsFixed(0)}% · '
+                  '${_formatMb(_received)} / ${_formatMb(_total)} MB'
+              : '已下载 ${_formatMb(_received)} MB',
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            fontSize: AppTheme.textLabelMedium,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDone(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(AppTheme.spaceSmall),
+          decoration: BoxDecoration(
+            color: AppTheme.successColor.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+          ),
+          child: const Icon(
+            Icons.check_circle_rounded,
+            color: AppTheme.successColor,
+            size: 28,
+          ),
+        ),
+        const SizedBox(height: AppTheme.spaceMedium),
+        Text(
+          '下载完成',
+          style: TextStyle(
+            fontSize: AppTheme.textTitleLarge,
+            fontWeight: FontWeight.w700,
+            color: Theme.of(context).colorScheme.onSurface,
+          ),
+        ),
+        const SizedBox(height: AppTheme.spaceSmall),
+        Text(
+          _installLaunchFailed
+              ? '自动调起安装器失败，请点击下方“重新安装”重试'
+              : '已调起系统安装器，按提示覆盖安装即可，数据自动保留',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: _installLaunchFailed
+                ? AppTheme.warningColor
+                : Theme.of(context).colorScheme.onSurfaceVariant,
+            fontSize: AppTheme.textBodySmall,
+            height: 1.5,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFailed(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(AppTheme.spaceSmall),
+          decoration: BoxDecoration(
+            color: AppTheme.errorColor.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+          ),
+          child: const Icon(
+            Icons.error_outline_rounded,
+            color: AppTheme.errorColor,
+            size: 28,
+          ),
+        ),
+        const SizedBox(height: AppTheme.spaceMedium),
+        Text(
+          '下载失败',
+          style: TextStyle(
+            fontSize: AppTheme.textTitleLarge,
+            fontWeight: FontWeight.w700,
+            color: Theme.of(context).colorScheme.onSurface,
+          ),
+        ),
+        const SizedBox(height: AppTheme.spaceSmall),
+        Text(
+          '请检查网络后重试，或改用浏览器下载',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            fontSize: AppTheme.textBodySmall,
+            height: 1.5,
+          ),
+        ),
+      ],
+    );
+  }
+
+  List<Widget> _buildActions() {
+    return switch (_phase) {
+      _DownloadPhase.ready => [
+          TextButton(
+            onPressed: _skipVersion,
+            child: const Text('跳过此版本'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('稍后提醒'),
+          ),
+          ElevatedButton(
+            onPressed: _onUpdatePressed,
+            child: const Text('立即更新'),
+          ),
+        ],
+      _DownloadPhase.downloading => [
+          TextButton(
+            onPressed: _cancelDownload,
+            child: const Text('取消下载'),
+          ),
+        ],
+      _DownloadPhase.done => [
+          TextButton(
+            onPressed: _launchInstaller,
+            child: const Text('重新安装'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('完成'),
+          ),
+        ],
+      _DownloadPhase.failed => [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: _downloadViaBrowser,
+            child: const Text('浏览器下载'),
+          ),
+          ElevatedButton(
+            onPressed: _startDownload,
+            child: const Text('重试'),
+          ),
+        ],
+    };
+  }
+
+  // 字节数格式化为 MB（保留 1 位小数）
+  String _formatMb(int bytes) => (bytes / 1048576).toStringAsFixed(1);
 }
 
 class _UpdateCheckerWidgetState extends State<UpdateCheckerWidget> {
@@ -395,49 +676,8 @@ class _UpdateCheckerWidgetState extends State<UpdateCheckerWidget> {
   }
 
   void _showUpdateDialog(UpdateInfo updateInfo) {
-    showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: Theme.of(dialogContext).colorScheme.surface,
-        surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppTheme.radiusXLarge),
-        ),
-        contentPadding: const EdgeInsets.all(AppTheme.spaceLarge),
-        content: UpdateCheckerWidget._buildUpdateDialogContent(
-          dialogContext,
-          updateInfo,
-          onUpdate: () {},
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(dialogContext);
-              UpdateService.skipVersion(updateInfo.version);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('已跳过此版本，下次更新时将重新提醒'),
-                  duration: Duration(seconds: 2),
-                ),
-              );
-            },
-            child: const Text('跳过此版本'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('稍后提醒'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(dialogContext);
-              // WHY: 使用 State 的持久 context 而非 dialogContext（pop 后即失活）
-              UpdateCheckerWidget.performUpdateAction(context, updateInfo);
-            },
-            child: const Text('立即更新'),
-          ),
-        ],
-      ),
-    );
+    // WHY: 与静态入口逻辑完全一致，直接复用避免重复维护
+    UpdateCheckerWidget.showUpdateDialog(context, updateInfo);
   }
 
   @override

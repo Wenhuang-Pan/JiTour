@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
@@ -8,8 +9,10 @@ import '../services/update_service.dart';
 import '../services/database_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/update_checker.dart';
+import '../widgets/app_lock_card.dart';
 import 'reminder_settings_screen.dart';
 import 'auto_accounting_settings_screen.dart';
+import 'recycle_bin_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -51,6 +54,13 @@ class SettingsScreen extends StatelessWidget {
             const SizedBox(height: AppTheme.spaceSmall),
             _buildAutoAccountingCard(context),
             const SizedBox(height: AppTheme.spaceLarge),
+            // WHY: 应用锁依赖 local_auth 原生插件，Web 平台不支持，隐藏整个安全区块
+            if (!kIsWeb) ...[
+              _buildSectionTitle(context, '安全'),
+              const SizedBox(height: AppTheme.spaceSmall),
+              const AppLockCard(),
+              const SizedBox(height: AppTheme.spaceLarge),
+            ],
             _buildSectionTitle(context, '关于'),
             const SizedBox(height: AppTheme.spaceSmall),
             _buildAboutCard(context),
@@ -369,6 +379,22 @@ class SettingsScreen extends StatelessWidget {
             subtitle: '将数据导出为CSV文件',
             onTap: () {
               Navigator.pushNamed(context, '/export');
+            },
+          ),
+          const Divider(height: 1, indent: 60),
+          _buildDataItem(
+            context,
+            icon: Icons.auto_delete_outlined,
+            iconColor: AppTheme.warningColor,
+            title: '回收站',
+            subtitle: '恢复或彻底删除已删交易',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const RecycleBinScreen(),
+                ),
+              );
             },
           ),
           const Divider(height: 1, indent: 60),

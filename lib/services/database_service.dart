@@ -1,3 +1,5 @@
+// WHY: 仅引入 debugPrint，避免 foundation 的 Category 注解与模型类冲突
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:hive_flutter/hive_flutter.dart';
 import '../models/transaction.dart';
 import '../models/budget.dart';
@@ -151,6 +153,110 @@ class DatabaseService {
 
   static Future<void> deleteTransaction(String id) async {
     await _transactionBox.delete(id);
+  }
+
+  // WHY: 回收站保留时长，逾期交易在 App 启动时被物理清除
+  static const Duration recycleBinRetention = Duration(days: 30);
+
+  /// 软删除交易（移入回收站），并回滚该交易对账户余额的影响
+  ///
+  /// @param id 交易 ID
+  /// @return true 表示已执行软删除；false 表示交易不存在或已在回收站中
+  /// @throws 不抛异常，余额联动失败仅记录日志
+  static Future<bool> softDeleteTransaction(String id) async {
+    final transaction = _transactionBox.get(id);
+    if (transaction == null || transaction.isDeleted) return false;
+    // WHY: 先落删除状态再动余额。若中途崩溃，最坏仅漏回滚余额，
+    // 交易已进回收站可恢复；不会出现"余额已回滚但交易仍可见"的反向不一致
+    transaction.softDelete();
+    await _rollbackBalance(transaction);
+    return true;
+  }
+
+  /// 从回收站恢复交易，并重新应用该交易对账户余额的影响
+  ///
+  /// @param id 交易 ID
+  /// @return true 表示已恢复；false 表示交易不存在或未被删除
+  /// @throws 不抛异常，余额联动失败仅记录日志
+  static Future<bool> restoreTransaction(String id) async {
+    final transaction = _transactionBox.get(id);
+    if (transaction == null || !transaction.isDeleted) return false;
+    // WHY: 与软删除对称，先落恢复状态再动余额，保证幂等可重试
+    transaction.restore();
+    await _applyBalance(transaction);
+    return true;
+  }
+
+  /// 永久删除交易（物理删除，不可恢复）
+  ///
+  /// WHY: 余额在软删除时已回滚，永久删除不再联动，避免重复回滚
+  ///
+  /// @param id 交易 ID
+  /// @return Future 完成持久化
+  /// @throws 不抛异常
+  static Future<void> permanentDeleteTransaction(String id) async {
+    await _transactionBox.delete(id);
+  }
+
+  /// 获取回收站中的交易（按删除时间倒序）
+  ///
+  /// @return 已软删除的交易列表，最新删除的在前
+  static List<Transaction> getDeletedTransactions() {
+    // O(n log n)：过滤后按删除时间排序
+    return _transactionBox.values.where((t) => t.isDeleted).toList()
+      ..sort((a, b) => b.deletedAt!.compareTo(a.deletedAt!));
+  }
+
+  /// 物理清除超过回收站保留时长的交易
+  ///
+  /// @return 本次清除的交易数量
+  /// @throws 不抛异常
+  static Future<int> purgeExpiredDeletedTransactions() async {
+    final cutoff = DateTime.now().subtract(recycleBinRetention);
+    // O(n)：全量扫描一次，回收站数据量小可接受
+    final expired = _transactionBox.values
+        .where((t) => t.isDeleted && t.deletedAt!.isBefore(cutoff))
+        .toList();
+    for (final t in expired) {
+      await _transactionBox.delete(t.id);
+    }
+    if (expired.isNotEmpty) {
+      debugPrint('[RecycleBin] 清理过期交易 ${expired.length} 条');
+    }
+    return expired.length;
+  }
+
+  // 回滚交易对账户余额的影响：支出加回、收入扣回
+  static Future<void> _rollbackBalance(Transaction transaction) async {
+    final account = AccountService.getAccountByName(transaction.account);
+    if (account == null) {
+      // WHY: 账户可能已删除或改名，交易仍正常进回收站，余额跳过联动
+      debugPrint('[RecycleBin] 回滚余额跳过: 账户不存在 "${transaction.account}", '
+          'transactionId=${transaction.id}');
+      return;
+    }
+    if (transaction.isIncome) {
+      account.currentBalance -= transaction.amount;
+    } else {
+      account.currentBalance += transaction.amount;
+    }
+    await AccountService.updateAccount(account);
+  }
+
+  // 重新应用交易对账户余额的影响：收入加回、支出扣回
+  static Future<void> _applyBalance(Transaction transaction) async {
+    final account = AccountService.getAccountByName(transaction.account);
+    if (account == null) {
+      debugPrint('[RecycleBin] 恢复余额跳过: 账户不存在 "${transaction.account}", '
+          'transactionId=${transaction.id}');
+      return;
+    }
+    if (transaction.isIncome) {
+      account.currentBalance += transaction.amount;
+    } else {
+      account.currentBalance -= transaction.amount;
+    }
+    await AccountService.updateAccount(account);
   }
 
   static List<Transaction> getAllTransactions() {

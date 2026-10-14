@@ -151,7 +151,7 @@ class _NumpadState extends State<Numpad> {
   }
 
   Widget _buildOptionsRow() {
-    return Container(
+    return SizedBox(
       height: 30,
       child: ListView(
         scrollDirection: Axis.horizontal,

@@ -373,7 +373,8 @@ class _TagsManagementScreenState extends State<TagsManagementScreen> {
                     spacing: AppTheme.spaceSmall,
                     runSpacing: AppTheme.spaceSmall,
                     children: colors.map((color) {
-                      final isSelected = color.value == selectedColor.value;
+                      final isSelected =
+                          color.toARGB32() == selectedColor.toARGB32();
                       return InkWell(
                         onTap: () {
                           setDialogState(() {
@@ -432,8 +433,10 @@ class _TagsManagementScreenState extends State<TagsManagementScreen> {
                     await TagService.createTag(
                       name: name,
                       iconName: selectedIconName,
-                      colorValue: selectedColor.value,
+                      colorValue: selectedColor.toARGB32(),
                     );
+                    // WHY: await 之后组件可能已被销毁，使用 context 前须校验 mounted
+                    if (!context.mounted) return;
                     Navigator.pop(context);
                     setState(() {});
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -443,6 +446,8 @@ class _TagsManagementScreenState extends State<TagsManagementScreen> {
                       ),
                     );
                   } catch (e) {
+                    // WHY: await 之后组件可能已被销毁，使用 context 前须校验 mounted
+                    if (!context.mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text('添加失败: $e'),
@@ -565,7 +570,8 @@ class _TagsManagementScreenState extends State<TagsManagementScreen> {
                     spacing: AppTheme.spaceSmall,
                     runSpacing: AppTheme.spaceSmall,
                     children: colors.map((color) {
-                      final isSelected = color.value == selectedColor.value;
+                      final isSelected =
+                          color.toARGB32() == selectedColor.toARGB32();
                       return InkWell(
                         onTap: () {
                           setDialogState(() {
@@ -624,9 +630,11 @@ class _TagsManagementScreenState extends State<TagsManagementScreen> {
                     final updatedTag = tag.copyWith(
                       name: name,
                       iconName: selectedIconName,
-                      colorValue: selectedColor.value,
+                      colorValue: selectedColor.toARGB32(),
                     );
                     await TagService.updateTag(updatedTag);
+                    // WHY: await 之后组件可能已被销毁，使用 context 前须校验 mounted
+                    if (!context.mounted) return;
                     Navigator.pop(context);
                     setState(() {});
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -636,6 +644,8 @@ class _TagsManagementScreenState extends State<TagsManagementScreen> {
                       ),
                     );
                   } catch (e) {
+                    // WHY: await 之后组件可能已被销毁，使用 context 前须校验 mounted
+                    if (!context.mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text('更新失败: $e'),

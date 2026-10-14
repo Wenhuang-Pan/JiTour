@@ -55,10 +55,13 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             _screens[_currentIndex],
             if (_currentIndex == 0)
+              // WHY: 记一笔是核心高频操作，水平居中更符合拇指热区，
+              // 也比右下角悬浮在视觉上更聚焦
               Positioned(
-                right: AppTheme.spaceMedium,
+                left: 0,
+                right: 0,
                 bottom: 16,
-                child: _buildFAB(context),
+                child: Center(child: _buildFAB(context)),
               ),
           ],
         ),
@@ -490,7 +493,7 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: AppTheme.spaceXSmall),
           Row(
             children: [
-              Icon(Icons.bug_report_rounded,
+              const Icon(Icons.bug_report_rounded,
                   size: 14, color: AppTheme.warningColor),
               const SizedBox(width: AppTheme.spaceXSmall),
               Text(
@@ -1039,7 +1042,7 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
   /// WHY: 与"完全无账单"空状态区分，提示用户调整关键词或清除筛选
   Widget _buildNoResultState(BuildContext context) {
     return Padding(
-      // WHY: bottom 120 避让右下角"记一笔"FAB，防止清除按钮被遮挡
+      // WHY: bottom 120 避让底部居中"记一笔"FAB，防止清除按钮被遮挡
       padding: const EdgeInsets.only(
         top: 96,
         bottom: 120,
@@ -1212,7 +1215,7 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
                       Text(
                         // WHY: 超支时显示负号，让用户直观感知负结余
                         '${budgetBalance < Decimal.zero ? '-' : ''}¥${budgetBalance.abs().toStringAsFixed(2)}',
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: AppTheme.textHeadlineSmall,
                           fontWeight: FontWeight.w700,
                           color: Colors.white,
@@ -1595,7 +1598,10 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
                             fontWeight: FontWeight.w700,
                             color: transaction.isIncome
                                 ? AppTheme.successColor
-                                : AppTheme.neutral900,
+                                // WHY: 支出金额用 onSurface 主题自适应色，
+                                // 浅色模式近黑、深色模式近白；
+                                // 硬编码 neutral900 在夜间模式黑底上不可见
+                                : Theme.of(context).colorScheme.onSurface,
                             letterSpacing: -0.3,
                           ),
                     ),
@@ -1631,21 +1637,40 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
     HapticFeedback.mediumImpact();
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('确认删除'),
-        content: const Text('确定要删除这笔交易吗？'),
+        content: const Text('确定要删除这笔交易吗？删除后将移入回收站，30 天内可恢复。'),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppTheme.radiusXLarge),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('取消'),
           ),
           TextButton(
-            onPressed: () {
-              DatabaseService.deleteTransaction(transaction.id);
-              Navigator.pop(context);
+            onPressed: () async {
+              Navigator.pop(dialogContext);
+              // WHY: 软删除进回收站并回滚余额，误删可恢复；
+              // 物理删除仅保留给回收站内的永久删除操作
+              final deleted =
+                  await DatabaseService.softDeleteTransaction(transaction.id);
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(deleted ? '已移入回收站' : '删除失败'),
+                  duration: const Duration(seconds: 3),
+                  action: deleted
+                      ? SnackBarAction(
+                          label: '撤销',
+                          onPressed: () {
+                            // 恢复交易并重新计入账户余额
+                            DatabaseService.restoreTransaction(transaction.id);
+                          },
+                        )
+                      : null,
+                ),
+              );
             },
             style: TextButton.styleFrom(
               foregroundColor: AppTheme.errorColor,

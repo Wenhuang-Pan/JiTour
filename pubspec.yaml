@@ -1,7 +1,7 @@
 name: jitu
 description: 记途 - 记录每一笔，走向财务自由的旅途
 publish_to: 'none'
-version: 3.0.1+9
+version: 3.1.0+10
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -31,6 +31,9 @@ dependencies:
   google_mlkit_text_recognition: ^0.14.0
   url_launcher: ^6.3.2
   decimal: ^3.0.0
+  open_filex: ^4.7.0
+  local_auth: ^3.0.2
+  webdav_client: ^1.2.2
 
 dev_dependencies:
   flutter_test:

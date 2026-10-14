@@ -274,7 +274,7 @@ class _QuickEntrySheetState extends State<_QuickEntrySheet> {
   /// 构建分类选择器
   Widget _buildCategorySelector() {
     if (_expenseCategories.isEmpty) {
-      return Text(
+      return const Text(
         '暂无分类，请先创建',
         style: TextStyle(
           fontSize: AppTheme.textBodySmall,
@@ -305,7 +305,7 @@ class _QuickEntrySheetState extends State<_QuickEntrySheet> {
   /// 构建账户选择器
   Widget _buildAccountSelector() {
     if (_activeAccounts.isEmpty) {
-      return Text(
+      return const Text(
         '暂无账户，请先创建',
         style: TextStyle(
           fontSize: AppTheme.textBodySmall,
@@ -343,13 +343,13 @@ class _QuickEntrySheetState extends State<_QuickEntrySheet> {
     // WHY: 置信度低于 0.5 时提示用户手动确认，避免错误分类；
     // 置信度高于 0.9 时反馈已学习该商户偏好，增强用户信任感。
     if (confidence < 0.5) {
-      return Padding(
-        padding: const EdgeInsets.only(top: AppTheme.spaceSmall),
+      return const Padding(
+        padding: EdgeInsets.only(top: AppTheme.spaceSmall),
         child: Row(
           children: [
             Icon(Icons.info_outline_rounded,
                 size: 14, color: AppTheme.warningColor),
-            const SizedBox(width: AppTheme.spaceXSmall),
+            SizedBox(width: AppTheme.spaceXSmall),
             Expanded(
               child: Text(
                 '智能推断可能不准确，建议手动确认',
@@ -363,13 +363,13 @@ class _QuickEntrySheetState extends State<_QuickEntrySheet> {
         ),
       );
     } else if (confidence >= 0.9) {
-      return Padding(
-        padding: const EdgeInsets.only(top: AppTheme.spaceSmall),
+      return const Padding(
+        padding: EdgeInsets.only(top: AppTheme.spaceSmall),
         child: Row(
           children: [
             Icon(Icons.auto_awesome_rounded,
                 size: 14, color: AppTheme.successColor),
-            const SizedBox(width: AppTheme.spaceXSmall),
+            SizedBox(width: AppTheme.spaceXSmall),
             Expanded(
               child: Text(
                 '已学习该商户的分类偏好',
@@ -437,20 +437,20 @@ class _QuickEntrySheetState extends State<_QuickEntrySheet> {
         onPressed: () async {
           if (_selectedCategory.isEmpty) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: const Text('请选择分类'),
+              const SnackBar(
+                content: Text('请选择分类'),
                 backgroundColor: AppTheme.errorColor,
-                duration: const Duration(seconds: 1),
+                duration: Duration(seconds: 1),
               ),
             );
             return;
           }
           if (_selectedAccount.isEmpty) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: const Text('请选择账户'),
+              const SnackBar(
+                content: Text('请选择账户'),
                 backgroundColor: AppTheme.errorColor,
-                duration: const Duration(seconds: 1),
+                duration: Duration(seconds: 1),
               ),
             );
             return;
@@ -479,10 +479,10 @@ class _QuickEntrySheetState extends State<_QuickEntrySheet> {
               );
             } else {
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: const Text('记账失败，请重试'),
+                const SnackBar(
+                  content: Text('记账失败，请重试'),
                   backgroundColor: AppTheme.errorColor,
-                  duration: const Duration(seconds: 1),
+                  duration: Duration(seconds: 1),
                 ),
               );
             }
@@ -618,7 +618,7 @@ class _QuickEntrySheetState extends State<_QuickEntrySheet> {
                             ),
                             const SizedBox(width: AppTheme.spaceSmall),
                             // WHY: 提示用户金额可点击修改
-                            Icon(
+                            const Icon(
                               Icons.edit_rounded,
                               size: 12,
                               color: AppTheme.neutral400,
@@ -670,7 +670,7 @@ class _QuickEntrySheetState extends State<_QuickEntrySheet> {
                 const SizedBox(height: AppTheme.spaceLarge),
                 Row(
                   children: [
-                    Icon(
+                    const Icon(
                       Icons.store_outlined,
                       size: 18,
                       color: AppTheme.neutral400,

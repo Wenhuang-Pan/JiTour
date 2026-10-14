@@ -461,7 +461,7 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
               children: [
                 Row(
                   children: [
-                    Icon(Icons.error_outline_rounded,
+                    const Icon(Icons.error_outline_rounded,
                         color: AppTheme.errorColor, size: 18),
                     const SizedBox(width: AppTheme.spaceSmall),
                     Text(

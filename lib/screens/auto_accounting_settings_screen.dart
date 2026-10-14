@@ -446,8 +446,8 @@ class _AutoAccountingSettingsScreenState
                       },
               ),
               if (!granted)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(
                     AppTheme.spaceLarge,
                     0,
                     AppTheme.spaceLarge,

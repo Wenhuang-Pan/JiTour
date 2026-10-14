@@ -166,10 +166,10 @@ class _PhotoCaptureScreenState extends State<PhotoCaptureScreen> {
       if (recognizedString.trim().isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('未识别到文字，请拍摄更清晰的小票或手动输入'),
+            const SnackBar(
+              content: Text('未识别到文字，请拍摄更清晰的小票或手动输入'),
               backgroundColor: AppTheme.warningColor,
-              duration: const Duration(seconds: 2),
+              duration: Duration(seconds: 2),
             ),
           );
         }
@@ -189,10 +189,10 @@ class _PhotoCaptureScreenState extends State<PhotoCaptureScreen> {
       debugPrint('OCR识别失败: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('图片识别失败，请手动输入小票内容'),
+          const SnackBar(
+            content: Text('图片识别失败，请手动输入小票内容'),
             backgroundColor: AppTheme.errorColor,
-            duration: const Duration(seconds: 2),
+            duration: Duration(seconds: 2),
           ),
         );
       }
@@ -406,7 +406,7 @@ class _PhotoCaptureScreenState extends State<PhotoCaptureScreen> {
                 onFieldSubmitted: (_) {
                   _extractOcrInfo();
                 },
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   hintText: '输入小票识别内容，系统会自动提取金额和项目...',
                   border: InputBorder.none,
                   filled: false,
@@ -431,12 +431,12 @@ class _PhotoCaptureScreenState extends State<PhotoCaptureScreen> {
                             BorderRadius.circular(AppTheme.radiusSmall),
                       ),
                     ),
-                    child: Row(
+                    child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.lightbulb_outline, size: 16),
-                        const SizedBox(width: 4),
-                        const Text('智能提取'),
+                        Icon(Icons.lightbulb_outline, size: 16),
+                        SizedBox(width: 4),
+                        Text('智能提取'),
                       ],
                     ),
                   ),
@@ -454,7 +454,7 @@ class _PhotoCaptureScreenState extends State<PhotoCaptureScreen> {
                       ),
                       child: Text(
                         '提取金额: ¥$_extractedAmount',
-                        style: TextStyle(
+                        style: const TextStyle(
                           color: AppTheme.errorColor,
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
@@ -476,7 +476,7 @@ class _PhotoCaptureScreenState extends State<PhotoCaptureScreen> {
                       ),
                       child: Text(
                         '项目: $_extractedItem',
-                        style: TextStyle(
+                        style: const TextStyle(
                           color: AppTheme.successColor,
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
@@ -697,7 +697,7 @@ class _PhotoCaptureScreenState extends State<PhotoCaptureScreen> {
     noteText = noteText.replaceAll(RegExp(r'\s+'), ' ').trim();
     noteText = noteText
         .replaceAll(
-            RegExp(r'[，。！？、；：""' '【】《》（）()\[\]{}<>/\\|@#\$%^&*\-_=+`~]+'), ' ')
+            RegExp(r'[，。！？、；：""' '【】《》（）()[]{}<>/\\|@#\$%^&*-_=+`~]+'), ' ')
         .trim();
     if (noteText.length > 50) {
       noteText = noteText.substring(0, 50);
@@ -752,16 +752,16 @@ class _PhotoCaptureScreenState extends State<PhotoCaptureScreen> {
                 if (_isRecognizing)
                   Container(
                     color: Colors.black.withValues(alpha: 0.4),
-                    child: Center(
+                    child: const Center(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const CircularProgressIndicator(
+                          CircularProgressIndicator(
                             color: Colors.white,
                             strokeWidth: 3,
                           ),
-                          const SizedBox(height: AppTheme.spaceSmall),
-                          const Text(
+                          SizedBox(height: AppTheme.spaceSmall),
+                          Text(
                             '正在识别小票内容...',
                             style: TextStyle(
                               color: Colors.white,

@@ -186,8 +186,10 @@ class LocationService {
 
     // 3. 获取当前位置经纬度
     final position = await Geolocator.getCurrentPosition(
-      desiredAccuracy: LocationAccuracy.high,
-      timeLimit: const Duration(seconds: 10),
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        timeLimit: Duration(seconds: 10),
+      ),
     );
 
     debugPrint('当前位置: ${position.latitude}, ${position.longitude}');

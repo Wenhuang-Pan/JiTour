@@ -69,18 +69,20 @@ class _RecurringTransactionScreenState
   void _deleteTransaction(RecurringTransaction transaction) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('确认删除'),
         content: Text('确定删除定期交易 "${transaction.name}" 吗？'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('取消'),
           ),
           ElevatedButton(
             onPressed: () async {
               await RecurringTransactionService.deleteRecurringTransaction(
                   transaction.id);
+              // WHY: await 之后组件可能已被销毁，使用 context 前须校验 mounted
+              if (!mounted) return;
               Navigator.pop(context);
               _loadTransactions();
               ScaffoldMessenger.of(context).showSnackBar(
@@ -100,19 +102,19 @@ class _RecurringTransactionScreenState
   void _executeTransaction(RecurringTransaction transaction) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('确认执行'),
         content: Text('确定执行定期交易 "${transaction.name}" 吗？将生成一笔新的交易记录。'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('取消'),
           ),
           ElevatedButton(
             onPressed: () async {
               // WHY: 执行前检查今天是否已执行，避免重复生成交易
               if (RecurringTransactionService.isExecutedToday(transaction)) {
-                Navigator.pop(context);
+                Navigator.pop(dialogContext);
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('今天已执行过该定期交易，请明天再试')),
                 );
@@ -121,6 +123,8 @@ class _RecurringTransactionScreenState
               final result =
                   await RecurringTransactionService.executeRecurringTransaction(
                       transaction);
+              // WHY: await 之后组件可能已被销毁，使用 context 前须校验 mounted
+              if (!mounted) return;
               Navigator.pop(context);
               _loadTransactions();
               if (result != null) {
@@ -472,6 +476,8 @@ class _TransactionFormModalState extends State<_TransactionFormModal> {
           recurringTransaction);
     }
 
+    // WHY: await 之后组件可能已被销毁，使用 context 前须校验 mounted
+    if (!mounted) return;
     Navigator.pop(context);
     widget.onSaved();
   }

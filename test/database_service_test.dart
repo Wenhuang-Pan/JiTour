@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
 import 'package:decimal/decimal.dart';
 import 'package:jitu/services/database_service.dart';
+import 'package:jitu/services/account_service.dart';
 import 'package:jitu/models/transaction.dart';
 import 'package:jitu/models/budget.dart';
 
@@ -210,6 +211,187 @@ void main() {
 
         transaction.clearTags();
         expect(transaction.tagIds, isEmpty);
+      });
+
+      group('回收站', () {
+        // 辅助：创建交易并让指定账户带初始余额
+        Future<Transaction> setupTransaction({
+          required String id,
+          required bool isIncome,
+          required String amount,
+          String accountName = '现金',
+          String initialBalance = '1000.0',
+        }) async {
+          final account = AccountService.getAccountByName(accountName)!;
+          await AccountService.updateAccountBalance(
+              account.id, Decimal.parse(initialBalance));
+          final transaction = Transaction(
+            id: id,
+            amount: Decimal.parse(amount),
+            isIncome: isIncome,
+            category: '餐饮',
+            account: accountName,
+            date: DateTime(2024, 1, 15),
+          );
+          await DatabaseService.addTransaction(transaction);
+          return transaction;
+        }
+
+        Decimal balanceOf(String accountName) =>
+            AccountService.getAccountByName(accountName)!.currentBalance;
+
+        test('软删除支出交易回滚余额', () async {
+          await setupTransaction(
+              id: 'rb-expense', isIncome: false, amount: '100.0');
+          // 模拟记账后的余额状态：1000 - 100 = 900
+          final account = AccountService.getAccountByName('现金')!;
+          await AccountService.updateAccountBalance(
+              account.id, Decimal.parse('900.0'));
+
+          final result =
+              await DatabaseService.softDeleteTransaction('rb-expense');
+
+          expect(result, true);
+          expect(DatabaseService.getTransactionById('rb-expense')!.isDeleted,
+              true);
+          // 支出加回：900 + 100 = 1000
+          expect(balanceOf('现金'), Decimal.parse('1000.0'));
+        });
+
+        test('软删除收入交易扣回余额', () async {
+          await setupTransaction(
+              id: 'rb-income', isIncome: true, amount: '500.0');
+          // 模拟记账后的余额状态：1000 + 500 = 1500
+          final account = AccountService.getAccountByName('现金')!;
+          await AccountService.updateAccountBalance(
+              account.id, Decimal.parse('1500.0'));
+
+          await DatabaseService.softDeleteTransaction('rb-income');
+
+          // 收入扣回：1500 - 500 = 1000
+          expect(balanceOf('现金'), Decimal.parse('1000.0'));
+        });
+
+        test('重复软删除幂等，余额不重复回滚', () async {
+          await setupTransaction(
+              id: 'rb-twice', isIncome: false, amount: '100.0');
+          final account = AccountService.getAccountByName('现金')!;
+          await AccountService.updateAccountBalance(
+              account.id, Decimal.parse('900.0'));
+
+          await DatabaseService.softDeleteTransaction('rb-twice');
+          final second =
+              await DatabaseService.softDeleteTransaction('rb-twice');
+
+          expect(second, false);
+          expect(balanceOf('现金'), Decimal.parse('1000.0'));
+        });
+
+        test('恢复支出交易重新扣减余额', () async {
+          await setupTransaction(
+              id: 'rb-restore', isIncome: false, amount: '100.0');
+          final account = AccountService.getAccountByName('现金')!;
+          await AccountService.updateAccountBalance(
+              account.id, Decimal.parse('900.0'));
+
+          await DatabaseService.softDeleteTransaction('rb-restore');
+          expect(balanceOf('现金'), Decimal.parse('1000.0'));
+
+          final result = await DatabaseService.restoreTransaction('rb-restore');
+
+          expect(result, true);
+          expect(DatabaseService.getTransactionById('rb-restore')!.isDeleted,
+              false);
+          // 重新扣减：1000 - 100 = 900
+          expect(balanceOf('现金'), Decimal.parse('900.0'));
+        });
+
+        test('恢复未删除的交易返回 false', () async {
+          await setupTransaction(
+              id: 'rb-not-deleted', isIncome: false, amount: '100.0');
+
+          final result =
+              await DatabaseService.restoreTransaction('rb-not-deleted');
+
+          expect(result, false);
+        });
+
+        test('账户不存在时软删除跳过余额联动', () async {
+          final transaction = Transaction(
+            id: 'rb-no-account',
+            amount: Decimal.parse('100.0'),
+            isIncome: false,
+            category: '餐饮',
+            account: '不存在的账户',
+            date: DateTime(2024, 1, 15),
+          );
+          await DatabaseService.addTransaction(transaction);
+
+          final result =
+              await DatabaseService.softDeleteTransaction('rb-no-account');
+
+          // 交易照常进回收站，余额联动仅跳过
+          expect(result, true);
+          expect(DatabaseService.getTransactionById('rb-no-account')!.isDeleted,
+              true);
+        });
+
+        test('永久删除不再联动余额', () async {
+          await setupTransaction(
+              id: 'rb-permanent', isIncome: false, amount: '100.0');
+          final account = AccountService.getAccountByName('现金')!;
+          await AccountService.updateAccountBalance(
+              account.id, Decimal.parse('900.0'));
+
+          await DatabaseService.softDeleteTransaction('rb-permanent');
+          expect(balanceOf('现金'), Decimal.parse('1000.0'));
+
+          await DatabaseService.permanentDeleteTransaction('rb-permanent');
+
+          expect(DatabaseService.getTransactionById('rb-permanent'), isNull);
+          // 余额保持软删后的状态，不二次回滚
+          expect(balanceOf('现金'), Decimal.parse('1000.0'));
+        });
+
+        test('回收站列表按删除时间倒序', () async {
+          await setupTransaction(
+              id: 'rb-order-1', isIncome: false, amount: '10.0');
+          await setupTransaction(
+              id: 'rb-order-2', isIncome: false, amount: '20.0');
+
+          await DatabaseService.softDeleteTransaction('rb-order-1');
+          // 保证删除时间不同
+          await Future.delayed(const Duration(milliseconds: 5));
+          await DatabaseService.softDeleteTransaction('rb-order-2');
+
+          final deleted = DatabaseService.getDeletedTransactions();
+
+          expect(deleted.length, 2);
+          expect(deleted[0].id, 'rb-order-2');
+          expect(deleted[1].id, 'rb-order-1');
+        });
+
+        test('逾期交易被清除，保留期内交易不受影响', () async {
+          await setupTransaction(
+              id: 'rb-expired', isIncome: false, amount: '10.0');
+          await setupTransaction(
+              id: 'rb-recent', isIncome: false, amount: '20.0');
+
+          await DatabaseService.softDeleteTransaction('rb-expired');
+          await DatabaseService.softDeleteTransaction('rb-recent');
+
+          // 将其中一笔的删除时间改为 31 天前
+          final expired = DatabaseService.getTransactionById('rb-expired')!;
+          expired.deletedAt = DateTime.now().subtract(const Duration(days: 31));
+          await expired.save();
+
+          final purged =
+              await DatabaseService.purgeExpiredDeletedTransactions();
+
+          expect(purged, 1);
+          expect(DatabaseService.getTransactionById('rb-expired'), isNull);
+          expect(DatabaseService.getTransactionById('rb-recent'), isNotNull);
+        });
       });
 
       test('交易默认值', () {

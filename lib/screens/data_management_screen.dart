@@ -322,7 +322,8 @@ class _DataManagementScreenState extends State<DataManagementScreen>
         // codeUnits 返回 UTF-16 码元，中文会丢失高字节导致乱码。
         bytes: Uint8List.fromList(utf8.encode(csv)),
       );
-
+      // WHY: await 之后组件可能已被销毁，使用 context 前必须校验 mounted
+      if (!mounted) return;
       if (result != null) {
         setState(() => _successMessage = '导出成功！');
         ScaffoldMessenger.of(context).showSnackBar(

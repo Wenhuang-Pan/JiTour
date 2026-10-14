@@ -2,11 +2,13 @@ package com.example.jitu
 
 import android.content.Intent
 import android.os.Bundle
-import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
-class MainActivity : FlutterActivity() {
+// WHY: local_auth 的生物识别弹窗（BiometricPrompt）依赖 FragmentActivity，
+// 必须由 FlutterActivity 改为 FlutterFragmentActivity，否则验证调用直接抛异常
+class MainActivity : FlutterFragmentActivity() {
 
     // WHY: 启动数据缓存，存放从 Intent extra 中提取的 overlay 结果。
     // Flutter 引擎启动后通过 MethodChannel `jitu.auto_accounting/launch`

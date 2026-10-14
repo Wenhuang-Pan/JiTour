@@ -64,6 +64,8 @@ class _LocationPickerModalState extends State<LocationPickerModal> {
     });
 
     final location = await LocationService.getCurrentLocation();
+    // WHY: await 之后组件可能已被销毁，使用 context 前必须校验 mounted
+    if (!mounted) return;
     if (location != null) {
       setState(() {
         _searchResults = [location];

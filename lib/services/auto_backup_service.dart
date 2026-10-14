@@ -42,10 +42,7 @@ class AutoBackupService {
 
   /// 初始化后台任务
   static Future<void> initializeWorkmanager() async {
-    await Workmanager().initialize(
-      callbackDispatcher,
-      isInDebugMode: false,
-    );
+    await Workmanager().initialize(callbackDispatcher);
   }
 
   /// 后台任务调度器回调

@@ -172,21 +172,21 @@ class SavingsGoalService {
   // 获取默认颜色列表
   static List<int> getDefaultColors() {
     return [
-      AppTheme.primaryColor.value,
-      const Color(0xFFE91E63).value,
-      const Color(0xFFFF9800).value,
-      const Color(0xFF4CAF50).value,
-      const Color(0xFF9C27B0).value,
-      const Color(0xFFF44336).value,
-      const Color(0xFF2196F3).value,
-      const Color(0xFFFF5722).value,
-      const Color(0xFF00BCD4).value,
-      const Color(0xFF607D8B).value,
-      const Color(0xFF673AB7).value,
-      const Color(0xFF8BC34A).value,
-      const Color(0xFFCDDC39).value,
-      const Color(0xFF009688).value,
-      const Color(0xFF795548).value,
+      AppTheme.primaryColor.toARGB32(),
+      const Color(0xFFE91E63).toARGB32(),
+      const Color(0xFFFF9800).toARGB32(),
+      const Color(0xFF4CAF50).toARGB32(),
+      const Color(0xFF9C27B0).toARGB32(),
+      const Color(0xFFF44336).toARGB32(),
+      const Color(0xFF2196F3).toARGB32(),
+      const Color(0xFFFF5722).toARGB32(),
+      const Color(0xFF00BCD4).toARGB32(),
+      const Color(0xFF607D8B).toARGB32(),
+      const Color(0xFF673AB7).toARGB32(),
+      const Color(0xFF8BC34A).toARGB32(),
+      const Color(0xFFCDDC39).toARGB32(),
+      const Color(0xFF009688).toARGB32(),
+      const Color(0xFF795548).toARGB32(),
     ];
   }
 }

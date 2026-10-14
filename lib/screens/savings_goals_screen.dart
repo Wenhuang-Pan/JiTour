@@ -354,32 +354,32 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
                 Expanded(
                   child: TextButton(
                     onPressed: () => _showAddSavingsDialog(context, goal),
-                    child: const Text('存款'),
                     style: TextButton.styleFrom(
                       foregroundColor: AppTheme.successColor,
                       padding: const EdgeInsets.symmetric(vertical: 8),
                     ),
+                    child: const Text('存款'),
                   ),
                 ),
                 if (!isCompleted)
                   Expanded(
                     child: TextButton(
                       onPressed: () => _showWithdrawDialog(context, goal),
-                      child: const Text('提取'),
                       style: TextButton.styleFrom(
                         foregroundColor: AppTheme.warningColor,
                         padding: const EdgeInsets.symmetric(vertical: 8),
                       ),
+                      child: const Text('提取'),
                     ),
                   ),
                 Expanded(
                   child: TextButton(
                     onPressed: () => _showDeleteConfirmDialog(context, goal),
-                    child: const Text('删除'),
                     style: TextButton.styleFrom(
                       foregroundColor: AppTheme.errorColor,
                       padding: const EdgeInsets.symmetric(vertical: 8),
                     ),
+                    child: const Text('删除'),
                   ),
                 ),
                 PopupMenuButton<String>(
@@ -445,18 +445,18 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
     );
   }
 
-  void _showAddGoalDialog(BuildContext context) {
+  void _showAddGoalDialog(BuildContext outerContext) {
     final nameController = TextEditingController();
     final descController = TextEditingController();
     final amountController = TextEditingController();
     String selectedIconName = 'savings_rounded';
-    int selectedColorValue = AppTheme.primaryColor.value;
+    int selectedColorValue = AppTheme.primaryColor.toARGB32();
     DateTime? targetDate;
 
     showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) {
+      context: outerContext,
+      builder: (_) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) {
           return AlertDialog(
             title: const Text('创建储蓄目标'),
             content: SingleChildScrollView(
@@ -536,7 +536,7 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
                   InkWell(
                     onTap: () async {
                       final date = await showDatePicker(
-                        context: context,
+                        context: dialogContext,
                         initialDate:
                             DateTime.now().add(const Duration(days: 30)),
                         firstDate: DateTime.now(),
@@ -576,10 +576,11 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
                   const SizedBox(height: AppTheme.spaceMedium),
                   Text(
                     '选择图标',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppTheme.neutral600,
-                          fontWeight: FontWeight.w600,
-                        ),
+                    style:
+                        Theme.of(dialogContext).textTheme.bodySmall?.copyWith(
+                              color: AppTheme.neutral600,
+                              fontWeight: FontWeight.w600,
+                            ),
                   ),
                   const SizedBox(height: AppTheme.spaceSmall),
                   SizedBox(
@@ -627,10 +628,11 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
                   const SizedBox(height: AppTheme.spaceMedium),
                   Text(
                     '选择颜色',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppTheme.neutral600,
-                          fontWeight: FontWeight.w600,
-                        ),
+                    style:
+                        Theme.of(dialogContext).textTheme.bodySmall?.copyWith(
+                              color: AppTheme.neutral600,
+                              fontWeight: FontWeight.w600,
+                            ),
                   ),
                   const SizedBox(height: AppTheme.spaceSmall),
                   SizedBox(
@@ -657,8 +659,8 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
                                 // WHY: 选中边框改用主题分割线颜色，暗色模式下可见
                                 border: isSelected
                                     ? Border.all(
-                                        color:
-                                            AppTheme.getDividerColor(context),
+                                        color: AppTheme.getDividerColor(
+                                            dialogContext),
                                         width: 2)
                                     : null,
                                 boxShadow: isSelected
@@ -684,7 +686,7 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
             ),
             actions: [
               TextButton(
-                onPressed: () => Navigator.pop(context),
+                onPressed: () => Navigator.pop(dialogContext),
                 child: const Text('取消'),
               ),
               ElevatedButton(
@@ -693,14 +695,14 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
                   final amount = Decimal.tryParse(amountController.text);
 
                   if (name.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
+                    ScaffoldMessenger.of(dialogContext).showSnackBar(
                       const SnackBar(content: Text('请输入目标名称')),
                     );
                     return;
                   }
 
                   if (amount == null || amount <= Decimal.zero) {
-                    ScaffoldMessenger.of(context).showSnackBar(
+                    ScaffoldMessenger.of(dialogContext).showSnackBar(
                       const SnackBar(content: Text('请输入有效的目标金额')),
                     );
                     return;
@@ -717,6 +719,8 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
                       colorValue: selectedColorValue,
                       targetDate: targetDate,
                     );
+                    // WHY: await 之后组件可能已被销毁，使用 context 前须校验 mounted
+                    if (!mounted) return;
                     Navigator.pop(context);
                     setState(() {});
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -726,6 +730,8 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
                       ),
                     );
                   } catch (e) {
+                    // WHY: await 之后组件可能已被销毁，使用 context 前须校验 mounted
+                    if (!mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text('创建失败: $e'),
@@ -747,7 +753,7 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
     );
   }
 
-  void _showEditGoalDialog(BuildContext context, SavingsGoal goal) {
+  void _showEditGoalDialog(BuildContext outerContext, SavingsGoal goal) {
     final nameController = TextEditingController(text: goal.name);
     final descController = TextEditingController(text: goal.description ?? '');
     final amountController =
@@ -755,8 +761,8 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
     DateTime? targetDate = goal.targetDate;
 
     showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
+      context: outerContext,
+      builder: (dialogContext) => AlertDialog(
         title: const Text('编辑目标'),
         content: SingleChildScrollView(
           child: Column(
@@ -803,7 +809,7 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('取消'),
           ),
           ElevatedButton(
@@ -818,6 +824,8 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
                 targetDate: targetDate,
               );
               await SavingsGoalService.updateGoal(updatedGoal);
+              // WHY: await 之后组件可能已被销毁，使用 context 前须校验 mounted
+              if (!mounted) return;
               Navigator.pop(context);
               setState(() {});
             },
@@ -832,12 +840,12 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
     );
   }
 
-  void _showAddSavingsDialog(BuildContext context, SavingsGoal goal) {
+  void _showAddSavingsDialog(BuildContext outerContext, SavingsGoal goal) {
     final amountController = TextEditingController();
 
     showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
+      context: outerContext,
+      builder: (dialogContext) => AlertDialog(
         title: Row(
           children: [
             const Icon(Icons.add_circle_rounded, color: AppTheme.successColor),
@@ -846,7 +854,7 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
           ],
         ),
         content: StatefulBuilder(
-          builder: (context, setDialogState) {
+          builder: (dialogContext, setDialogState) {
             return Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -867,7 +875,7 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
                 const SizedBox(height: AppTheme.spaceMedium),
                 Text(
                   '快捷输入',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  style: Theme.of(dialogContext).textTheme.bodySmall?.copyWith(
                         color: AppTheme.neutral600,
                         fontWeight: FontWeight.w600,
                       ),
@@ -919,20 +927,22 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('取消'),
           ),
           ElevatedButton(
             onPressed: () async {
               final amount = Decimal.tryParse(amountController.text);
               if (amount == null || amount <= Decimal.zero) {
-                ScaffoldMessenger.of(context).showSnackBar(
+                ScaffoldMessenger.of(dialogContext).showSnackBar(
                   const SnackBar(content: Text('请输入有效的金额')),
                 );
                 return;
               }
 
               await SavingsGoalService.addSavings(goal.id, amount);
+              // WHY: await 之后组件可能已被销毁，使用 context 前须校验 mounted
+              if (!mounted) return;
               Navigator.pop(context);
               setState(() {});
               ScaffoldMessenger.of(context).showSnackBar(
@@ -972,12 +982,12 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
     );
   }
 
-  void _showWithdrawDialog(BuildContext context, SavingsGoal goal) {
+  void _showWithdrawDialog(BuildContext outerContext, SavingsGoal goal) {
     final amountController = TextEditingController();
 
     showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
+      context: outerContext,
+      builder: (dialogContext) => AlertDialog(
         title: Row(
           children: [
             const Icon(Icons.remove_circle_rounded,
@@ -987,7 +997,7 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
           ],
         ),
         content: StatefulBuilder(
-          builder: (context, setDialogState) {
+          builder: (dialogContext, setDialogState) {
             return Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -1009,7 +1019,7 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
                 const SizedBox(height: AppTheme.spaceMedium),
                 Text(
                   '快捷输入',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  style: Theme.of(dialogContext).textTheme.bodySmall?.copyWith(
                         color: AppTheme.neutral600,
                         fontWeight: FontWeight.w600,
                       ),
@@ -1057,27 +1067,29 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('取消'),
           ),
           ElevatedButton(
             onPressed: () async {
               final amount = Decimal.tryParse(amountController.text);
               if (amount == null || amount <= Decimal.zero) {
-                ScaffoldMessenger.of(context).showSnackBar(
+                ScaffoldMessenger.of(dialogContext).showSnackBar(
                   const SnackBar(content: Text('请输入有效的金额')),
                 );
                 return;
               }
 
               if (amount > goal.currentAmount) {
-                ScaffoldMessenger.of(context).showSnackBar(
+                ScaffoldMessenger.of(dialogContext).showSnackBar(
                   const SnackBar(content: Text('提取金额不能超过当前余额')),
                 );
                 return;
               }
 
               await SavingsGoalService.withdrawSavings(goal.id, amount);
+              // WHY: await 之后组件可能已被销毁，使用 context 前须校验 mounted
+              if (!mounted) return;
               Navigator.pop(context);
               setState(() {});
               ScaffoldMessenger.of(context).showSnackBar(
@@ -1098,10 +1110,10 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
     );
   }
 
-  void _showResetConfirmDialog(BuildContext context, SavingsGoal goal) {
+  void _showResetConfirmDialog(BuildContext outerContext, SavingsGoal goal) {
     showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
+      context: outerContext,
+      builder: (dialogContext) => AlertDialog(
         title: const Text('重置目标'),
         content: Text('确定要重置「${goal.name}」的进度吗？这不会删除目标，只是将当前存款清零。'),
         shape: RoundedRectangleBorder(
@@ -1109,12 +1121,14 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('取消'),
           ),
           ElevatedButton(
             onPressed: () async {
               await SavingsGoalService.resetGoal(goal.id);
+              // WHY: await 之后组件可能已被销毁，使用 context 前须校验 mounted
+              if (!mounted) return;
               Navigator.pop(context);
               setState(() {});
             },
@@ -1129,10 +1143,10 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
     );
   }
 
-  void _showDeleteConfirmDialog(BuildContext context, SavingsGoal goal) {
+  void _showDeleteConfirmDialog(BuildContext outerContext, SavingsGoal goal) {
     showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
+      context: outerContext,
+      builder: (dialogContext) => AlertDialog(
         title: const Text('删除目标'),
         content: Text('确定要删除「${goal.name}」吗？此操作不可恢复。'),
         shape: RoundedRectangleBorder(
@@ -1140,12 +1154,14 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen>
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('取消'),
           ),
           ElevatedButton(
             onPressed: () async {
               await SavingsGoalService.deleteGoal(goal.id);
+              // WHY: await 之后组件可能已被销毁，使用 context 前须校验 mounted
+              if (!mounted) return;
               Navigator.pop(context);
               setState(() {});
             },

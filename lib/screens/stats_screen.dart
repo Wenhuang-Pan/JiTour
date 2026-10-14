@@ -347,7 +347,7 @@ class _StatsScreenState extends State<StatsScreen> {
                     color: AppTheme.getSecondaryBackground(context),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(
+                  child: const Icon(
                     Icons.chevron_left_rounded,
                     size: 20,
                     color: AppTheme.neutral600,
@@ -369,7 +369,7 @@ class _StatsScreenState extends State<StatsScreen> {
                   ),
                   child: Text(
                     _isYearView
-                        ? '${_selectedYear}年'
+                        ? '$_selectedYear年'
                         : '$_selectedYear年$_selectedMonth月',
                     style: TextStyle(
                       fontWeight: FontWeight.w600,
@@ -389,7 +389,7 @@ class _StatsScreenState extends State<StatsScreen> {
                     color: AppTheme.getSecondaryBackground(context),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(
+                  child: const Icon(
                     Icons.chevron_right_rounded,
                     size: 20,
                     color: AppTheme.neutral600,
@@ -929,8 +929,9 @@ class _StatsScreenState extends State<StatsScreen> {
           final index = entry.key;
           final data = entry.value;
           // WHY: Decimal 除法返回 Rational，转 double 计算百分比
-          final percentage =
-              total > Decimal.zero ? (data.value / total).toDouble() * 100 : 0.0;
+          final percentage = total > Decimal.zero
+              ? (data.value / total).toDouble() * 100
+              : 0.0;
           final isLast = index == sortedEntries.length - 1;
 
           return InkWell(
@@ -1013,7 +1014,7 @@ class _StatsScreenState extends State<StatsScreen> {
                   ),
                   const SizedBox(width: AppTheme.spaceXSmall),
                   // WHY: 提示可点击查看明细
-                  Icon(
+                  const Icon(
                     Icons.chevron_right_rounded,
                     size: 18,
                     color: AppTheme.neutral400,
@@ -1094,7 +1095,7 @@ class _StatsScreenState extends State<StatsScreen> {
                   const SizedBox(height: AppTheme.spaceMedium),
                   Expanded(
                     child: categoryTransactions.isEmpty
-                        ? Center(
+                        ? const Center(
                             child: Text(
                               '暂无明细',
                               style: TextStyle(
@@ -1160,8 +1161,11 @@ class _StatsScreenState extends State<StatsScreen> {
             '${t.isIncome ? '+' : '-'}¥${t.amount.toStringAsFixed(2)}',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   fontWeight: FontWeight.w700,
-                  color:
-                      t.isIncome ? AppTheme.successColor : AppTheme.neutral900,
+                  color: t.isIncome
+                      ? AppTheme.successColor
+                      // WHY: 同 home_screen——支出金额需主题自适应，
+                      // neutral900 在夜间模式黑底上不可见
+                      : Theme.of(context).colorScheme.onSurface,
                 ),
           ),
         ],
@@ -1893,8 +1897,9 @@ class _StatsScreenState extends State<StatsScreen> {
             final index = entry.key;
             final item = entry.value;
             // WHY: Decimal 除法返回 Rational，转 double 计算百分比
-            final percentage =
-                total > Decimal.zero ? (item.value / total).toDouble() * 100 : 0.0;
+            final percentage = total > Decimal.zero
+                ? (item.value / total).toDouble() * 100
+                : 0.0;
 
             return Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),

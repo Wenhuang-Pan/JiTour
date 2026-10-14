@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
@@ -6,6 +7,7 @@ import 'dart:io';
 import '../theme/app_theme.dart';
 import '../services/backup_service.dart';
 import 'backup_settings_screen.dart';
+import 'webdav_backup_screen.dart';
 
 class BackupScreen extends StatefulWidget {
   const BackupScreen({super.key});
@@ -50,6 +52,11 @@ class _BackupScreenState extends State<BackupScreen> {
             _buildActionButtons(context),
             const SizedBox(height: AppTheme.spaceMedium),
             _buildAutoBackupButton(context),
+            // WHY: WebDAV 依赖 dart:io（webdav_client），Web 平台不支持，隐藏入口
+            if (!kIsWeb) ...[
+              const SizedBox(height: AppTheme.spaceMedium),
+              _buildWebdavButton(context),
+            ],
             const SizedBox(height: AppTheme.spaceXLarge),
             _buildBackupList(context),
             const SizedBox(height: AppTheme.spaceMedium),
@@ -273,6 +280,32 @@ class _BackupScreenState extends State<BackupScreen> {
     );
   }
 
+  Widget _buildWebdavButton(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const WebdavBackupScreen(),
+            ),
+          );
+        },
+        icon: const Icon(Icons.cloud_rounded),
+        label: const Text('WebDAV 云备份'),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AppTheme.primaryColor,
+          side: BorderSide(color: AppTheme.primaryColor.withValues(alpha: 0.5)),
+          padding: const EdgeInsets.all(AppTheme.spaceMedium),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildBackupList(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
@@ -294,7 +327,8 @@ class _BackupScreenState extends State<BackupScreen> {
                       padding: const EdgeInsets.all(AppTheme.spaceSmall),
                       decoration: BoxDecoration(
                         color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                        borderRadius:
+                            BorderRadius.circular(AppTheme.radiusSmall),
                       ),
                       child: const Icon(
                         Icons.history_rounded,
@@ -345,10 +379,13 @@ class _BackupScreenState extends State<BackupScreen> {
               _buildEmptyState(context)
             else
               Column(
-                children: _backupFiles.map((file) => Padding(
-                  padding: const EdgeInsets.only(bottom: AppTheme.spaceSmall),
-                  child: _buildBackupItem(context, file),
-                )).toList(),
+                children: _backupFiles
+                    .map((file) => Padding(
+                          padding: const EdgeInsets.only(
+                              bottom: AppTheme.spaceSmall),
+                          child: _buildBackupItem(context, file),
+                        ))
+                    .toList(),
               ),
           ],
         ),
@@ -406,7 +443,8 @@ class _BackupScreenState extends State<BackupScreen> {
 
   Widget _buildBackupItem(BuildContext context, FileSystemEntity file) {
     final fileName = file.path.split('/').last;
-    final dateStr = fileName.replaceAll('jitu_backup_', '').replaceAll('.json', '');
+    final dateStr =
+        fileName.replaceAll('jitu_backup_', '').replaceAll('.json', '');
     final dateFormat = DateFormat('yyyy-MM-dd HH:mm');
 
     DateTime? dateTime;
@@ -486,7 +524,8 @@ class _BackupScreenState extends State<BackupScreen> {
                       value: 'share',
                       child: Row(
                         children: [
-                          Icon(Icons.share_rounded, size: 20, color: AppTheme.primaryColor),
+                          Icon(Icons.share_rounded,
+                              size: 20, color: AppTheme.primaryColor),
                           SizedBox(width: AppTheme.spaceSmall),
                           Text('分享'),
                         ],
@@ -496,7 +535,8 @@ class _BackupScreenState extends State<BackupScreen> {
                       value: 'restore',
                       child: Row(
                         children: [
-                          Icon(Icons.restore_rounded, size: 20, color: AppTheme.successColor),
+                          Icon(Icons.restore_rounded,
+                              size: 20, color: AppTheme.successColor),
                           SizedBox(width: AppTheme.spaceSmall),
                           Text('恢复'),
                         ],
@@ -506,9 +546,11 @@ class _BackupScreenState extends State<BackupScreen> {
                       value: 'delete',
                       child: Row(
                         children: [
-                          Icon(Icons.delete_rounded, size: 20, color: AppTheme.errorColor),
+                          Icon(Icons.delete_rounded,
+                              size: 20, color: AppTheme.errorColor),
                           SizedBox(width: AppTheme.spaceSmall),
-                          Text('删除', style: TextStyle(color: AppTheme.errorColor)),
+                          Text('删除',
+                              style: TextStyle(color: AppTheme.errorColor)),
                         ],
                       ),
                     ),
@@ -584,7 +626,8 @@ class _BackupScreenState extends State<BackupScreen> {
       final content = await BackupService.createBackup();
       final file = await BackupService.saveBackupToFile(content);
 
-      Navigator.pop(context);
+      // WHY: await 之后组件可能已销毁，pop 前须校验 mounted
+      if (mounted) Navigator.pop(context);
 
       await Share.shareXFiles(
         [XFile(file.path)],
@@ -606,7 +649,8 @@ class _BackupScreenState extends State<BackupScreen> {
         );
       }
     } catch (e) {
-      Navigator.pop(context);
+      // WHY: 异常分支同样在 await 之后，pop 前须校验 mounted
+      if (mounted) Navigator.pop(context);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -728,7 +772,8 @@ class _BackupScreenState extends State<BackupScreen> {
       final content = await file.readAsString();
       final success = await BackupService.restoreBackup(content);
 
-      Navigator.pop(context);
+      // WHY: await 之后组件可能已销毁，pop 前须校验 mounted
+      if (mounted) Navigator.pop(context);
 
       if (success) {
         if (mounted) {
@@ -758,7 +803,8 @@ class _BackupScreenState extends State<BackupScreen> {
         }
       }
     } catch (e) {
-      Navigator.pop(context);
+      // WHY: 异常分支同样在 await 之后，pop 前须校验 mounted
+      if (mounted) Navigator.pop(context);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -777,7 +823,9 @@ class _BackupScreenState extends State<BackupScreen> {
   void _showDeleteDialog(File file) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      // WHY: 重命名 builder 的 context，避免遮蔽 State.context，
+      // 使闭包内 context/mounted 指向 State，异步间隙后可直接校验
+      builder: (dialogContext) => AlertDialog(
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
         ),
@@ -803,7 +851,7 @@ class _BackupScreenState extends State<BackupScreen> {
         content: const Text('确定要删除这个备份吗？'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text(
               '取消',
               style: TextStyle(color: AppTheme.neutral600),
@@ -811,7 +859,7 @@ class _BackupScreenState extends State<BackupScreen> {
           ),
           ElevatedButton(
             onPressed: () async {
-              Navigator.pop(context);
+              Navigator.pop(dialogContext);
               final success = await BackupService.deleteBackupFile(file);
               if (success) {
                 await _loadBackupFiles();
@@ -822,7 +870,8 @@ class _BackupScreenState extends State<BackupScreen> {
                       backgroundColor: AppTheme.neutral600,
                       behavior: SnackBarBehavior.floating,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                        borderRadius:
+                            BorderRadius.circular(AppTheme.radiusMedium),
                       ),
                     ),
                   );

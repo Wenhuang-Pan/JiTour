@@ -198,7 +198,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       ),
       title: Text(
         _isEditing ? '编辑账单' : '',
-        style: TextStyle(
+        style: const TextStyle(
           fontSize: AppTheme.textBodyLarge,
           fontWeight: FontWeight.w600,
         ),
@@ -943,7 +943,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
             width: 40,
             child: Text(
               label,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 12,
                 color: AppTheme.neutral500,
               ),
@@ -1216,7 +1216,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     noteText = noteText.replaceAll(RegExp(r'\s+'), ' ').trim();
     noteText = noteText
         .replaceAll(
-            RegExp(r'[，。！？、；：""' '【】《》（）()\[\]{}<>/\\|@#\$%^&*\-_=+`~]+'), ' ')
+            RegExp(r'[，。！？、；：""' '【】《》（）()[]{}<>/\\|@#\$%^&*-_=+`~]+'), ' ')
         .trim();
 
     // 如果备注太长，截断
@@ -1610,9 +1610,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                 const SizedBox(height: AppTheme.spaceMedium),
 
                 // ========== 时间：小时 + 分钟 滚轮 ==========
-                Row(
+                const Row(
                   children: [
-                    const Text(
+                    Text(
                       '  时间',
                       style: TextStyle(
                         fontSize: 12,
@@ -1620,7 +1620,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                         color: AppTheme.neutral600,
                       ),
                     ),
-                    const Spacer(),
+                    Spacer(),
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -1675,7 +1675,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                           ),
                         ),
                       ),
-                      Text(
+                      const Text(
                         ':',
                         style: TextStyle(
                           fontSize: 26,

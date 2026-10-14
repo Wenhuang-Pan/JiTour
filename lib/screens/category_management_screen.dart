@@ -90,8 +90,8 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen>
                 ),
                 const SizedBox(width: AppTheme.spaceMedium),
                 // WHY: 用Flexible防止窄屏标题溢出
-                Flexible(
-                  child: const Text(
+                const Flexible(
+                  child: Text(
                     '分类管理',
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -329,6 +329,8 @@ class _CategoryList extends StatelessWidget {
           TextButton(
             onPressed: () async {
               await CategoryService.deleteCategory(category.id);
+              // WHY: 删除是异步操作，弹窗可能已被关闭，pop 前须校验 context 有效性
+              if (!context.mounted) return;
               Navigator.pop(context);
             },
             style: TextButton.styleFrom(
