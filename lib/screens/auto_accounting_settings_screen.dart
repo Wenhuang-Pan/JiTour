@@ -53,6 +53,14 @@ class _AutoAccountingSettingsScreenState
               _buildPostNotificationsCard(context),
               const SizedBox(height: AppTheme.spaceLarge),
             ],
+            // WHY: 无障碍服务是通知监听的补充通道——微信/支付宝未推送
+            // 支付通知时，通过读取支付成功页面文本实现自动记账
+            if (!kIsWeb) ...<Widget>[
+              _buildSectionTitle(context, '页面识别'),
+              const SizedBox(height: AppTheme.spaceSmall),
+              _buildAccessibilityCard(context),
+              const SizedBox(height: AppTheme.spaceLarge),
+            ],
             // WHY: 悬浮窗权限仅 Android 需要，授权后应用在后台检测到支付通知
             // 会显示原生悬浮窗，用户可直接在悬浮窗完成记账
             if (!kIsWeb) ...<Widget>[
@@ -224,6 +232,88 @@ class _AutoAccountingSettingsScreenState
                 padding: const EdgeInsets.all(AppTheme.spaceLarge),
                 child: Text(
                   '记途需要「通知使用权」才能在支付宝或微信支付后自动识别金额和商户。授权后，您的支付数据仅在本地处理，不会上传到任何服务器。',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppTheme.neutral500,
+                        height: 1.5,
+                      ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  /// 构建无障碍服务卡片（Section "页面识别"，仅 Android 显示）
+  ///
+  /// WHY: 微信/支付宝未开启通知时，通知监听通道完全失效；
+  /// 无障碍服务读取支付成功页面文本作为补充识别通道，
+  /// 数据仅本地处理，与其他权限卡片的交互模式保持一致。
+  ///
+  /// @param context 构建上下文
+  /// @return 无障碍权限 Container
+  Widget _buildAccessibilityCard(BuildContext context) {
+    return Consumer<AutoAccountingProvider>(
+      builder: (BuildContext context, AutoAccountingProvider provider,
+          Widget? child) {
+        final bool isAuthorized = provider.isAccessibilityAuthorized;
+        return Container(
+          decoration: BoxDecoration(
+            color: AppTheme.getCardColor(context),
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+            boxShadow: AppTheme.cardShadow,
+          ),
+          child: Column(
+            children: <Widget>[
+              ListTile(
+                leading: Icon(
+                  Icons.accessibility_new_rounded,
+                  color: isAuthorized
+                      ? AppTheme.successColor
+                      : AppTheme.warningColor,
+                ),
+                title: const Text('支付页面识别（无障碍）'),
+                subtitle: Text(
+                  isAuthorized ? '已开启' : '未开启，点击前往系统设置授权',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: isAuthorized
+                            ? AppTheme.successColor
+                            : AppTheme.warningColor,
+                      ),
+                ),
+                trailing: const Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppTheme.neutral400,
+                ),
+                onTap: () async {
+                  final bool ok = await NotificationBridgeService
+                      .openAccessibilitySettings();
+                  if (!context.mounted) return;
+                  if (ok) {
+                    // WHY: 用户从系统设置返回后，需重新检查授权状态。
+                    // 使用 addPostFrameCallback 避免在 build 期间触发 Provider 更新。
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) {
+                        Provider.of<AutoAccountingProvider>(context,
+                                listen: false)
+                            .refreshAccessibilityStatus();
+                      }
+                    });
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('当前平台不支持无障碍服务'),
+                        duration: Duration(seconds: 1),
+                      ),
+                    );
+                  }
+                },
+              ),
+              Padding(
+                padding: const EdgeInsets.all(AppTheme.spaceLarge),
+                child: Text(
+                  '当微信/支付宝没有推送支付通知时，可在系统无障碍设置中开启「记途支付页面识别」。开启后，支付成功页面出现时自动提取金额和商户并弹出记账。数据仅在本地处理，不会上传服务器。',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: AppTheme.neutral500,
                         height: 1.5,
@@ -517,8 +607,8 @@ class _AutoAccountingSettingsScreenState
   /// @return 工作原理 Container
   Widget _buildHowItWorksCard(BuildContext context) {
     const List<String> steps = <String>[
-      '支付宝/微信支付后，系统会推送支付通知',
-      '记途自动解析通知中的金额和商户名',
+      '支付宝/微信支付后，通过支付通知或支付成功页面识别捕获交易',
+      '记途自动解析金额和商户名',
       '智能匹配可能的分类（已学习的商户会自动套用）',
       '弹出快速记账弹窗，您确认后即记录为正式交易',
     ];

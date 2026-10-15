@@ -28,13 +28,14 @@ class PendingTransactionAdapter extends TypeAdapter<PendingTransaction> {
       confidence: fields[4] as double,
       status: fields[8] as PendingStatus,
       confirmedTransactionId: fields[10] as String?,
+      isIncome: fields[11] == null ? false : fields[11] as bool,
     )..createdAt = fields[9] as DateTime;
   }
 
   @override
   void write(BinaryWriter writer, PendingTransaction obj) {
     writer
-      ..writeByte(11)
+      ..writeByte(12)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -56,7 +57,9 @@ class PendingTransactionAdapter extends TypeAdapter<PendingTransaction> {
       ..writeByte(9)
       ..write(obj.createdAt)
       ..writeByte(10)
-      ..write(obj.confirmedTransactionId);
+      ..write(obj.confirmedTransactionId)
+      ..writeByte(11)
+      ..write(obj.isIncome);
   }
 
   @override

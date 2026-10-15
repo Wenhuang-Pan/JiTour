@@ -34,6 +34,7 @@ class PendingTransactionService {
   /// @param merchant 商户名
   /// @param inferredCategory 推断分类
   /// @param confidence 置信度
+  /// @param isIncome 是否收入，默认 false
   /// @return 创建的待确认交易
   static Future<PendingTransaction> create({
     required Decimal amount,
@@ -42,6 +43,7 @@ class PendingTransactionService {
     String? merchant,
     String? inferredCategory,
     double confidence = 0.0,
+    bool isIncome = false,
   }) async {
     final pending = PendingTransaction(
       id: UuidUtil.generate(),
@@ -52,6 +54,7 @@ class PendingTransactionService {
       merchant: merchant,
       inferredCategory: inferredCategory,
       confidence: confidence,
+      isIncome: isIncome,
     );
     return add(pending);
   }
@@ -106,7 +109,9 @@ class PendingTransactionService {
     final transaction = Transaction(
       id: UuidUtil.generate(),
       amount: effectiveAmount,
-      isIncome: false, // WHY: 支付通知默认为支出
+      // WHY: 收支方向以 pending 记录为准——收款/到账类事件为收入，
+      // 默认 false 与历史版本行为一致
+      isIncome: pending.isIncome,
       category: category,
       account: account,
       currency: 'CNY',
@@ -134,7 +139,12 @@ class PendingTransactionService {
     // 交易中 account 存的是账户名称（与悬浮窗缓存的账户名列表一致）。
     final Account? targetAccount = AccountService.getAccountByName(account);
     if (targetAccount != null) {
-      targetAccount.currentBalance -= effectiveAmount;
+      // WHY: 收入加余额、支出扣余额，方向与交易 isIncome 保持一致
+      if (pending.isIncome) {
+        targetAccount.currentBalance += effectiveAmount;
+      } else {
+        targetAccount.currentBalance -= effectiveAmount;
+      }
       await AccountService.updateAccount(targetAccount);
     } else {
       // WHY: 账户可能已被删除或改名，余额无法联动；交易已落库不应回滚，仅记录日志

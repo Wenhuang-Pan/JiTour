@@ -23,6 +23,9 @@ class AutoAccountingProvider extends ChangeNotifier {
   /// 通知监听权限是否已授权（仅 Android，Web/未初始化时为 false）
   bool _isListenerAuthorized = false;
 
+  /// 无障碍服务（支付页面识别）是否已授权（仅 Android）
+  bool _isAccessibilityAuthorized = false;
+
   /// 悬浮窗权限是否已授权（仅 Android，Web/iOS 永远为 false）
   bool _isOverlayAuthorized = false;
 
@@ -46,6 +49,9 @@ class AutoAccountingProvider extends ChangeNotifier {
 
   /// 获取通知监听权限是否已授权
   bool get isListenerAuthorized => _isListenerAuthorized;
+
+  /// 获取无障碍服务（支付页面识别）是否已授权
+  bool get isAccessibilityAuthorized => _isAccessibilityAuthorized;
 
   /// 获取悬浮窗权限是否已授权
   bool get isOverlayAuthorized => _isOverlayAuthorized;
@@ -81,6 +87,10 @@ class AutoAccountingProvider extends ChangeNotifier {
 
     // WHY: 同步 Android 通知监听授权状态，Web 平台直接返回 false
     _isListenerAuthorized = await NotificationBridgeService.isListenerEnabled();
+
+    // WHY: 同步无障碍服务授权状态（支付页面识别补充通道）
+    _isAccessibilityAuthorized =
+        await NotificationBridgeService.isAccessibilityEnabled();
 
     _subscribePaymentStream();
     _subscribeOverlayStream();
@@ -197,9 +207,12 @@ class AutoAccountingProvider extends ChangeNotifier {
     final category = data['category'] as String?;
     final account = data['account'] as String?;
     final rawText = data['rawText'] as String? ?? '';
+    // WHY: 收支方向由原生侧（通知监听/无障碍服务）识别后透传，
+    // 缺失时按支出处理，与历史版本行为一致
+    final isIncome = data['isIncome'] as bool? ?? false;
 
     debugPrint('[AutoAccounting] 收到 overlay 结果: action=$action, '
-        'amount=$amount, merchant=$merchant');
+        'amount=$amount, merchant=$merchant, isIncome=$isIncome');
 
     if (action == 'confirm') {
       // WHY: 悬浮窗确认后，创建待确认交易并立即转正
@@ -220,6 +233,7 @@ class AutoAccountingProvider extends ChangeNotifier {
           merchant: merchant.isEmpty ? null : merchant,
           inferredCategory: category,
           confidence: 0.95,
+          isIncome: isIncome,
         );
         await confirmTransaction(pending.id,
             category: category, account: account);
@@ -238,6 +252,7 @@ class AutoAccountingProvider extends ChangeNotifier {
               : PaymentSource.alipay,
           rawText: rawText,
           merchant: merchant.isEmpty ? null : merchant,
+          isIncome: isIncome,
         );
         _pendingList.insert(0, pending);
         notifyListeners();
@@ -255,6 +270,7 @@ class AutoAccountingProvider extends ChangeNotifier {
               : PaymentSource.alipay,
           rawText: rawText,
           merchant: merchant.isEmpty ? null : merchant,
+          isIncome: isIncome,
         );
         await discardTransaction(pending.id);
         debugPrint('[AutoAccounting] overlay 忽略成功');
@@ -274,8 +290,15 @@ class AutoAccountingProvider extends ChangeNotifier {
     if (!_isEnabled) return;
 
     // WHY: 基于商户名推断分类，置信度低时上层 UI 会提示用户手动选择
-    final InferredCategory inferred =
+    InferredCategory inferred =
         await CategoryInferenceService.infer(payment.merchant);
+
+    // WHY: 商户推断未命中时，按支付类型关键词兜底——转账/红包等场景
+    // 往往无商户名可学习，但页/通知文本含明确类型词；
+    // 仅当用户分类表中存在同名分类时才采用，避免推断出不存在的分类
+    if (inferred.categoryName == null) {
+      inferred = _inferByPaymentType(payment);
+    }
 
     final PendingTransaction pending = await PendingTransactionService.create(
       amount: payment.amount,
@@ -284,11 +307,36 @@ class AutoAccountingProvider extends ChangeNotifier {
       merchant: payment.merchant,
       inferredCategory: inferred.categoryName,
       confidence: inferred.confidence,
+      isIncome: payment.isIncome,
     );
 
     // WHY: 新记录插入列表头部，保证最新的在最前面
     _pendingList.insert(0, pending);
     notifyListeners();
+  }
+
+  /// 按支付类型关键词兜底推断分类
+  ///
+  /// WHY: 转账/红包等场景没有商户名可供学习，但通知或页面文本包含
+  /// 明确的类型词；按收支方向取对应分类表，命中同名分类才采用，
+  /// 置信度 0.6（低于商户学习的 0.9，UI 仍会提示用户确认）。
+  /// 时间复杂度：O(k·m)，k 为关键词数（常量级），m 为用户分类数
+  ///
+  /// @param payment 解析后的支付信息
+  /// @return 推断结果，未命中返回空分类
+  InferredCategory _inferByPaymentType(ParsedPayment payment) {
+    const List<String> typeKeywords = <String>['转账', '红包', '退款', '扫码'];
+    final categories = payment.isIncome
+        ? CategoryService.getIncomeCategories()
+        : CategoryService.getExpenseCategories();
+    for (final keyword in typeKeywords) {
+      if (!payment.rawText.contains(keyword)) continue;
+      final hit = categories.where((c) => c.name.contains(keyword)).firstOrNull;
+      if (hit != null) {
+        return InferredCategory(hit.name, 0.6);
+      }
+    }
+    return const InferredCategory(null, 0.0);
   }
 
   /// 从服务层加载待确认交易到内存
@@ -357,6 +405,17 @@ class AutoAccountingProvider extends ChangeNotifier {
   /// @return Future 完成刷新
   Future<void> refreshListenerStatus() async {
     _isListenerAuthorized = await NotificationBridgeService.isListenerEnabled();
+    notifyListeners();
+  }
+
+  /// 刷新无障碍服务授权状态
+  ///
+  /// WHY: 用户从系统无障碍设置页返回后调用，重新检查授权状态。
+  ///
+  /// @return Future 完成刷新
+  Future<void> refreshAccessibilityStatus() async {
+    _isAccessibilityAuthorized =
+        await NotificationBridgeService.isAccessibilityEnabled();
     notifyListeners();
   }
 

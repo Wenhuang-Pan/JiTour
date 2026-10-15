@@ -55,6 +55,25 @@ class AutoAccountingPlugin : FlutterPlugin, ActivityAware, EventChannel.StreamHa
          * @param combined 拼接后的通知文本（title + text）。
          * @param postTime 通知发布时间戳。
          */
+        // WHY: 收入类关键词——通知监听与无障碍服务共用的收支方向判定。
+        // 不能用裸「收款」：支出页面的「收款方」（商户名标签）会造成误判，
+        // 故只匹配明确的成功/到账语义短语
+        private val incomeKeywords = listOf(
+            "成功收款", "收款成功", "收款到账", "转账到账", "已到账",
+            "收到转账", "收到红包", "退款成功", "退款到账"
+        )
+
+        /**
+         * 判断文本是否描述收入场景。
+         *
+         * @param text 通知或页面拼接文本。
+         * @return true 表示收入（收款/到账/退款），false 表示支出。
+         */
+        fun detectIncome(text: String): Boolean {
+            // O(k)，k 为关键词数量（常量级）
+            return incomeKeywords.any { text.contains(it) }
+        }
+
         fun sendPaymentEvent(packageName: String, combined: String, postTime: Long = System.currentTimeMillis()) {
             val data = mapOf(
                 "packageName" to packageName,
@@ -96,6 +115,33 @@ class AutoAccountingPlugin : FlutterPlugin, ActivityAware, EventChannel.StreamHa
         fun openNotificationListenerSettings(context: Context): Boolean {
             return try {
                 val intent = Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS")
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                context.startActivity(intent)
+                true
+            } catch (e: Exception) {
+                false
+            }
+        }
+
+        /**
+         * 检查无障碍服务（支付页面识别）是否已开启。
+         *
+         * @param context 任意可用 Context。
+         * @return true 表示已授权本应用的无障碍服务。
+         */
+        fun isAccessibilityServiceEnabled(context: Context): Boolean {
+            return PaymentAccessibilityService.isServiceEnabled(context)
+        }
+
+        /**
+         * 跳转系统无障碍设置页。
+         *
+         * @param context 任意可用 Context。
+         * @return true 表示跳转成功。
+         */
+        fun openAccessibilitySettings(context: Context): Boolean {
+            return try {
+                val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 context.startActivity(intent)
                 true
@@ -271,7 +317,8 @@ class AutoAccountingPlugin : FlutterPlugin, ActivityAware, EventChannel.StreamHa
             packageName: String,
             category: String?,
             account: String?,
-            rawText: String
+            rawText: String,
+            isIncome: Boolean = false
         ) {
             val data: Map<String, Any?> = mapOf(
                 "action" to action,
@@ -280,7 +327,8 @@ class AutoAccountingPlugin : FlutterPlugin, ActivityAware, EventChannel.StreamHa
                 "packageName" to packageName,
                 "category" to category,
                 "account" to account,
-                "rawText" to rawText
+                "rawText" to rawText,
+                "isIncome" to isIncome
             )
             val sink = eventSink
             if (sink != null) {
@@ -299,6 +347,7 @@ class AutoAccountingPlugin : FlutterPlugin, ActivityAware, EventChannel.StreamHa
                         category?.let { putExtra("overlay_category", it) }
                         account?.let { putExtra("overlay_account", it) }
                         putExtra("overlay_rawText", rawText)
+                        putExtra("overlay_isIncome", isIncome)
                     }
                     try {
                         ctx.startActivity(intent)
@@ -374,6 +423,13 @@ class AutoAccountingPlugin : FlutterPlugin, ActivityAware, EventChannel.StreamHa
             }
             "openNotificationSettings" -> {
                 result.success(openNotificationListenerSettings(context))
+            }
+            "isAccessibilityEnabled" -> {
+                // WHY: 支付页面识别（无障碍）授权状态查询，v3.3.0 新增补充通道
+                result.success(isAccessibilityServiceEnabled(context))
+            }
+            "openAccessibilitySettings" -> {
+                result.success(openAccessibilitySettings(context))
             }
             "isOverlayEnabled" -> {
                 result.success(isOverlayEnabled(context))

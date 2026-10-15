@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../theme/app_theme.dart';
@@ -15,7 +14,6 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
   bool _autoBackupEnabled = false;
   int _backupFrequency = 7; // 默认每周
   DateTime? _lastBackupTime;
-  List<String> _backupHistory = [];
   bool _isLoading = true;
 
   @override
@@ -30,13 +28,11 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
     final enabled = await AutoBackupService.isAutoBackupEnabled();
     final frequency = await AutoBackupService.getBackupFrequency();
     final lastTime = await AutoBackupService.getLastBackupTime();
-    final history = await AutoBackupService.getBackupHistory();
 
     setState(() {
       _autoBackupEnabled = enabled;
       _backupFrequency = frequency;
       _lastBackupTime = lastTime;
-      _backupHistory = history;
       _isLoading = false;
     });
   }
@@ -72,14 +68,14 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
   Future<void> _backupNow() async {
     setState(() => _isLoading = true);
 
-    final file = await AutoBackupService.performBackupNow();
+    final path = await AutoBackupService.performBackupNow();
     // WHY: 异步备份后组件可能已销毁，使用 context 前须校验 mounted
     if (!mounted) return;
     setState(() => _isLoading = false);
 
-    if (file != null) {
+    if (path != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('备份成功！\n文件位置：${file.path}')),
+        const SnackBar(content: Text('备份成功！可在备份管理页查看')),
       );
       await _loadSettings();
     } else {
@@ -127,8 +123,6 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
                   _buildManualBackupButton(context),
                   const SizedBox(height: AppTheme.spaceXLarge),
                   if (_lastBackupTime != null) _buildLastBackupInfo(context),
-                  const SizedBox(height: AppTheme.spaceLarge),
-                  if (_backupHistory.isNotEmpty) _buildBackupHistory(context),
                   const SizedBox(height: AppTheme.spaceXLarge),
                   _buildCloudSyncTip(context),
                   const SizedBox(height: AppTheme.spaceXXXLarge),
@@ -389,61 +383,6 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
     );
   }
 
-  Widget _buildBackupHistory(BuildContext context) {
-    final dateFormat = DateFormat('yyyy-MM-dd HH:mm');
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          '备份历史（最近5次）',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-        ),
-        const SizedBox(height: AppTheme.spaceSmall),
-        Container(
-          decoration: BoxDecoration(
-            color: AppTheme.getCardColor(context),
-            borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-            boxShadow: AppTheme.cardShadow,
-          ),
-          child: Column(
-            children: _backupHistory.take(5).map((path) {
-              final file = File(path);
-              final fileName = path.split('/').last;
-              final stat = file.statSync();
-
-              return ListTile(
-                leading: const Icon(
-                  Icons.file_present_rounded,
-                  color: AppTheme.primaryColor,
-                ),
-                title: Text(
-                  fileName,
-                  style: const TextStyle(fontSize: 12),
-                ),
-                subtitle: Text(
-                  '${dateFormat.format(stat.modified)} · ${(stat.size / 1024).toStringAsFixed(1)} KB',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                trailing: IconButton(
-                  icon: const Icon(Icons.share_rounded),
-                  onPressed: () {
-                    // TODO: 分享文件
-                  },
-                ),
-              );
-            }).toList(),
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _buildCloudSyncTip(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(AppTheme.spaceMedium),
@@ -476,12 +415,10 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
           ),
           const SizedBox(height: AppTheme.spaceSmall),
           Text(
-            '备份文件位置：手机存储/SimpleLedger_Backups/\n\n'
-            '推荐做法：\n'
-            '1. 安装 Google Drive、OneDrive 或 Dropbox\n'
-            '2. 开启云盘的自动同步功能\n'
-            '3. 将 SimpleLedger_Backups 目录设置为同步目录\n'
-            '4. 数据将自动同步到云端，安全可靠',
+            '自动备份文件保存在应用私有目录，自动保留最近 10 份，'
+            '可在「数据备份」管理页查看、分享与恢复。\n\n'
+            '需要云端容灾时，可在备份管理页使用 WebDAV 云备份，'
+            '或通过分享功能导出到网盘。',
             style: TextStyle(
               fontSize: 13,
               color: Theme.of(context).colorScheme.onSurfaceVariant,

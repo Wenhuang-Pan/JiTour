@@ -17,6 +17,7 @@ import 'services/balance_migration_service.dart';
 import 'services/recurring_transaction_service.dart';
 import 'services/app_lock_service.dart';
 import 'services/webdav_backup_service.dart';
+import 'services/auto_backup_service.dart';
 import 'theme/app_theme.dart';
 import 'providers/theme_provider.dart';
 import 'providers/currency_provider.dart';
@@ -62,9 +63,8 @@ void main() async {
     await autoAccountingProvider.init();
 
     if (!kIsWeb) {
-      // 暂时禁用自动备份服务初始化，避免某些Android设备崩溃
-      // 自动备份功能将在设置页面中手动启用
-      debugPrint('Auto backup services skipped for mobile startup');
+      debugPrint(
+          'Auto backup services use lazy startup check (no workmanager)');
     }
 
     runApp(
@@ -84,6 +84,9 @@ void main() async {
     // 不使用 workmanager（部分设备有崩溃史），启动时惰性检查即可满足天级频率
     if (!kIsWeb) {
       unawaited(WebdavBackupService.performAutoBackupIfNeeded());
+      // WHY: 本地自动备份同为 fire-and-forget 惰性检查，替代旧 workmanager
+      // 方案（部分设备崩溃史）；开关与频率由服务内部自行判断
+      unawaited(AutoBackupService.performAutoBackupIfNeeded());
     }
   }, (error, stackTrace) {
     debugPrint('Uncaught error: $error');

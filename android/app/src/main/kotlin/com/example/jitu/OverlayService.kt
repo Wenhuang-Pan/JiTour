@@ -51,6 +51,8 @@ class OverlayService : Service() {
         const val EXTRA_INFERRED_CATEGORY = "inferredCategory"
         const val EXTRA_CONFIDENCE = "confidence"
         const val EXTRA_RAW_TEXT = "rawText"
+        // WHY: 收支方向标志（收入=true），由通知监听/无障碍服务识别后传入
+        const val EXTRA_IS_INCOME = "isIncome"
     }
 
     private var windowManager: WindowManager? = null
@@ -62,6 +64,7 @@ class OverlayService : Service() {
     private var inferredCategory: String? = null
     private var confidence: Double = 0.0
     private var rawText: String = ""
+    private var isIncome: Boolean = false
     private var selectedCategory: String? = null
     private var selectedAccount: String? = null
 
@@ -94,6 +97,7 @@ class OverlayService : Service() {
             inferredCategory = it.getStringExtra(EXTRA_INFERRED_CATEGORY)
             confidence = it.getDoubleExtra(EXTRA_CONFIDENCE, 0.0)
             rawText = it.getStringExtra(EXTRA_RAW_TEXT) ?: ""
+            isIncome = it.getBooleanExtra(EXTRA_IS_INCOME, false)
             // WHY: 进程被杀后内存缓存丢失，先从 SharedPreferences 恢复，
             // 否则分类/账户 Chip 显示"暂无数据"导致无法修改分类
             AutoAccountingPlugin.restoreCacheIfNeeded(this)
@@ -516,7 +520,8 @@ class OverlayService : Service() {
             packageName = packageName,
             category = selectedCategory,
             account = selectedAccount,
-            rawText = rawText
+            rawText = rawText,
+            isIncome = isIncome
         )
         stopSelf()
     }
@@ -532,7 +537,8 @@ class OverlayService : Service() {
             packageName = packageName,
             category = null,
             account = null,
-            rawText = rawText
+            rawText = rawText,
+            isIncome = isIncome
         )
         stopSelf()
     }

@@ -21,6 +21,9 @@ class ParsedPayment {
   /// 通知时间戳
   final DateTime timestamp;
 
+  /// 是否为收入（收款/到账/退款类），默认 false 为支出
+  final bool isIncome;
+
   /// 构造解析结果
   ///
   /// @param amount 金额
@@ -28,11 +31,13 @@ class ParsedPayment {
   /// @param rawText 原始文本
   /// @param timestamp 时间戳
   /// @param merchant 商户名
+  /// @param isIncome 是否收入，默认 false
   ParsedPayment({
     required this.amount,
     required this.source,
     required this.rawText,
     required this.timestamp,
     this.merchant,
+    this.isIncome = false,
   });
 }

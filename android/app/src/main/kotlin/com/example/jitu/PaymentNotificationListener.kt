@@ -75,6 +75,9 @@ class PaymentNotificationListener : NotificationListenerService() {
             //   Flutter 启动后由 AutoAccountingProvider 处理（rawText 传递给 Flutter 解析）
             val parsedAmount = extractAmount(combined)
             val parsedMerchant = extractMerchant(combined)
+            // WHY: 收入类通知（如「支付宝成功收款1.00元」）需标记收支方向，
+            // 否则原生回退路径会把收入误记为支出
+            val isIncome = AutoAccountingPlugin.detectIncome(combined)
             if (AutoAccountingPlugin.isOverlayEnabled(this)) {
                 // WHY: 已授权悬浮窗，启动 OverlayService 显示原生悬浮窗
                 val intent = Intent(this, OverlayService::class.java).apply {
@@ -82,6 +85,7 @@ class PaymentNotificationListener : NotificationListenerService() {
                     putExtra(OverlayService.EXTRA_RAW_TEXT, combined)
                     putExtra(OverlayService.EXTRA_MERCHANT, parsedMerchant)
                     putExtra(OverlayService.EXTRA_AMOUNT, parsedAmount)
+                    putExtra(OverlayService.EXTRA_IS_INCOME, isIncome)
                 }
                 startService(intent)
             } else {
@@ -100,7 +104,8 @@ class PaymentNotificationListener : NotificationListenerService() {
                     packageName = packageName,
                     category = null,
                     account = null,
-                    rawText = combined
+                    rawText = combined,
+                    isIncome = isIncome
                 )
             }
         }

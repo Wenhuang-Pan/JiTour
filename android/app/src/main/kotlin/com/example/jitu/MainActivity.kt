@@ -64,7 +64,9 @@ class MainActivity : FlutterFragmentActivity() {
             "packageName" to (intent.getStringExtra("overlay_package") ?: ""),
             "category" to intent.getStringExtra("overlay_category"),
             "account" to intent.getStringExtra("overlay_account"),
-            "rawText" to (intent.getStringExtra("overlay_rawText") ?: "")
+            "rawText" to (intent.getStringExtra("overlay_rawText") ?: ""),
+            // WHY: 收支方向由原生服务识别后透传，缺失默认支出（与历史行为一致）
+            "isIncome" to intent.getBooleanExtra("overlay_isIncome", false)
         )
     }
 }

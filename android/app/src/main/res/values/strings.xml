@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 无障碍服务在系统设置中展示的描述文案，向用户说明用途与数据安全性 -->
+    <string name="accessibility_service_description">记途使用此服务识别微信/支付宝的支付成功页面，自动提取金额与商户并弹出快速记账。所有数据仅在本地处理，不会上传服务器。</string>
+</resources>

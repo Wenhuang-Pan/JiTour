@@ -89,6 +89,12 @@ class PendingTransaction extends HiveObject {
   @HiveField(10)
   String? confirmedTransactionId;
 
+  /// 是否为收入（收款/到账/退款类），默认 false 为支出
+  /// WHY: v3.3.0 新增——收支识别补全，历史记录读取时缺省为 false（支出），
+  /// 与旧版行为完全一致，无需数据迁移
+  @HiveField(11, defaultValue: false)
+  bool isIncome;
+
   /// 构造待确认交易
   ///
   /// @param id 唯一标识
@@ -101,6 +107,7 @@ class PendingTransaction extends HiveObject {
   /// @param confidence 置信度
   /// @param status 初始状态，默认 pending
   /// @param confirmedTransactionId 转正交易 ID
+  /// @param isIncome 是否收入，默认 false
   PendingTransaction({
     required this.id,
     required this.amount,
@@ -112,6 +119,7 @@ class PendingTransaction extends HiveObject {
     this.confidence = 0.0,
     this.status = PendingStatus.pending,
     this.confirmedTransactionId,
+    this.isIncome = false,
   }) : createdAt = DateTime.now();
 
   /// 获取支付来源显示名

@@ -160,7 +160,12 @@ class _QuickEntrySheetState extends State<_QuickEntrySheet> {
   @override
   void initState() {
     super.initState();
-    _expenseCategories = CategoryService.getExpenseCategories();
+    // WHY: 分类列表按收支方向选择——收入类 pending（收款/到账）
+    // 展示收入分类，支出保持原有行为；变量名保留 _expenseCategories
+    // 避免大范围重命名，实际承载"当前方向的分类列表"
+    _expenseCategories = widget.pending.isIncome
+        ? CategoryService.getIncomeCategories()
+        : CategoryService.getExpenseCategories();
     _activeAccounts = AccountService.getActiveAccounts();
 
     // WHY: 默认优先选中推断的分类（若存在且在列表中），

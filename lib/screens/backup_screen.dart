@@ -443,8 +443,13 @@ class _BackupScreenState extends State<BackupScreen> {
 
   Widget _buildBackupItem(BuildContext context, FileSystemEntity file) {
     final fileName = file.path.split('/').last;
-    final dateStr =
-        fileName.replaceAll('jitu_backup_', '').replaceAll('.json', '');
+    // WHY: 自动备份（jitu_auto_backup_）与手动备份（jitu_backup_）统一展示，
+    // 解析时间戳前需剥离两种前缀；isAuto 用于展示来源标识
+    final isAuto = fileName.contains('jitu_auto_backup_');
+    final dateStr = fileName
+        .replaceAll('jitu_auto_backup_', '')
+        .replaceAll('jitu_backup_', '')
+        .replaceAll('.json', '');
     final dateFormat = DateFormat('yyyy-MM-dd HH:mm');
 
     DateTime? dateTime;
@@ -491,12 +496,41 @@ class _BackupScreenState extends State<BackupScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        dateFormat.format(dateTime),
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              dateFormat.format(dateTime),
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          if (isAuto) ...[
+                            const SizedBox(width: AppTheme.spaceSmall),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: AppTheme.spaceXSmall,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppTheme.successColor
+                                    .withValues(alpha: 0.10),
+                                borderRadius:
+                                    BorderRadius.circular(AppTheme.radiusSmall),
+                              ),
+                              child: const Text(
+                                '自动',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppTheme.successColor,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                       const SizedBox(height: AppTheme.spaceXSmall),
                       Text(

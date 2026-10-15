@@ -1,4 +1,7 @@
+import 'dart:math' as math;
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
@@ -10,6 +13,7 @@ import '../services/database_service.dart';
 import '../services/account_service.dart';
 import '../services/tag_service.dart';
 import '../services/stats_service.dart';
+import '../services/stats_share_service.dart';
 import '../utils/icon_library.dart';
 import '../widgets/comparison_card.dart';
 
@@ -32,6 +36,9 @@ class _StatsScreenState extends State<StatsScreen> {
 
   /// 标签筛选（null 表示全部；作用于全页交易口径统计）
   String? _selectedTagId;
+
+  /// 报表截图边界 Key，指向滚动视图内完整内容（含屏外部分）
+  final GlobalKey _repaintKey = GlobalKey();
 
   @override
   void initState() {
@@ -93,6 +100,13 @@ class _StatsScreenState extends State<StatsScreen> {
     return Scaffold(
       appBar: AppBar(
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.share_rounded),
+            tooltip: '导出报表图片',
+            onPressed: _shareStatsImage,
+          ),
+        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(56),
           child: _buildTimeSelector(context),
@@ -202,101 +216,176 @@ class _StatsScreenState extends State<StatsScreen> {
             );
           }
 
+          // WHY: RepaintBoundary 置于滚动视图 child 位置（而非外层），
+          // 其 size 为 Column 完整高度，toImage 才能捕获含屏外部分的长图；
+          // Container 补底色与 padding，避免导出 PNG 透明底观感差
           return SingleChildScrollView(
-            padding: const EdgeInsets.all(AppTheme.spaceLarge),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 标签筛选行（筛选作用于全页交易统计；无标签时自动隐藏）
-                _buildTagFilterRow(context),
+            child: RepaintBoundary(
+              key: _repaintKey,
+              child: Container(
+                color: Theme.of(context).scaffoldBackgroundColor,
+                padding: const EdgeInsets.all(AppTheme.spaceLarge),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // 标签筛选行（筛选作用于全页交易统计；无标签时自动隐藏）
+                    _buildTagFilterRow(context),
 
-                // KPI 概览卡片
-                _buildKpiSection(context, totalIncome, totalExpense, balance,
-                    isYearView: _isYearView),
-                const SizedBox(height: AppTheme.spaceXLarge),
+                    // KPI 概览卡片
+                    _buildKpiSection(
+                        context, totalIncome, totalExpense, balance,
+                        isYearView: _isYearView),
+                    const SizedBox(height: AppTheme.spaceXLarge),
 
-                // 对比分析区域
-                _buildComparisonSection(
-                    context, monthComparison, yearComparison,
-                    isYearView: _isYearView),
-                const SizedBox(height: AppTheme.spaceXLarge),
+                    // 对比分析区域
+                    _buildComparisonSection(
+                        context, monthComparison, yearComparison,
+                        isYearView: _isYearView),
+                    const SizedBox(height: AppTheme.spaceXLarge),
 
-                // 年度摘要卡片（仅年视图）
-                if (_isYearView && yearSummary != null) ...[
-                  _buildYearSummaryCard(context, yearSummary),
-                  const SizedBox(height: AppTheme.spaceXLarge),
-                ],
+                    // 年度摘要卡片（仅年视图）
+                    if (_isYearView && yearSummary != null) ...[
+                      _buildYearSummaryCard(context, yearSummary),
+                      const SizedBox(height: AppTheme.spaceXLarge),
+                    ],
 
-                // 收支趋势图：月视图显示近6个月折线，年视图显示 12 个月收支柱状图
-                if (!_isYearView && trendData.isNotEmpty) ...[
-                  _buildSectionTitle(context, '收支趋势', '近6个月'),
-                  const SizedBox(height: AppTheme.spaceMedium),
-                  _buildTrendChart(context, trendData),
-                  const SizedBox(height: AppTheme.spaceXLarge),
-                ],
-                if (_isYearView && yearMonthlyData != null) ...[
-                  _buildSectionTitle(context, '月度收支', '$_selectedYear年各月收支对比'),
-                  const SizedBox(height: AppTheme.spaceMedium),
-                  _buildYearBarChart(context, yearMonthlyData),
-                  const SizedBox(height: AppTheme.spaceXLarge),
-                ],
+                    // 收支趋势图：月视图显示近6个月折线，年视图显示 12 个月收支柱状图
+                    if (!_isYearView && trendData.isNotEmpty) ...[
+                      _buildSectionTitle(context, '收支趋势', '近6个月'),
+                      const SizedBox(height: AppTheme.spaceMedium),
+                      _buildTrendChart(context, trendData),
+                      const SizedBox(height: AppTheme.spaceXLarge),
+                    ],
+                    if (_isYearView && yearMonthlyData != null) ...[
+                      _buildSectionTitle(
+                          context, '月度收支', '$_selectedYear年各月收支对比'),
+                      const SizedBox(height: AppTheme.spaceMedium),
+                      _buildYearBarChart(context, yearMonthlyData),
+                      const SizedBox(height: AppTheme.spaceXLarge),
+                    ],
 
-                // 账户分布
-                _buildAccountDistribution(context),
-                const SizedBox(height: AppTheme.spaceXLarge),
+                    // 账户分布
+                    _buildAccountDistribution(context),
+                    const SizedBox(height: AppTheme.spaceXLarge),
 
-                // 支出分类
-                if (expenseStats.isNotEmpty) ...[
-                  _buildSectionTitle(
-                      context, '支出分类', _isYearView ? '年度支出构成' : '本月支出构成'),
-                  const SizedBox(height: AppTheme.spaceMedium),
-                  _buildDonutChart(
-                    context,
-                    expenseStats,
-                    totalExpense,
-                    AppTheme.errorColor,
-                  ),
-                  const SizedBox(height: AppTheme.spaceLarge),
-                  _buildCategoryList(context, expenseStats, AppTheme.errorColor,
-                      periodTransactions, false),
-                  const SizedBox(height: AppTheme.spaceXLarge),
-                ],
+                    // 支出分类
+                    if (expenseStats.isNotEmpty) ...[
+                      _buildSectionTitle(
+                          context, '支出分类', _isYearView ? '年度支出构成' : '本月支出构成'),
+                      const SizedBox(height: AppTheme.spaceMedium),
+                      _buildDonutChart(
+                        context,
+                        expenseStats,
+                        totalExpense,
+                        AppTheme.errorColor,
+                      ),
+                      const SizedBox(height: AppTheme.spaceLarge),
+                      _buildCategoryList(context, expenseStats,
+                          AppTheme.errorColor, periodTransactions, false),
+                      const SizedBox(height: AppTheme.spaceXLarge),
+                    ],
 
-                // 收入分类
-                if (incomeStats.isNotEmpty) ...[
-                  _buildSectionTitle(
-                      context, '收入分类', _isYearView ? '年度收入构成' : '本月收入构成'),
-                  const SizedBox(height: AppTheme.spaceMedium),
-                  _buildDonutChart(
-                    context,
-                    incomeStats,
-                    totalIncome,
-                    AppTheme.successColor,
-                  ),
-                  const SizedBox(height: AppTheme.spaceLarge),
-                  _buildCategoryList(context, incomeStats,
-                      AppTheme.successColor, periodTransactions, true),
-                  const SizedBox(height: AppTheme.spaceXLarge),
-                ],
+                    // 收入分类
+                    if (incomeStats.isNotEmpty) ...[
+                      _buildSectionTitle(
+                          context, '收入分类', _isYearView ? '年度收入构成' : '本月收入构成'),
+                      const SizedBox(height: AppTheme.spaceMedium),
+                      _buildDonutChart(
+                        context,
+                        incomeStats,
+                        totalIncome,
+                        AppTheme.successColor,
+                      ),
+                      const SizedBox(height: AppTheme.spaceLarge),
+                      _buildCategoryList(context, incomeStats,
+                          AppTheme.successColor, periodTransactions, true),
+                      const SizedBox(height: AppTheme.spaceXLarge),
+                    ],
 
-                // 标签统计（支出/收入分区，点击标签可查看当期明细）
-                _buildTagStats(context, periodTransactions, expenseTagStats,
-                    incomeTagStats,
-                    isYearView: _isYearView),
-                const SizedBox(height: AppTheme.spaceXLarge),
+                    // 标签统计（支出/收入分区，点击标签可查看当期明细）
+                    _buildTagStats(context, periodTransactions, expenseTagStats,
+                        incomeTagStats,
+                        isYearView: _isYearView),
+                    const SizedBox(height: AppTheme.spaceXLarge),
 
-                // TOP N 排行榜
-                _buildTopRankingSection(context, periodTransactions,
-                    isYearView: _isYearView),
-                const SizedBox(height: AppTheme.spaceXLarge),
+                    // TOP N 排行榜
+                    _buildTopRankingSection(context, periodTransactions,
+                        isYearView: _isYearView),
+                    const SizedBox(height: AppTheme.spaceXLarge),
 
-                const SizedBox(height: AppTheme.spaceXXXLarge),
-              ],
+                    const SizedBox(height: AppTheme.spaceXXXLarge),
+                  ],
+                ),
+              ),
             ),
           );
         },
       ),
     );
+  }
+
+  /// 导出当前统计报表为 PNG 长图并调起系统分享
+  ///
+  /// WHY: RepaintBoundary.toImage 会完整重放边界内绘制内容（含屏外部分），
+  /// 适合生成长截图；pixelRatio 决定清晰度，但报表很长时面积平方放大，
+  /// 需按总像素上限动态收敛，防止超大位图导致 OOM。
+  /// Web 平台由条件导出桩返回 false，提示不支持。
+  Future<void> _shareStatsImage() async {
+    final boundary = _repaintKey.currentContext?.findRenderObject()
+        as RenderRepaintBoundary?;
+    if (boundary == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('暂无数据可分享')),
+      );
+      return;
+    }
+
+    // 长图编码可能耗时数百毫秒，期间展示加载遮罩
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      // WHY: 输出总像素限制在约 1600 万（RGBA 缓冲约 64MB），
+      // 短报表按 3 倍清晰度导出，超长报表自动降倍防止 OOM
+      const maxPixels = 16000000.0;
+      final area = boundary.size.width * boundary.size.height;
+      var pixelRatio = 3.0;
+      if (area * pixelRatio * pixelRatio > maxPixels) {
+        pixelRatio = math.sqrt(maxPixels / area);
+      }
+
+      final image = await boundary.toImage(pixelRatio: pixelRatio);
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      image.dispose();
+      if (byteData == null) {
+        throw StateError('图片编码失败');
+      }
+
+      final fileName = _isYearView
+          ? 'jitu_stats_$_selectedYear.png'
+          : 'jitu_stats_${_selectedYear}_${_selectedMonth.toString().padLeft(2, '0')}.png';
+      final success = await StatsShareService.sharePngBytes(
+          byteData.buffer.asUint8List(), fileName);
+
+      // WHY: await 之后组件可能已销毁，pop 与使用 context 前须校验 mounted
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      if (!success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('当前平台不支持导出分享')),
+        );
+      }
+    } catch (e) {
+      // WHY: 异常分支同样在 await 之后，pop 前须校验 mounted
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('导出失败: $e')),
+      );
+    }
   }
 
   /// 构建标签筛选行（横向滚动 Chip：全部 + 各标签）

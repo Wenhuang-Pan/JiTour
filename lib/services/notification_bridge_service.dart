@@ -153,6 +153,41 @@ class NotificationBridgeService {
     }
   }
 
+  /// 检查无障碍服务（支付页面识别）是否已启用
+  ///
+  /// WHY: 部分用户的微信/支付宝不推送支付通知，无障碍服务作为
+  /// 补充通道读取支付成功页面文本自动记账
+  ///
+  /// @return true 表示用户已授权本应用的无障碍服务
+  static Future<bool> isAccessibilityEnabled() async {
+    if (kIsWeb) return false;
+    try {
+      final result =
+          await _methodChannel.invokeMethod<bool>('isAccessibilityEnabled');
+      return result ?? false;
+    } catch (e) {
+      debugPrint('[NotificationBridge] 检查无障碍服务状态失败: $e');
+      return false;
+    }
+  }
+
+  /// 打开系统无障碍设置页
+  ///
+  /// WHY: 无障碍权限必须用户在系统设置中手动开启，无法运行时弹窗请求
+  ///
+  /// @return true 表示成功跳转
+  static Future<bool> openAccessibilitySettings() async {
+    if (kIsWeb) return false;
+    try {
+      final result = await _methodChannel
+          .invokeMethod<bool>('openAccessibilitySettings');
+      return result ?? false;
+    } catch (e) {
+      debugPrint('[NotificationBridge] 打开无障碍设置失败: $e');
+      return false;
+    }
+  }
+
   /// 推送分类列表到原生层缓存
   ///
   /// WHY: OverlayService 显示悬浮窗时需要分类列表渲染 Chip，

@@ -308,10 +308,15 @@ class BackupService {
 
   static Future<List<FileSystemEntity>> getBackupFiles() async {
     final directory = await getApplicationDocumentsDirectory();
+    // WHY: 同时匹配手动备份（jitu_backup_）与自动备份（jitu_auto_backup_）
+    // 两种前缀，备份管理页统一展示；轮转清理由 AutoBackupService 负责，
+    // 仅作用于自动前缀，此处只读列表无需区分
     final files = directory
         .listSync()
-        .where(
-            (f) => f.path.endsWith('.json') && f.path.contains('jitu_backup_'))
+        .where((f) =>
+            f.path.endsWith('.json') &&
+            (f.path.contains('jitu_backup_') ||
+                f.path.contains('jitu_auto_backup_')))
         .toList();
 
     files.sort((a, b) => b.path.compareTo(a.path)); // 最新备份在前

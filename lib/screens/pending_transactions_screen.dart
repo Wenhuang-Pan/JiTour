@@ -634,7 +634,10 @@ class _ConfirmSheetState extends State<_ConfirmSheet> {
   void initState() {
     super.initState();
     // WHY: 默认选中推断分类（若在列表中），否则第一个；账户默认第一个
-    final List<Category> categories = CategoryService.getExpenseCategories();
+    // 分类列表按收支方向选择：收入类 pending（收款/到账）展示收入分类
+    final List<Category> categories = widget.pending.isIncome
+        ? CategoryService.getIncomeCategories()
+        : CategoryService.getExpenseCategories();
     final List<Account> accounts = AccountService.getActiveAccounts();
     _categories = categories.map((Category c) => c.name).toList();
     _accounts = accounts.map((Account a) => a.name).toList();

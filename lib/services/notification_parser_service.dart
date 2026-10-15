@@ -22,6 +22,47 @@ class NotificationParserService {
   static final RegExp _wechatAmountPattern =
       RegExp(r'(\d+(?:\.\d{1,2})?)\s*(?:元|￥|¥)');
 
+  // WHY: 收入类关键词——命中即判定为收入而非支出。
+  // 注意不能用裸「收款」：支出页面的「收款方」（即商户名标签）会造成误判，
+  // 故只匹配明确的成功/到账语义短语
+  static const List<String> _incomeKeywords = <String>[
+    '成功收款',
+    '收款成功',
+    '收款到账',
+    '转账到账',
+    '已到账',
+    '收到转账',
+    '收到红包',
+    '退款成功',
+    '退款到账',
+  ];
+
+  // WHY: 支付成功页（无障碍通道捕获）主流展示「¥12.50」符号在前形式，
+  // 与通知文本的「12.34元」互补，两条正则任一命中即采用
+  static final RegExp _amountPrefixPattern =
+      RegExp(r'(?:￥|¥)\s*(\d+(?:\.\d{1,2})?)');
+
+  /// 判断文本是否描述收入场景
+  ///
+  /// @param text 通知或页面拼接文本
+  /// @return true 表示收入（收款/到账/退款），false 表示支出
+  static bool detectIncome(String text) {
+    // O(k)，k 为关键词数量（常量级）
+    return _incomeKeywords.any(text.contains);
+  }
+
+  /// 从文本中提取金额（符号在前/在后两种形式都尝试）
+  ///
+  /// @param text 文本
+  /// @param suffixPattern 符号在后的正则
+  /// @return 解析到的金额，失败返回 null
+  static Decimal? _extractAmount(String text, RegExp suffixPattern) {
+    final match =
+        suffixPattern.firstMatch(text) ?? _amountPrefixPattern.firstMatch(text);
+    if (match == null) return null;
+    return Decimal.tryParse(match.group(1) ?? '');
+  }
+
   // WHY: 微信商户名提取：「付款给XXX」「收款方:XXX」
   static final RegExp _wechatMerchantPattern =
       RegExp(r'付款给(.+?)$|收款方[:：]\s*(.+?)$');
@@ -45,10 +86,7 @@ class NotificationParserService {
   /// @param text 通知文本
   /// @return 解析结果，失败返回 null
   static ParsedPayment? _parseAlipay(String text) {
-    final amtMatch = _alipayAmountPattern.firstMatch(text);
-    if (amtMatch == null) return null;
-
-    final amount = Decimal.tryParse(amtMatch.group(1) ?? '');
+    final amount = _extractAmount(text, _alipayAmountPattern);
     if (amount == null || amount <= Decimal.zero) return null;
 
     final merMatch = _alipayMerchantPattern.firstMatch(text);
@@ -65,6 +103,7 @@ class NotificationParserService {
       source: PaymentSource.alipay,
       rawText: text,
       timestamp: DateTime.now(),
+      isIncome: detectIncome(text),
     );
   }
 
@@ -73,10 +112,7 @@ class NotificationParserService {
   /// @param text 通知文本
   /// @return 解析结果，失败返回 null
   static ParsedPayment? _parseWechat(String text) {
-    final amtMatch = _wechatAmountPattern.firstMatch(text);
-    if (amtMatch == null) return null;
-
-    final amount = Decimal.tryParse(amtMatch.group(1) ?? '');
+    final amount = _extractAmount(text, _wechatAmountPattern);
     if (amount == null || amount <= Decimal.zero) return null;
 
     final merMatch = _wechatMerchantPattern.firstMatch(text);
@@ -92,6 +128,7 @@ class NotificationParserService {
       source: PaymentSource.wechat,
       rawText: text,
       timestamp: DateTime.now(),
+      isIncome: detectIncome(text),
     );
   }
 }
