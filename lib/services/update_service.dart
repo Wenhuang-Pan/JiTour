@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class UpdateInfo {
@@ -17,12 +18,26 @@ class UpdateInfo {
 }
 
 class UpdateService {
-  static const String currentVersion = '3.2.0';
+  /// 当前应用版本号，由 [init] 从平台包信息读取
+  ///
+  /// WHY: 版本号唯一权威来源是 pubspec.yaml（构建时注入平台包信息），
+  /// 启动时动态读取可避免每次发版手动同步硬编码常量（v3.3.0 曾因漏改
+  /// 旧常量导致已发布应用内版本信息停留在上个版本）
+  static String _currentVersion = '';
+
   static const String githubOwner = 'Wenhuang-Pan';
   static const String githubRepo = 'JiTour';
   static const String _releasesUrl =
       'https://api.github.com/repos/$githubOwner/$githubRepo/releases/latest';
   static const Duration _cacheDuration = Duration(hours: 1);
+
+  /// 初始化：从平台包信息加载当前版本号
+  ///
+  /// 必须在 runApp 前调用（见 main.dart），此后 [getVersion] 返回真实版本。
+  static Future<void> init() async {
+    final info = await PackageInfo.fromPlatform();
+    _currentVersion = info.version;
+  }
 
   static Future<UpdateInfo?> checkForUpdate(
       {bool ignoreSkip = false, bool forceRefresh = false}) async {
@@ -53,7 +68,7 @@ class UpdateService {
           latestVersion = latestVersion.substring(1);
         }
 
-        if (_compareVersions(latestVersion, currentVersion) > 0) {
+        if (_compareVersions(latestVersion, _currentVersion) > 0) {
           if (!ignoreSkip) {
             final skippedVersion = await _getSkippedVersion();
             if (skippedVersion == latestVersion) {
@@ -168,5 +183,5 @@ class UpdateService {
     return 0;
   }
 
-  static String getVersion() => currentVersion;
+  static String getVersion() => _currentVersion;
 }

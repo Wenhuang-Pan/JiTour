@@ -16,6 +16,7 @@ import 'services/database_service.dart';
 import 'services/balance_migration_service.dart';
 import 'services/recurring_transaction_service.dart';
 import 'services/app_lock_service.dart';
+import 'services/update_service.dart';
 import 'services/webdav_backup_service.dart';
 import 'services/auto_backup_service.dart';
 import 'theme/app_theme.dart';
@@ -49,6 +50,10 @@ void main() async {
 
     // WHY: 应用锁开关需在 runApp 前加载，决定首帧展示锁屏页还是主页
     await AppLockService.init();
+
+    // WHY: 版本号须在 runApp 前从平台包信息加载，
+    // 保证抽屉/设置页/关于对话框展示的版本与构建产物一致
+    await UpdateService.init();
 
     final themeProvider = ThemeProvider();
     await themeProvider.init();
