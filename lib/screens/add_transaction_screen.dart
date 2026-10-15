@@ -10,6 +10,8 @@ import '../services/database_service.dart';
 import '../services/category_service.dart';
 import '../services/account_service.dart';
 import '../services/tag_service.dart';
+import '../services/template_service.dart';
+import '../models/transaction_template.dart';
 import '../utils/icon_library.dart';
 import '../utils/uuid_util.dart';
 import '../widgets/numpad.dart';
@@ -206,6 +208,22 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       actions: _isEditing
           ? const []
           : [
+              IconButton(
+                icon: const Icon(
+                  Icons.bookmark_outline_rounded,
+                  color: AppTheme.neutral500,
+                ),
+                onPressed: _showTemplatePicker,
+                tooltip: '使用模板',
+              ),
+              IconButton(
+                icon: const Icon(
+                  Icons.bookmark_add_outlined,
+                  color: AppTheme.neutral500,
+                ),
+                onPressed: _saveCurrentAsTemplate,
+                tooltip: '存为模板',
+              ),
               IconButton(
                 icon: const Icon(
                   Icons.edit_note_rounded,
@@ -733,6 +751,235 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       return IconLibrary.getIconByName(iconName);
     } catch (e) {
       return Icons.category;
+    }
+  }
+
+  /// 显示模板选择器，选中后填充表单
+  ///
+  /// WHY: 常用交易（如每天咖啡）通过模板一键填充分类/账户/金额/备注/标签，
+  /// 金额留空的模板仅填充其他字段，由用户手动输入金额
+  void _showTemplatePicker() {
+    final templates = TemplateService.getAllTemplates();
+    if (templates.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('暂无模板，可先在表单填写后点击"存为模板"')),
+      );
+      return;
+    }
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.getCardColor(context),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppTheme.radiusXLarge),
+        ),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Container(
+            padding: const EdgeInsets.all(AppTheme.spaceLarge),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppTheme.neutral300,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: AppTheme.spaceLarge),
+                Text(
+                  '使用模板',
+                  style: Theme.of(sheetContext)
+                      .textTheme
+                      .titleLarge
+                      ?.copyWith(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: AppTheme.spaceMedium),
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(sheetContext).size.height * 0.4,
+                  ),
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: templates.length,
+                    separatorBuilder: (context, index) =>
+                        const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final template = templates[index];
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: (template.isIncome
+                                    ? AppTheme.successColor
+                                    : AppTheme.getPrimaryColor(sheetContext))
+                                .withValues(alpha: 0.10),
+                            borderRadius:
+                                BorderRadius.circular(AppTheme.radiusSmall),
+                          ),
+                          child: Icon(
+                            template.isIncome
+                                ? Icons.south_west_rounded
+                                : Icons.north_east_rounded,
+                            color: template.isIncome
+                                ? AppTheme.successColor
+                                : AppTheme.getPrimaryColor(sheetContext),
+                            size: 20,
+                          ),
+                        ),
+                        title: Text(
+                          template.name,
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        subtitle: Text(
+                          '${template.category} · ${template.account}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        trailing: Text(
+                          template.amountText,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: template.isIncome
+                                ? AppTheme.successColor
+                                : Theme.of(sheetContext).colorScheme.onSurface,
+                          ),
+                        ),
+                        onTap: () {
+                          Navigator.pop(sheetContext);
+                          _applyTemplate(template);
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  /// 将模板内容填充到表单（覆盖当前已填内容）
+  ///
+  /// @param template 待应用的模板
+  void _applyTemplate(TransactionTemplate template) {
+    setState(() {
+      _currentTab = template.isIncome ? 1 : 0;
+      if (template.amount != null) {
+        _amountText = template.amount!.toStringAsFixed(2);
+      }
+      _noteController.text = template.note ?? '';
+
+      // WHY: 匹配活跃账户，模板中保存的账户可能已被删除或改名，找不到时回退默认
+      final accounts = AccountService.getActiveAccounts();
+      final matchedAccount =
+          accounts.where((a) => a.name == template.account).firstOrNull;
+      _selectedAccount =
+          matchedAccount ?? (accounts.isNotEmpty ? accounts.first : null);
+
+      // WHY: 匹配当前收支类型下的分类，找不到时回退默认
+      final categories = template.isIncome
+          ? CategoryService.getIncomeCategories()
+          : CategoryService.getExpenseCategories();
+      _selectedCategory =
+          categories.where((c) => c.name == template.category).firstOrNull ??
+              categories.firstOrNull;
+
+      // 匹配标签（跳过已物理删除的标签）
+      _selectedTags.clear();
+      for (final tagId in template.tagIds) {
+        final tag = TagService.getTagById(tagId);
+        if (tag != null && tag.isActive) _selectedTags.add(tag);
+      }
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('已填充模板"${template.name}"')),
+    );
+  }
+
+  /// 将当前表单内容存为模板
+  ///
+  /// WHY: 金额非 0 时一并存入，0 金额视为不预填，使用时手动输入
+  Future<void> _saveCurrentAsTemplate() async {
+    if (_selectedCategory == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请先选择分类')),
+      );
+      return;
+    }
+    if (_selectedAccount == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请先选择账户')),
+      );
+      return;
+    }
+
+    final nameController = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: Theme.of(dialogContext).colorScheme.surface,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+        ),
+        title: const Text('存为模板'),
+        content: TextField(
+          controller: nameController,
+          maxLength: 20,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: '模板名称',
+            hintText: '如：每日咖啡',
+            counterText: '',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('保存'),
+          ),
+        ],
+      ),
+    );
+    final name = nameController.text.trim();
+    nameController.dispose();
+    if (confirmed != true || name.isEmpty || !mounted) return;
+
+    final amount = Decimal.tryParse(_amountText) ?? Decimal.zero;
+    final note = _noteController.text.trim();
+    try {
+      final template = await TemplateService.createTemplate(
+        name: name,
+        isIncome: _currentTab == 1,
+        category: _selectedCategory!.name,
+        account: _selectedAccount!.name,
+        amount: amount > Decimal.zero ? amount : null,
+        note: note.isEmpty ? null : note,
+        tagIds: _selectedTags.map((t) => t.id).toList(),
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('已保存模板"${template.name}"')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+      );
     }
   }
 

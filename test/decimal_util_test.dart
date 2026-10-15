@@ -57,6 +57,7 @@ void main() {
       'lib/models/budget.g.dart',
       'lib/models/recurring_transaction.g.dart',
       'lib/models/pending_transaction.g.dart',
+      'lib/models/transaction_template.g.dart',
     ];
     for (final path in adapterFiles) {
       final content = File(path).readAsStringSync();

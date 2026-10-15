@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
+import 'package:quick_actions/quick_actions.dart';
 import 'screens/home_screen.dart';
+import 'screens/add_transaction_screen.dart';
 import 'screens/data_management_screen.dart';
 import 'screens/csv_import_screen.dart';
 import 'screens/export_screen.dart';
@@ -97,19 +99,58 @@ class JituApp extends StatefulWidget {
 }
 
 class _JituAppState extends State<JituApp> with WidgetsBindingObserver {
+  /// 全局导航 Key，用于应用外触发（如 App Shortcuts）时执行页面跳转
+  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+
   /// 当前是否处于锁定状态；应用锁开启时初始为锁定
   bool _locked = AppLockService.isEnabled;
+
+  /// 待处理的 App Shortcut 类型；锁定时暂存，解锁后再跳转
+  String? _pendingShortcutType;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _initQuickActions();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  /// 初始化 App Shortcuts（仅 Android/iOS，Web 跳过）
+  ///
+  /// WHY: 长按桌面图标弹出「记一笔」，冷启动或后台唤醒时回调直达；
+  /// 应用锁开启时先锁定，跳转请求暂存至解锁后执行，防止未授权记账
+  void _initQuickActions() {
+    if (kIsWeb) return;
+    const quickActions = QuickActions();
+    quickActions.initialize((type) {
+      if (type == 'add_transaction') {
+        if (_locked) {
+          _pendingShortcutType = type;
+        } else {
+          _openAddTransaction();
+        }
+      }
+    });
+    quickActions.setShortcutItems(const [
+      ShortcutItem(
+        type: 'add_transaction',
+        localizedTitle: '记一笔',
+        icon: 'ic_shortcut_add',
+      ),
+    ]);
+  }
+
+  /// 打开记账页
+  void _openAddTransaction() {
+    _navigatorKey.currentState?.push(
+      MaterialPageRoute(builder: (_) => const AddTransactionScreen()),
+    );
   }
 
   @override
@@ -125,7 +166,16 @@ class _JituAppState extends State<JituApp> with WidgetsBindingObserver {
 
   /// 锁屏页验证通过后的解锁回调
   void _onUnlocked() {
-    setState(() => _locked = false);
+    setState(() {
+      _locked = false;
+      // WHY: 解锁后消费暂存的 shortcut 跳转，避免用户在锁屏页反复触发
+      if (_pendingShortcutType == 'add_transaction') {
+        _pendingShortcutType = null;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _openAddTransaction();
+        });
+      }
+    });
   }
 
   @override
@@ -133,6 +183,7 @@ class _JituAppState extends State<JituApp> with WidgetsBindingObserver {
     return Consumer<ThemeProvider>(
       builder: (context, themeProvider, child) {
         return MaterialApp(
+          navigatorKey: _navigatorKey,
           title: '记途',
           theme: AppTheme.getTheme(context, isDark: false),
           darkTheme: AppTheme.getTheme(context, isDark: true),

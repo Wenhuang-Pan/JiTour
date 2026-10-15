@@ -13,6 +13,7 @@ import '../widgets/app_lock_card.dart';
 import 'reminder_settings_screen.dart';
 import 'auto_accounting_settings_screen.dart';
 import 'recycle_bin_screen.dart';
+import 'template_management_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -379,6 +380,22 @@ class SettingsScreen extends StatelessWidget {
             subtitle: '将数据导出为CSV文件',
             onTap: () {
               Navigator.pushNamed(context, '/export');
+            },
+          ),
+          const Divider(height: 1, indent: 60),
+          _buildDataItem(
+            context,
+            icon: Icons.bookmark_border_rounded,
+            iconColor: AppTheme.getPrimaryColor(context),
+            title: '账单模板',
+            subtitle: '常用交易存为模板，一键填充',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const TemplateManagementScreen(),
+                ),
+              );
             },
           ),
           const Divider(height: 1, indent: 60),

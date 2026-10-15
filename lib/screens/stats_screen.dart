@@ -30,6 +30,9 @@ class _StatsScreenState extends State<StatsScreen> {
   /// 视图模式（月/年）
   bool _isYearView = false;
 
+  /// 标签筛选（null 表示全部；作用于全页交易口径统计）
+  String? _selectedTagId;
+
   @override
   void initState() {
     super.initState();
@@ -102,12 +105,20 @@ class _StatsScreenState extends State<StatsScreen> {
           final allTransactions = box.values.where((t) => !t.isDeleted).toList()
             ..sort((a, b) => a.date.compareTo(b.date));
 
+          // WHY: 标签筛选统一作用于全页交易口径（KPI/对比/趋势/分类/标签/TOP/年度报表），
+          // 账户分布展示的是资产余额快照而非交易流，不参与筛选
+          final filteredTransactions = _selectedTagId == null
+              ? allTransactions
+              : allTransactions
+                  .where((t) => t.tagIds.contains(_selectedTagId))
+                  .toList();
+
           // 根据视图模式获取交易数据
           final periodTransactions = _isYearView
               ? StatsService.getTransactionsForYear(
-                  allTransactions, _selectedYear)
+                  filteredTransactions, _selectedYear)
               : StatsService.getTransactionsForMonth(
-                  allTransactions, _selectedYear, _selectedMonth);
+                  filteredTransactions, _selectedYear, _selectedMonth);
 
           final totalIncome =
               StatsService.calculateTotal(periodTransactions, true);
@@ -125,18 +136,29 @@ class _StatsScreenState extends State<StatsScreen> {
           final incomeTagStats =
               StatsService.calculateTagStats(periodTransactions, true);
 
-          // 趋势数据始终基于全量交易计算（近6月）
-          final trendData = StatsService.calculateTrendData(allTransactions);
+          // 趋势数据始终基于筛选后的全量交易计算（近6月）
+          final trendData =
+              StatsService.calculateTrendData(filteredTransactions);
+
+          // 年度报表数据（仅年视图使用）：12 个月收支 + 年度摘要
+          final yearMonthlyData = _isYearView
+              ? StatsService.calculateYearMonthlyData(
+                  filteredTransactions, _selectedYear)
+              : null;
+          final yearSummary = _isYearView
+              ? StatsService.calculateYearSummary(
+                  filteredTransactions, _selectedYear)
+              : null;
 
           // 对比分析数据
           final monthComparison = _isYearView
-              ? _calculateYearComparison(allTransactions)
+              ? _calculateYearComparison(filteredTransactions)
               : StatsService.calculateMonthComparisonForMonth(
-                  allTransactions, _selectedYear, _selectedMonth);
+                  filteredTransactions, _selectedYear, _selectedMonth);
           final yearComparison = _isYearView
-              ? _calculateYearComparison2(allTransactions)
+              ? _calculateYearComparison2(filteredTransactions)
               : StatsService.calculateYearComparisonForMonth(
-                  allTransactions, _selectedYear, _selectedMonth);
+                  filteredTransactions, _selectedYear, _selectedMonth);
 
           if (allTransactions.isEmpty) {
             return Center(
@@ -185,6 +207,9 @@ class _StatsScreenState extends State<StatsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // 标签筛选行（筛选作用于全页交易统计；无标签时自动隐藏）
+                _buildTagFilterRow(context),
+
                 // KPI 概览卡片
                 _buildKpiSection(context, totalIncome, totalExpense, balance,
                     isYearView: _isYearView),
@@ -196,11 +221,23 @@ class _StatsScreenState extends State<StatsScreen> {
                     isYearView: _isYearView),
                 const SizedBox(height: AppTheme.spaceXLarge),
 
-                // 收支趋势图
-                if (trendData.isNotEmpty) ...[
+                // 年度摘要卡片（仅年视图）
+                if (_isYearView && yearSummary != null) ...[
+                  _buildYearSummaryCard(context, yearSummary),
+                  const SizedBox(height: AppTheme.spaceXLarge),
+                ],
+
+                // 收支趋势图：月视图显示近6个月折线，年视图显示 12 个月收支柱状图
+                if (!_isYearView && trendData.isNotEmpty) ...[
                   _buildSectionTitle(context, '收支趋势', '近6个月'),
                   const SizedBox(height: AppTheme.spaceMedium),
                   _buildTrendChart(context, trendData),
+                  const SizedBox(height: AppTheme.spaceXLarge),
+                ],
+                if (_isYearView && yearMonthlyData != null) ...[
+                  _buildSectionTitle(context, '月度收支', '$_selectedYear年各月收支对比'),
+                  const SizedBox(height: AppTheme.spaceMedium),
+                  _buildYearBarChart(context, yearMonthlyData),
                   const SizedBox(height: AppTheme.spaceXLarge),
                 ],
 
@@ -258,6 +295,103 @@ class _StatsScreenState extends State<StatsScreen> {
             ),
           );
         },
+      ),
+    );
+  }
+
+  /// 构建标签筛选行（横向滚动 Chip：全部 + 各标签）
+  ///
+  /// WHY: 筛选作用于全页交易口径统计；单独监听 tags box，
+  /// 标签增删改时即使交易未变化也能即时刷新筛选行。
+  /// 选中标签被停用时仍补充显示在首位，让用户感知当前筛选并可点击取消；
+  /// 被物理删除时筛选条件失效，延后重置避免永远查无数据。
+  Widget _buildTagFilterRow(BuildContext context) {
+    return ValueListenableBuilder(
+      valueListenable: DatabaseService.tags.listenable(),
+      builder: (context, Box<Tag> tagBox, _) {
+        final selectedTag = _selectedTagId == null
+            ? null
+            : TagService.getTagById(_selectedTagId!);
+        if (_selectedTagId != null && selectedTag == null) {
+          // WHY: build 期间不可直接 setState，延后到帧结束后重置失效筛选
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) setState(() => _selectedTagId = null);
+          });
+        }
+
+        final displayTags = TagService.getActiveTags();
+        if (selectedTag != null &&
+            !displayTags.any((t) => t.id == selectedTag.id)) {
+          displayTags.insert(0, selectedTag);
+        }
+        if (displayTags.isEmpty) return const SizedBox.shrink();
+
+        final primaryColor = AppTheme.getPrimaryColor(context);
+        return Padding(
+          padding: const EdgeInsets.only(bottom: AppTheme.spaceXLarge),
+          child: SizedBox(
+            height: 36,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              children: [
+                _buildTagFilterChip(
+                  context,
+                  label: '全部',
+                  selected: _selectedTagId == null,
+                  primaryColor: primaryColor,
+                  onSelected: (_) => setState(() => _selectedTagId = null),
+                ),
+                ...displayTags.map(
+                  (tag) => _buildTagFilterChip(
+                    context,
+                    label: tag.name,
+                    selected: _selectedTagId == tag.id,
+                    primaryColor: primaryColor,
+                    onSelected: (selected) => setState(
+                        () => _selectedTagId = selected ? tag.id : null),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  /// 构建单个标签筛选 Chip
+  Widget _buildTagFilterChip(
+    BuildContext context, {
+    required String label,
+    required bool selected,
+    required Color primaryColor,
+    required ValueChanged<bool> onSelected,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(right: AppTheme.spaceSmall),
+      child: FilterChip(
+        label: Text(label),
+        selected: selected,
+        onSelected: onSelected,
+        showCheckmark: false,
+        backgroundColor: AppTheme.getCardColor(context),
+        selectedColor: primaryColor.withValues(alpha: 0.12),
+        labelStyle: TextStyle(
+          color: selected
+              ? primaryColor
+              : Theme.of(context).textTheme.bodyMedium?.color,
+          fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+          fontSize: 13,
+        ),
+        side: BorderSide(
+          color: selected ? primaryColor : AppTheme.getDividerColor(context),
+          width: selected ? 1 : 0.5,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.radiusFull),
+        ),
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        visualDensity: VisualDensity.compact,
       ),
     );
   }
@@ -605,6 +739,278 @@ class _StatsScreenState extends State<StatsScreen> {
               ),
         ),
       ],
+    );
+  }
+
+  /// 年度摘要卡片：结余、月均收支、极值月份
+  Widget _buildYearSummaryCard(BuildContext context, YearSummary summary) {
+    final balance = summary.balance.toDouble();
+    return Container(
+      padding: const EdgeInsets.all(AppTheme.spaceLarge),
+      decoration: BoxDecoration(
+        color: AppTheme.getCardColor(context),
+        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '年度摘要',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+          ),
+          const SizedBox(height: AppTheme.spaceMedium),
+          // 结余
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(AppTheme.spaceMedium),
+            decoration: BoxDecoration(
+              color: AppTheme.getPrimaryColor(context).withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+            ),
+            child: Column(
+              children: [
+                Text(
+                  '年度结余',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppTheme.neutral500,
+                      ),
+                ),
+                const SizedBox(height: AppTheme.spaceXSmall),
+                Text(
+                  '¥${balance.toStringAsFixed(2)}',
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: balance >= 0
+                            ? AppTheme.successColor
+                            : AppTheme.errorColor,
+                      ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppTheme.spaceMedium),
+          Row(
+            children: [
+              Expanded(
+                child: _buildSummaryItem(
+                  context,
+                  '月均收入',
+                  '¥${StatsService.formatAmount(summary.avgMonthlyIncome)}',
+                  AppTheme.successColor,
+                ),
+              ),
+              const SizedBox(width: AppTheme.spaceMedium),
+              Expanded(
+                child: _buildSummaryItem(
+                  context,
+                  '月均支出',
+                  '¥${StatsService.formatAmount(summary.avgMonthlyExpense)}',
+                  AppTheme.errorColor,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppTheme.spaceMedium),
+          Row(
+            children: [
+              Expanded(
+                child: _buildSummaryItem(
+                  context,
+                  '收入最高月',
+                  summary.maxIncomeMonth != null
+                      ? '${summary.maxIncomeMonth}月 ¥${StatsService.formatAmount(summary.maxIncomeAmount.toDouble())}'
+                      : '暂无',
+                  AppTheme.successColor,
+                ),
+              ),
+              const SizedBox(width: AppTheme.spaceMedium),
+              Expanded(
+                child: _buildSummaryItem(
+                  context,
+                  '支出最高月',
+                  summary.maxExpenseMonth != null
+                      ? '${summary.maxExpenseMonth}月 ¥${StatsService.formatAmount(summary.maxExpenseAmount.toDouble())}'
+                      : '暂无',
+                  AppTheme.errorColor,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 年度摘要子项
+  Widget _buildSummaryItem(
+      BuildContext context, String label, String value, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(AppTheme.spaceMedium),
+      decoration: BoxDecoration(
+        color: AppTheme.getSecondaryBackground(context),
+        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppTheme.neutral500,
+                ),
+          ),
+          const SizedBox(height: AppTheme.spaceXSmall),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: color,
+                ),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 年度 12 个月收支柱状图（仅年视图）
+  Widget _buildYearBarChart(
+      BuildContext context, Map<int, Map<String, Decimal>> monthlyData) {
+    // WHY: fl_chart 需要 double，且 maxY 需预留顶部空间避免柱子贴边
+    double maxValue = 0;
+    for (final data in monthlyData.values) {
+      for (final value in data.values) {
+        final v = value.toDouble();
+        if (v > maxValue) maxValue = v;
+      }
+    }
+    final maxY = maxValue > 0 ? maxValue * 1.2 : 1000.0;
+
+    return Container(
+      padding: const EdgeInsets.all(AppTheme.spaceLarge),
+      decoration: BoxDecoration(
+        color: AppTheme.getCardColor(context),
+        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+      ),
+      child: Column(
+        children: [
+          SizedBox(
+            height: 220,
+            child: BarChart(
+              BarChartData(
+                maxY: maxY,
+                gridData: FlGridData(
+                  show: true,
+                  drawVerticalLine: false,
+                  horizontalInterval: maxY / 4,
+                  getDrawingHorizontalLine: (value) {
+                    return FlLine(
+                      color: AppTheme.getDividerColor(context),
+                      strokeWidth: 1,
+                    );
+                  },
+                ),
+                titlesData: FlTitlesData(
+                  leftTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 48,
+                      getTitlesWidget: (value, meta) {
+                        return Text(
+                          StatsService.formatAxisValue(value),
+                          style: const TextStyle(
+                            fontSize: 10,
+                            color: AppTheme.neutral500,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      getTitlesWidget: (value, meta) {
+                        final month = value.toInt();
+                        if (month < 1 || month > 12) return const Text('');
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(
+                            '$month月',
+                            style: const TextStyle(
+                              fontSize: 9,
+                              color: AppTheme.neutral500,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  rightTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false)),
+                  topTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false)),
+                ),
+                borderData: FlBorderData(show: false),
+                barGroups: [
+                  for (var m = 1; m <= 12; m++)
+                    BarChartGroupData(
+                      x: m,
+                      barsSpace: 3,
+                      barRods: [
+                        BarChartRodData(
+                          toY: (monthlyData[m]!['income'] ?? Decimal.zero)
+                              .toDouble(),
+                          color: AppTheme.successColor,
+                          width: 7,
+                          borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(3)),
+                        ),
+                        BarChartRodData(
+                          toY: (monthlyData[m]!['expense'] ?? Decimal.zero)
+                              .toDouble(),
+                          color: AppTheme.errorColor,
+                          width: 7,
+                          borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(3)),
+                        ),
+                      ],
+                    ),
+                ],
+                barTouchData: BarTouchData(
+                  touchTooltipData: BarTouchTooltipData(
+                    tooltipBgColor:
+                        Theme.of(context).colorScheme.inverseSurface,
+                    getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                      final isIncome = rodIndex == 0;
+                      return BarTooltipItem(
+                        '${group.x}月 ${isIncome ? "收入" : "支出"}\n¥${rod.toY.toStringAsFixed(0)}',
+                        TextStyle(
+                          color: isIncome
+                              ? AppTheme.successColor
+                              : AppTheme.errorColor,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: AppTheme.spaceMedium),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _buildLegendItem('收入', AppTheme.successColor),
+              const SizedBox(width: AppTheme.spaceXLarge),
+              _buildLegendItem('支出', AppTheme.errorColor),
+            ],
+          ),
+        ],
+      ),
     );
   }
 

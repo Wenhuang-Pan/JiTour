@@ -23,6 +23,48 @@ class TagStatEntry {
   });
 }
 
+/// 年度摘要数据（纯内存 DTO，不入 Hive）
+class YearSummary {
+  /// 年度总收入
+  final Decimal totalIncome;
+
+  /// 年度总支出
+  final Decimal totalExpense;
+
+  /// 年度结余（收入 - 支出）
+  final Decimal balance;
+
+  /// 月均收入
+  final double avgMonthlyIncome;
+
+  /// 月均支出
+  final double avgMonthlyExpense;
+
+  /// 支出最高的月份（1-12），当年无支出时为 null
+  final int? maxExpenseMonth;
+
+  /// 最高月支出金额
+  final Decimal maxExpenseAmount;
+
+  /// 收入最高的月份（1-12），当年无收入时为 null
+  final int? maxIncomeMonth;
+
+  /// 最高月收入金额
+  final Decimal maxIncomeAmount;
+
+  const YearSummary({
+    required this.totalIncome,
+    required this.totalExpense,
+    required this.balance,
+    required this.avgMonthlyIncome,
+    required this.avgMonthlyExpense,
+    required this.maxExpenseMonth,
+    required this.maxExpenseAmount,
+    required this.maxIncomeMonth,
+    required this.maxIncomeAmount,
+  });
+}
+
 class StatsService {
   StatsService._();
 
@@ -154,6 +196,81 @@ class StatsService {
       }
     }
     return maxValue > 0 ? maxValue * 1.2 : 1000;
+  }
+
+  /// 计算指定年份 12 个月的收支数据
+  ///
+  /// 时间复杂度：O(n)，n=交易数
+  /// @param allTransactions 所有交易记录
+  /// @param year 年份
+  /// @return key 为月份（1-12），value 含 'income'/'expense' 两项；无交易的月份为 0
+  static Map<int, Map<String, Decimal>> calculateYearMonthlyData(
+      List<Transaction> allTransactions, int year) {
+    final result = <int, Map<String, Decimal>>{};
+    for (var m = 1; m <= 12; m++) {
+      result[m] = {'income': Decimal.zero, 'expense': Decimal.zero};
+    }
+    for (final t in allTransactions) {
+      if (t.date.year != year) continue;
+      final bucket = result[t.date.month]!;
+      if (t.isIncome) {
+        bucket['income'] = bucket['income']! + t.amount;
+      } else {
+        bucket['expense'] = bucket['expense']! + t.amount;
+      }
+    }
+    return result;
+  }
+
+  /// 计算年度摘要（结余、月均、极值月份）
+  ///
+  /// WHY: 月均分母按"有数据的月份范围"取值——当前年取已过月份数，
+  /// 历史年份固定 12，避免年初查看时月均虚高
+  /// @param allTransactions 所有交易记录
+  /// @param year 年份
+  /// @return 年度摘要数据
+  static YearSummary calculateYearSummary(
+      List<Transaction> allTransactions, int year) {
+    final monthly = calculateYearMonthlyData(allTransactions, year);
+
+    var totalIncome = Decimal.zero;
+    var totalExpense = Decimal.zero;
+    int? maxExpenseMonth;
+    var maxExpenseAmount = Decimal.zero;
+    int? maxIncomeMonth;
+    var maxIncomeAmount = Decimal.zero;
+
+    for (var m = 1; m <= 12; m++) {
+      final income = monthly[m]!['income']!;
+      final expense = monthly[m]!['expense']!;
+      totalIncome += income;
+      totalExpense += expense;
+      if (expense > maxExpenseAmount) {
+        maxExpenseAmount = expense;
+        maxExpenseMonth = m;
+      }
+      if (income > maxIncomeAmount) {
+        maxIncomeAmount = income;
+        maxIncomeMonth = m;
+      }
+    }
+
+    final now = DateTime.now();
+    final monthsElapsed = year == now.year ? now.month : 12;
+    final divisor = Decimal.fromInt(monthsElapsed);
+
+    return YearSummary(
+      totalIncome: totalIncome,
+      totalExpense: totalExpense,
+      balance: totalIncome - totalExpense,
+      // WHY: Decimal 除法返回 Rational，转 double 供 UI 展示，与项目惯例一致
+      avgMonthlyIncome: (totalIncome / divisor).toDouble(),
+      avgMonthlyExpense: (totalExpense / divisor).toDouble(),
+      maxExpenseMonth: maxExpenseMonth,
+      maxExpenseAmount: maxExpenseAmount,
+      maxIncomeMonth: maxIncomeMonth,
+      maxIncomeAmount: maxIncomeAmount,
+    );
   }
 
   /// 格式化坐标轴数值

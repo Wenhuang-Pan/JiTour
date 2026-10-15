@@ -10,6 +10,7 @@ import '../models/savings_goal.dart';
 import '../models/debt.dart';
 import '../models/recurring_transaction.dart';
 import '../models/pending_transaction.dart';
+import '../models/transaction_template.dart';
 import '../utils/decimal_util.dart';
 import 'category_service.dart';
 import 'account_service.dart';
@@ -26,6 +27,7 @@ class DatabaseService {
   static const String _debtBoxName = 'debts';
   static const String _recurringTransactionBoxName = 'recurring_transactions';
   static const String _locationBoxName = 'locations';
+  static const String _transactionTemplateBoxName = 'transaction_templates';
   // WHY: 支付通知自动记账相关 box
   static const String _pendingTransactionBoxName = 'pending_transactions';
   static const String _merchantCategoryMapBoxName = 'merchant_category_map';
@@ -39,6 +41,7 @@ class DatabaseService {
   static late Box<Debt> _debtBox;
   static late Box<RecurringTransaction> _recurringTransactionBox;
   static late Box<Map<String, dynamic>> _locationBox;
+  static late Box<TransactionTemplate> _transactionTemplateBox;
   // WHY: 待确认交易、商户学习表、自动记账偏好
   static late Box<PendingTransaction> _pendingTransactionBox;
   static late Box<String> _merchantCategoryMapBox;
@@ -79,6 +82,10 @@ class DatabaseService {
     if (!Hive.isAdapterRegistered(10)) {
       Hive.registerAdapter(PendingStatusAdapter());
     }
+    // WHY: 账单模板 adapter（typeId 11），v3.2.0 新增
+    if (!Hive.isAdapterRegistered(11)) {
+      Hive.registerAdapter(TransactionTemplateAdapter());
+    }
     // WHY: Decimal 类型适配器（typeId 100），将金额序列化为 String 存储，避免浮点误差
     if (!Hive.isAdapterRegistered(100)) {
       Hive.registerAdapter(DecimalAdapter());
@@ -94,6 +101,8 @@ class DatabaseService {
     _recurringTransactionBox =
         await Hive.openBox<RecurringTransaction>(_recurringTransactionBoxName);
     _locationBox = await Hive.openBox<Map<String, dynamic>>(_locationBoxName);
+    _transactionTemplateBox =
+        await Hive.openBox<TransactionTemplate>(_transactionTemplateBoxName);
     // WHY: 打开支付通知自动记账相关 box
     _pendingTransactionBox =
         await Hive.openBox<PendingTransaction>(_pendingTransactionBoxName);
@@ -125,6 +134,8 @@ class DatabaseService {
   static Box<RecurringTransaction> get recurringTransactions =>
       _recurringTransactionBox;
   static Box<Map<String, dynamic>> get locations => _locationBox;
+  static Box<TransactionTemplate> get transactionTemplates =>
+      _transactionTemplateBox;
   // WHY: 支付通知自动记账相关 box getter
   static Box<PendingTransaction> get pendingTransactions =>
       _pendingTransactionBox;
