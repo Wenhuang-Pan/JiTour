@@ -16,5 +16,10 @@
 -dontwarn com.google.mlkit.vision.text.japanese.**
 -dontwarn com.google.mlkit.vision.text.korean.**
 
+# WHY: Flutter 引擎的 PlayStoreDeferredComponentManager 引用 Google Play Core
+# 类，但本项目为 GitHub 直发 APK、未引入 Play Core 依赖且不使用 deferred
+# components（按需分发组件），相关代码路径运行时不会执行，抑制警告即可
+-dontwarn com.google.android.play.core.**
+
 # WHY: Hive 序列化完全在 Dart 层完成（libapp.so），不涉及 Android 反射，
 # 无需 keep 规则；此处无模型类属正常
