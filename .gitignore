@@ -39,6 +39,9 @@ debug-terminal-command-failure.md
 /build/
 /coverage/
 
+# WHY: 本地发版备份 APK 产物（100+MB），禁止入库
+/release_backup/
+
 # Symbolication related
 app.*.symbols
 
