@@ -30,6 +30,13 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      # WHY: 缓存 Gradle 发行版、依赖包与构建缓存，避免每次运行重新下载几百 MB
+      # 依赖（省 2-4 分钟）。首次运行写入缓存，后续运行 10-30 秒恢复。
+      # org.gradle.caching=true 已在 CI 内存参数中设置，build cache 可跨运行
+      # 复用未变化任务（如第三方库处理）的输出，效果接近增量构建
+      - name: 配置 Gradle 缓存
+        uses: gradle/actions/setup-gradle@v4
+
       - name: 安装 Flutter 3.41.4
         uses: subosito/flutter-action@v2
         with:
@@ -73,8 +80,10 @@ jobs:
           kotlin.compiler.execution.strategy=in-process
           EOF
 
+      # WHY: 仅编译 ARM 架构（arm32/arm64），裁掉 x86_64——该架构仅 Android 模拟器
+      # 可用，真机全部为 ARM。省 1-2 分钟 Dart AOT 编译与打包时间，APK 减重约 1/3
       - name: 构建 release APK
-        run: flutter build apk --release
+        run: flutter build apk --release --target-platform=android-arm,android-arm64
 
       - name: 整理产物并生成 SHA256 校验值
         run: |
