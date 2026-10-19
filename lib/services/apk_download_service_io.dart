@@ -1,18 +1,76 @@
 // WHY: 该文件仅在 dart:io 可用平台参与编译，Web 端由 stub 替代
 import 'dart:io';
-import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
+import 'package:flutter/services.dart' show MethodChannel;
 import 'package:http/http.dart' as http;
 import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 
 /// APK 应用内下载与安装服务（IO 平台实现）
 ///
-/// 下载到应用私有外部存储目录（免存储权限），完成后通过系统安装器覆盖安装
+/// Android 端优先走系统 DownloadManager（后台下载不中断），
+/// 桌面端走内存流式下载；完成后通过系统安装器覆盖安装
 class ApkDownloadService {
   static http.Client? _activeClient;
   static bool _cancelRequested = false;
 
-  /// 流式下载 APK 到本地，并通过回调汇报进度
+  // WHY: 与 MainActivity.configureFlutterEngine 注册的系统下载通道保持一致
+  static const MethodChannel _systemDlChannel =
+      MethodChannel('jitu.system_downloader/methods');
+
+  /// 当前平台是否支持系统后台下载（Android 专属能力）
+  ///
+  /// @return Android 平台返回 true；桌面平台返回 false（走前台流式下载）
+  static bool get supportsSystemDownload => !kIsWeb && Platform.isAndroid;
+
+  /// 通过系统 DownloadManager 创建后台下载任务
+  ///
+  /// WHY: 系统下载器独立于应用进程，用户离开应用后下载依然继续，
+  /// 且自带断点续传与通知栏进度，解决 Dart 层 http 下载退后台即中断的问题
+  ///
+  /// @param url APK 下载地址（GitHub Releases 的重定向由系统下载器自动跟随）
+  /// @return 系统下载任务 ID（用于后续查询进度与取消）
+  /// @throws Exception 平台调用失败或返回非法 ID 时抛出
+  static Future<int> startSystemDownload(String url) async {
+    final id = await _systemDlChannel.invokeMethod<int>(
+      'enqueueApkDownload',
+      {'url': url},
+    );
+    if (id == null || id <= 0) {
+      throw Exception('创建系统下载任务失败: downloadId=$id');
+    }
+    debugPrint('[Update] 系统下载任务已创建: $id');
+    return id;
+  }
+
+  /// 查询系统下载任务的状态与进度
+  ///
+  /// @param downloadId [startSystemDownload] 返回的任务 ID
+  /// @return 状态 Map：status（running/paused/pending/successful/failed）、
+  ///         bytesSoFar、totalBytes、filePath（仅成功时非空）；任务不存在返回 null
+  /// @throws Exception 平台调用失败时抛出（调用方可选择忽略单次失败）
+  static Future<Map<String, dynamic>?> querySystemDownload(
+      int downloadId) async {
+    final raw = await _systemDlChannel.invokeMethod<Map<dynamic, dynamic>>(
+      'queryApkDownloadStatus',
+      {'downloadId': downloadId},
+    );
+    return raw?.cast<String, dynamic>();
+  }
+
+  /// 取消系统下载任务并删除已下载内容
+  ///
+  /// @param downloadId [startSystemDownload] 返回的任务 ID
+  /// @return true 表示任务存在且已移除
+  static Future<bool> cancelSystemDownload(int downloadId) async {
+    final ok = await _systemDlChannel.invokeMethod<bool>(
+      'cancelApkDownload',
+      {'downloadId': downloadId},
+    );
+    return ok ?? false;
+  }
+
+  /// 流式下载 APK 到本地，并通过回调汇报进度（桌面平台前台下载路径）
   ///
   /// @param url APK 下载地址（GitHub Releases 的 302 重定向由 http 自动跟随）
   /// @param onProgress 进度回调：(已下载字节数, 总字节数)，总字节数未知时为 0

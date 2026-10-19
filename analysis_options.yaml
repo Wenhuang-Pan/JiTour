@@ -21,8 +21,10 @@ linter:
   # `// ignore_for_file: name_of_lint` syntax on the line or in the file
   # producing the lint.
   rules:
-    # avoid_print: false  # Uncomment to disable the `avoid_print` rule
-    # prefer_single_quotes: true  # Uncomment to enable the `prefer_single_quotes` rule
+    # WHY: 项目规范要求日志统一使用 debugPrint，禁止 print 直接输出
+    avoid_print: true
+    # WHY: 全库代码风格已统一单引号，固化为规则防止风格回退
+    prefer_single_quotes: true
 
 # Additional information about this file can be found at
 # https://dart.dev/guides/language/analysis-options

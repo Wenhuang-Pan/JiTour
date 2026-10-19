@@ -37,23 +37,14 @@ void main() async {
     await Hive.initFlutter();
     await DatabaseService.init();
 
-    // WHY: 回收站交易超过保留期后物理清除，启动时惰性执行即可，
-    // 无需后台定时任务；box 为内存操作，不影响启动性能
-    await DatabaseService.purgeExpiredDeletedTransactions();
-
     // WHY: 必须先补扣历史自动记账漏扣的余额，再执行当天定期交易，
-    // 确保后续交易均走 v2.3.0 的余额联动逻辑，迁移不会重复处理新交易
+    // 确保后续交易均走 v2.3.0 的余额联动逻辑，迁移不会重复处理新交易。
+    // 迁移幂等且仅升级后首次启动执行，保留在首帧前同步完成，
+    // 避免延后窗口期内用户看到未迁移的余额
     await BalanceMigrationService.runIfNeeded();
-
-    // 检查并执行定期交易
-    await RecurringTransactionService.checkAndExecute();
 
     // WHY: 应用锁开关需在 runApp 前加载，决定首帧展示锁屏页还是主页
     await AppLockService.init();
-
-    // WHY: 版本号须在 runApp 前从平台包信息加载，
-    // 保证抽屉/设置页/关于对话框展示的版本与构建产物一致
-    await UpdateService.init();
 
     final themeProvider = ThemeProvider();
     await themeProvider.init();
@@ -67,11 +58,6 @@ void main() async {
     final autoAccountingProvider = AutoAccountingProvider();
     await autoAccountingProvider.init();
 
-    if (!kIsWeb) {
-      debugPrint(
-          'Auto backup services use lazy startup check (no workmanager)');
-    }
-
     runApp(
       MultiProvider(
         providers: [
@@ -83,6 +69,17 @@ void main() async {
         child: const JituApp(),
       ),
     );
+
+    // WHY: 以下初始化均无首帧依赖（回收站清理/定期交易/版本号），延后到
+    // 首帧渲染完成后执行，缩短冷启动白屏时间：
+    // - 回收站清理：晚几秒物理清除无影响
+    // - 定期交易：每日最多执行一次，且首帧前迁移已完成，顺序依赖保持
+    // - 版本号：仅抽屉/设置/关于页展示，用户实际打开远晚于此
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(DatabaseService.purgeExpiredDeletedTransactions());
+      unawaited(RecurringTransactionService.checkAndExecute());
+      unawaited(UpdateService.init());
+    });
 
     // WHY: WebDAV 自动备份采用 fire-and-forget：不 await、不阻塞首帧渲染；
     // 内部自行判断开关与距上次备份的频率天数，失败仅记录日志。

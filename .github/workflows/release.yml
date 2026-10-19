@@ -67,7 +67,9 @@ jobs:
 
       # WHY: gradle.properties 为本地低内存开发机调优（-Xmx1280m/MaxMetaspaceSize=384m），
       # CI runner（7G 内存）执行 R8+AOT 的 release 构建时 384m Metaspace 不足导致 OOM，
-      # 故 CI 单独覆盖内存参数，不影响本地开发机构建
+      # 故 CI 单独覆盖内存参数，不影响本地开发机构建。
+      # workers.max=4：CI 为 4 核机器，原值 2 过于保守（历史 OOM 防御遗留），
+      # 提高 worker 并发可缩短 Kotlin/资源任务总耗时
       - name: 调整 CI 构建内存参数
         run: |
           cat > android/gradle.properties <<'EOF'
@@ -75,15 +77,16 @@ jobs:
           android.useAndroidX=true
           org.gradle.daemon=false
           org.gradle.parallel=false
-          org.gradle.workers.max=2
+          org.gradle.workers.max=4
           org.gradle.caching=true
           kotlin.compiler.execution.strategy=in-process
           EOF
 
-      # WHY: 仅编译 ARM 架构（arm32/arm64），裁掉 x86_64——该架构仅 Android 模拟器
-      # 可用，真机全部为 ARM。省 1-2 分钟 Dart AOT 编译与打包时间，APK 减重约 1/3
+      # WHY: 仅编译 arm64 架构——现代 Android 手机（约 2019 年后）均为 arm64，
+      # x86_64 仅模拟器可用、arm32 老设备已极少。相比全架构裁掉两次
+      # Dart AOT 编译与打包，构建省 2-4 分钟，APK 体积减至约 1/3
       - name: 构建 release APK
-        run: flutter build apk --release --target-platform=android-arm,android-arm64
+        run: flutter build apk --release --target-platform=android-arm64
 
       - name: 整理产物并生成 SHA256 校验值
         run: |

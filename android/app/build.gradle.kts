@@ -82,10 +82,12 @@ android {
     buildTypes {
         release {
             signingConfig = signingConfigs.getByName("release")
-            // WHY: 关闭 R8 代码压缩，避免 mlkit 等插件缺失类导致构建失败
-            // WHY: 保留 proguard-rules.pro 引用，未来需要混淆时可重新开启
-            isMinifyEnabled = false
-            isShrinkResources = false
+            // WHY: 开启 R8 代码压缩与资源收缩以缩减 APK 体积（dex 与未用资源是大头）。
+            // 历史上因 mlkit 插件缺失类导致构建失败而关闭，现 proguard-rules.pro
+            // 已补充 -dontwarn 规则抑制，且原生服务类已全包 keep，可安全开启。
+            // mlkit OCR 拍照识别为高风险点，发版前需真机回归验证
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

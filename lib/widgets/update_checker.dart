@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/apk_download_service.dart';
 import '../services/update_service.dart';
@@ -349,12 +352,185 @@ class _UpdateActionDialog extends StatefulWidget {
   State<_UpdateActionDialog> createState() => _UpdateActionDialogState();
 }
 
-class _UpdateActionDialogState extends State<_UpdateActionDialog> {
+class _UpdateActionDialogState extends State<_UpdateActionDialog>
+    with WidgetsBindingObserver {
+  // WHY: downloadId 持久化键——进程被杀后重开应用时据此恢复下载进度/安装提示
+  static const String _kDownloadIdKey = 'update_download_id';
+  static const String _kDownloadVersionKey = 'update_download_version';
+
   _DownloadPhase _phase = _DownloadPhase.ready;
   int _received = 0;
   int _total = 0;
   String? _apkFilePath;
   bool _installLaunchFailed = false;
+
+  // WHY: Android 系统下载的进度轮询定时器；对话框关闭（dispose）时取消轮询，
+  // 下载本身在系统层继续，下次打开对话框通过 initState 恢复现场
+  Timer? _pollTimer;
+  int? _downloadId;
+
+  bool get _isSystemDownload => ApkDownloadService.supportsSystemDownload;
+
+  @override
+  void initState() {
+    super.initState();
+    if (_isSystemDownload) {
+      WidgetsBinding.instance.addObserver(this);
+      _restorePersistedDownload();
+    }
+  }
+
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    if (_isSystemDownload) {
+      WidgetsBinding.instance.removeObserver(this);
+    }
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // WHY: 用户从后台回到前台时立即刷新一次进度，缩短轮询延迟感知
+    if (state == AppLifecycleState.resumed &&
+        _phase == _DownloadPhase.downloading &&
+        _downloadId != null) {
+      _pollOnce(_downloadId!);
+    }
+  }
+
+  /// 恢复上次未完成的系统下载任务（进程被杀/对话框关闭后重进）
+  ///
+  /// WHY: downloadId 与目标版本号持久化到 SharedPreferences，对话框打开时
+  /// 检测进行中/已完成的下载并恢复到对应阶段，避免重复下载
+  Future<void> _restorePersistedDownload() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedId = prefs.getInt(_kDownloadIdKey);
+    final savedVersion = prefs.getString(_kDownloadVersionKey);
+    if (savedId == null || savedVersion == null) return;
+    if (savedVersion != widget.updateInfo.version) {
+      // WHY: 目标版本已变化，旧任务与持久化记录一并清理
+      await ApkDownloadService.cancelSystemDownload(savedId);
+      await _clearPersistedDownload();
+      return;
+    }
+    final Map<String, dynamic>? status;
+    try {
+      status = await ApkDownloadService.querySystemDownload(savedId);
+    } catch (e) {
+      debugPrint('[Update] 恢复下载任务查询失败: $e');
+      return;
+    }
+    if (!mounted) return;
+    if (status == null) {
+      // WHY: 任务已被系统/用户清除，持久化记录失去意义
+      await _clearPersistedDownload();
+      return;
+    }
+    // WHY: try 块内赋值的可空变量提升在闭包内失效，改用非空别名供闭包安全访问
+    final Map<String, dynamic> data = status;
+    switch (data['status'] as String?) {
+      case 'successful':
+        final path = data['filePath'] as String?;
+        if (path == null) {
+          await _clearPersistedDownload();
+          return;
+        }
+        _downloadId = savedId;
+        _apkFilePath = path;
+        setState(() => _phase = _DownloadPhase.done);
+        await _launchInstaller();
+      case 'failed':
+        await _clearPersistedDownload();
+      default:
+        // WHY: running/paused/pending 均视为下载中，恢复进度显示并继续轮询
+        _downloadId = savedId;
+        setState(() {
+          _phase = _DownloadPhase.downloading;
+          _received = (data['bytesSoFar'] as num?)?.toInt() ?? 0;
+          _total = (data['totalBytes'] as num?)?.toInt() ?? 0;
+        });
+        _startPolling(savedId);
+    }
+  }
+
+  /// Android 端：创建系统下载任务并持久化任务 ID
+  Future<void> _startSystemDownload() async {
+    try {
+      final id = await ApkDownloadService.startSystemDownload(
+          widget.updateInfo.downloadUrl);
+      if (!mounted) return;
+      _downloadId = id;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(_kDownloadIdKey, id);
+      await prefs.setString(_kDownloadVersionKey, widget.updateInfo.version);
+      if (!mounted) return;
+      _startPolling(id);
+    } catch (e) {
+      debugPrint('[Update] 创建系统下载任务失败: $e');
+      if (!mounted) return;
+      setState(() => _phase = _DownloadPhase.failed);
+    }
+  }
+
+  /// 启动进度轮询（1 秒间隔），状态迁移：downloading → done/failed
+  void _startPolling(int id) {
+    _pollTimer?.cancel();
+    _pollTimer = Timer.periodic(
+      const Duration(seconds: 1),
+      (_) => _pollOnce(id),
+    );
+  }
+
+  /// 执行一次进度查询（轮询周期体与回前台刷新共用）
+  Future<void> _pollOnce(int id) async {
+    final Map<String, dynamic>? status;
+    try {
+      status = await ApkDownloadService.querySystemDownload(id);
+    } catch (e) {
+      // WHY: 单次查询失败不打断轮询，下个周期自动重试
+      debugPrint('[Update] 查询下载进度失败: $e');
+      return;
+    }
+    if (!mounted) {
+      _pollTimer?.cancel();
+      return;
+    }
+    if (status == null) {
+      // WHY: 任务被系统/用户清除，转为失败态并清理持久化
+      _pollTimer?.cancel();
+      await _clearPersistedDownload();
+      if (!mounted) return;
+      setState(() => _phase = _DownloadPhase.failed);
+      return;
+    }
+    // WHY: try 块内赋值的可空变量提升在闭包内失效，改用非空别名供闭包安全访问
+    final Map<String, dynamic> data = status;
+    switch (data['status'] as String?) {
+      case 'successful':
+        _pollTimer?.cancel();
+        _apkFilePath = data['filePath'] as String?;
+        setState(() => _phase = _DownloadPhase.done);
+        await _launchInstaller();
+      case 'failed':
+        _pollTimer?.cancel();
+        await _clearPersistedDownload();
+        if (!mounted) return;
+        setState(() => _phase = _DownloadPhase.failed);
+      default:
+        setState(() {
+          _received = (data['bytesSoFar'] as num?)?.toInt() ?? 0;
+          _total = (data['totalBytes'] as num?)?.toInt() ?? 0;
+        });
+    }
+  }
+
+  /// 清除 downloadId 持久化记录
+  Future<void> _clearPersistedDownload() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_kDownloadIdKey);
+    await prefs.remove(_kDownloadVersionKey);
+  }
 
   Future<void> _startDownload() async {
     setState(() {
@@ -362,6 +538,12 @@ class _UpdateActionDialogState extends State<_UpdateActionDialog> {
       _received = 0;
       _total = 0;
     });
+    // WHY: Android 优先走系统 DownloadManager 后台下载，离开应用不中断；
+    // 桌面平台无系统下载器，保持原有 http 流式前台下载
+    if (_isSystemDownload) {
+      await _startSystemDownload();
+      return;
+    }
     try {
       final filePath = await ApkDownloadService.downloadApk(
         widget.updateInfo.downloadUrl,
@@ -388,12 +570,23 @@ class _UpdateActionDialogState extends State<_UpdateActionDialog> {
   }
 
   void _cancelDownload() {
+    _pollTimer?.cancel();
     setState(() {
       _phase = _DownloadPhase.ready;
       _received = 0;
       _total = 0;
     });
-    ApkDownloadService.cancelDownload();
+    if (_isSystemDownload) {
+      final id = _downloadId;
+      _downloadId = null;
+      if (id != null) {
+        // WHY: 取消即删除系统任务与持久化记录，避免残留半成品占用空间
+        ApkDownloadService.cancelSystemDownload(id)
+            .then((_) => _clearPersistedDownload());
+      }
+    } else {
+      ApkDownloadService.cancelDownload();
+    }
   }
 
   Future<void> _launchInstaller() async {
@@ -403,6 +596,11 @@ class _UpdateActionDialogState extends State<_UpdateActionDialog> {
     if (!mounted) return;
     // WHY: 调起失败不弹 SnackBar（会被对话框遮挡），改为在 done 视图中内联警示
     setState(() => _installLaunchFailed = !ok);
+    // WHY: 安装器调起成功后清除持久化，防止下次打开重复进入"待安装"状态；
+    // 调起失败保留记录便于重试
+    if (ok) {
+      await _clearPersistedDownload();
+    }
   }
 
   void _downloadViaBrowser() {
@@ -436,8 +634,9 @@ class _UpdateActionDialogState extends State<_UpdateActionDialog> {
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      // WHY: 下载中拦截系统返回键，防止对话框被关导致下载中断且无法调起安装
-      canPop: _phase != _DownloadPhase.downloading,
+      // WHY: 桌面流式下载中仍拦截返回键（下载绑定在对话框生命周期）；
+      // Android 系统下载独立于应用进程，允许关闭对话框退到后台继续下载
+      canPop: _phase != _DownloadPhase.downloading || _isSystemDownload,
       child: AlertDialog(
         backgroundColor: Theme.of(context).colorScheme.surface,
         surfaceTintColor: Colors.transparent,
@@ -505,6 +704,28 @@ class _UpdateActionDialogState extends State<_UpdateActionDialog> {
             fontSize: AppTheme.textLabelMedium,
           ),
         ),
+        // WHY: 仅系统后台下载显示该提示——用户可放心离开应用，下载在系统层继续
+        if (_isSystemDownload) ...[
+          const SizedBox(height: AppTheme.spaceSmall),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.cloud_done_rounded,
+                size: 12,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: AppTheme.spaceXSmall),
+              Text(
+                '离开应用下载不中断，通知栏可查看进度',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontSize: AppTheme.textLabelSmall,
+                ),
+              ),
+            ],
+          ),
+        ],
       ],
     );
   }
@@ -608,6 +829,13 @@ class _UpdateActionDialogState extends State<_UpdateActionDialog> {
           ),
         ],
       _DownloadPhase.downloading => [
+          // WHY: 系统下载支持退到后台继续，提供"后台下载"快速关闭入口；
+          // 桌面流式下载关闭即中断，不显示该按钮
+          if (_isSystemDownload)
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('后台下载'),
+            ),
           TextButton(
             onPressed: _cancelDownload,
             child: const Text('取消下载'),

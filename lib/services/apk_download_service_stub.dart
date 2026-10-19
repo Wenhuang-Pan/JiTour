@@ -3,6 +3,34 @@
 /// WHY: Web 端无本地文件系统与 APK 安装能力，该桩仅保证条件导入编译通过。
 /// 实际不会被调用——Web 端更新走浏览器刷新分支
 class ApkDownloadService {
+  /// 当前平台是否支持系统后台下载（Web 不支持）
+  static bool get supportsSystemDownload => false;
+
+  /// 创建系统下载任务（Web 不支持，直接抛异常）
+  ///
+  /// @param url APK 下载地址
+  /// @return 不会返回，固定抛 [UnsupportedError]
+  /// @throws UnsupportedError Web 平台不支持系统下载
+  static Future<int> startSystemDownload(String url) {
+    throw UnsupportedError('Web 平台不支持系统下载');
+  }
+
+  /// 查询系统下载任务状态（Web 无任务，固定返回 null）
+  ///
+  /// @param downloadId 下载任务 ID
+  /// @return 固定返回 null
+  static Future<Map<String, dynamic>?> querySystemDownload(int downloadId) {
+    return Future.value(null);
+  }
+
+  /// 取消系统下载任务（Web 无任务，固定返回 false）
+  ///
+  /// @param downloadId 下载任务 ID
+  /// @return 固定返回 false
+  static Future<bool> cancelSystemDownload(int downloadId) {
+    return Future.value(false);
+  }
+
   /// 下载 APK（Web 不支持，直接抛异常）
   ///
   /// @param url APK 下载地址
