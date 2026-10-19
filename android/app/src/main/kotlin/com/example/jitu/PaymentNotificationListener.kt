@@ -31,6 +31,10 @@ class PaymentNotificationListener : NotificationListenerService() {
         super.onNotificationPosted(sbn)
         if (sbn == null) return
 
+        // WHY: 纯 Service 进程下 Flutter 引擎从未 attach，appContext 为 null
+        // 会导致悬浮窗结果无法回传，此处兜底缓存上下文
+        AutoAccountingPlugin.ensureAppContext(this)
+
         val packageName = sbn.packageName
         if (packageName !in targetPackages) return
 
@@ -58,6 +62,12 @@ class PaymentNotificationListener : NotificationListenerService() {
         val shouldTrigger = paymentKeywords.any { combined.contains(it) }
         if (!shouldTrigger) return
 
+        // WHY: 跨通道统一去重——同一笔支付若同时被无障碍服务捕获，
+        // 两条通道独立触发会造成重复弹窗/重复记账；金额在同一笔支付中稳定，
+        // 与无障碍通道共享同一去重表（包名+金额，60 秒窗口）
+        val parsedAmount = extractAmount(combined)
+        if (!AutoAccountingPlugin.shouldProcessEvent(packageName, parsedAmount)) return
+
         // WHY: 根据 Flutter 是否 attached 决定推送方式
         // - attached（应用在前台/后台保活）→ 推送给 Flutter，由 QuickEntryOverlay 弹窗
         // - not attached（应用被杀）→ 启动 OverlayService 显示原生悬浮窗
@@ -73,7 +83,6 @@ class PaymentNotificationListener : NotificationListenerService() {
             // - 已授权悬浮窗 → 启动 OverlayService 显示原生悬浮窗
             // - 未授权悬浮窗 → 直接通过 handleOverlayResult 拉起 MainActivity，
             //   Flutter 启动后由 AutoAccountingProvider 处理（rawText 传递给 Flutter 解析）
-            val parsedAmount = extractAmount(combined)
             val parsedMerchant = extractMerchant(combined)
             // WHY: 收入类通知（如「支付宝成功收款1.00元」）需标记收支方向，
             // 否则原生回退路径会把收入误记为支出

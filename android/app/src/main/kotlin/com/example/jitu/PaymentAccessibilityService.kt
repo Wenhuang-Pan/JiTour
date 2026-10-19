@@ -37,12 +37,6 @@ class PaymentAccessibilityService : AccessibilityService() {
             "收款成功", "收款到账", "转账到账"
         )
 
-        // WHY: 去重窗口——支付成功页内容会多次触发 content-changed 事件，
-        // 同一内容签名在时间窗口内只处理一次，防止重复弹窗
-        private const val DEDUP_WINDOW_MS = 15_000L
-        private var lastSignature: String = ""
-        private var lastTriggerTime: Long = 0L
-
         /**
          * 检查无障碍服务是否已在系统设置中开启。
          *
@@ -75,6 +69,10 @@ class PaymentAccessibilityService : AccessibilityService() {
             event.eventType != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED
         ) return
 
+        // WHY: 纯 Service 进程下 Flutter 引擎从未 attach，appContext 为 null
+        // 会导致悬浮窗结果无法回传，此处兜底缓存上下文
+        AutoAccountingPlugin.ensureAppContext(this)
+
         val root = rootInActiveWindow ?: return
         val textBuilder = StringBuilder()
         collectNodeText(root, textBuilder, 0)
@@ -89,17 +87,15 @@ class PaymentAccessibilityService : AccessibilityService() {
             isIncomePage || successKeywords.any { combined.contains(it) }
         if (!isSuccessPage) return
 
-        // WHY: 内容签名去重——同一支付成功页停留期间内容变化事件会反复触发，
-        // 用"包名+文本签名"在 15 秒窗口内去重，避免同一笔支付重复弹窗
-        val now = System.currentTimeMillis()
-        val signature = "${event.packageName}:${combined.hashCode()}"
-        if (signature == lastSignature && now - lastTriggerTime < DEDUP_WINDOW_MS) {
-            return
-        }
-        lastSignature = signature
-        lastTriggerTime = now
+        // WHY: 跨通道统一去重——用「包名+金额」替代旧的整页文本 hashCode 签名。
+        // 旧签名在页面动画/倒计时/节点懒加载导致文本微变时即失效，同一支付页
+        // 停留期间会绕过窗口限制重复弹窗；金额在同一笔支付中是稳定值，
+        // 且与通知监听通道共享同一去重表，杜绝双通道重复弹窗（60 秒窗口）
+        val pkg = event.packageName?.toString() ?: ""
+        val dedupAmount = extractAmount(combined)
+        if (!AutoAccountingPlugin.shouldProcessEvent(pkg, dedupAmount)) return
 
-        routePaymentEvent(event.packageName?.toString() ?: "", combined, isIncomePage)
+        routePaymentEvent(pkg, combined, isIncomePage)
     }
 
     /**

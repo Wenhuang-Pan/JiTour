@@ -72,10 +72,17 @@ class OverlayService : Service() {
     private var amountEdit: EditText? = null
     private var merchantEdit: EditText? = null
 
+    // WHY: 确认结果只回传一次——用户双击确认按钮或 Service 销毁延迟时，
+    // 防止同一笔支付被重复回传导致重复记账
+    private var confirmHandled = false
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
         super.onCreate()
+        // WHY: 纯 Service 进程（系统拉起）下 Flutter 引擎从未 attach，
+        // appContext 为 null 会导致悬浮窗结果无法回传，此处兜底缓存上下文
+        AutoAccountingPlugin.ensureAppContext(this)
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, buildForegroundNotification())
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
@@ -98,6 +105,8 @@ class OverlayService : Service() {
             confidence = it.getDoubleExtra(EXTRA_CONFIDENCE, 0.0)
             rawText = it.getStringExtra(EXTRA_RAW_TEXT) ?: ""
             isIncome = it.getBooleanExtra(EXTRA_IS_INCOME, false)
+            // WHY: 新支付事件到达时重置确认标志，允许新一笔支付的确认操作
+            confirmHandled = false
             // WHY: 进程被杀后内存缓存丢失，先从 SharedPreferences 恢复，
             // 否则分类/账户 Chip 显示"暂无数据"导致无法修改分类
             AutoAccountingPlugin.restoreCacheIfNeeded(this)
@@ -505,6 +514,9 @@ class OverlayService : Service() {
      * 处理"确认记账"：通过 [AutoAccountingPlugin.handleOverlayResult] 回调 Flutter，然后关闭 Service。
      */
     private fun handleConfirm() {
+        // WHY: 双击防护——确认结果只回传一次，防止同一笔支付重复记账
+        if (confirmHandled) return
+        confirmHandled = true
         // WHY: 金额/商户以用户修改后的输入框内容为准；解析失败回退原始识别值
         val finalAmount = amountEdit?.text?.toString()
             ?.replace(",", "")

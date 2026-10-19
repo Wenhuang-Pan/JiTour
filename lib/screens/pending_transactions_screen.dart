@@ -466,7 +466,10 @@ class _PendingTransactionsScreenState extends State<PendingTransactionsScreen> {
                 ),
                 const SizedBox(width: 2),
                 Text(
-                  NumberFormat('#,##0.00').format(t.amount),
+                  // WHY: NumberFormat 内部运算要求 num，Decimal 直接传入会在
+                  // 运行时抛 TypeError 导致卡片渲染崩溃（release 模式显示灰色块），
+                  // 必须先 toDouble 转换（仅用于展示，精度损失可接受）
+                  NumberFormat('#,##0.00').format(t.amount.toDouble()),
                   style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                         fontWeight: FontWeight.w700,
                         color: primary,
@@ -749,7 +752,9 @@ class _ConfirmSheetState extends State<_ConfirmSheet> {
               ),
               const SizedBox(height: AppTheme.spaceSmall),
               Text(
-                '${widget.pending.sourceDisplayName} · ${widget.pending.merchant ?? '未知商户'} · ¥${NumberFormat('#,##0.00').format(widget.pending.amount)}',
+                // WHY: 同上——NumberFormat 不接受 Decimal，必须 toDouble，
+                // 否则运行时抛 TypeError 导致 Sheet 渲染崩溃
+                '${widget.pending.sourceDisplayName} · ${widget.pending.merchant ?? '未知商户'} · ¥${NumberFormat('#,##0.00').format(widget.pending.amount.toDouble())}',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: AppTheme.neutral500,
                     ),

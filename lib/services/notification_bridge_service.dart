@@ -179,8 +179,8 @@ class NotificationBridgeService {
   static Future<bool> openAccessibilitySettings() async {
     if (kIsWeb) return false;
     try {
-      final result = await _methodChannel
-          .invokeMethod<bool>('openAccessibilitySettings');
+      final result =
+          await _methodChannel.invokeMethod<bool>('openAccessibilitySettings');
       return result ?? false;
     } catch (e) {
       debugPrint('[NotificationBridge] 打开无障碍设置失败: $e');
@@ -266,8 +266,8 @@ class NotificationBridgeService {
   static Future<bool> isPostNotificationsGranted() async {
     if (kIsWeb) return false;
     try {
-      final result = await _methodChannel
-          .invokeMethod<bool>('isPostNotificationsGranted');
+      final result =
+          await _methodChannel.invokeMethod<bool>('isPostNotificationsGranted');
       return result ?? false;
     } catch (e) {
       debugPrint('[NotificationBridge] isPostNotificationsGranted 失败: $e');
@@ -285,11 +285,67 @@ class NotificationBridgeService {
   static Future<bool> requestPostNotifications() async {
     if (kIsWeb) return false;
     try {
-      final result = await _methodChannel
-          .invokeMethod<bool>('requestPostNotifications');
+      final result =
+          await _methodChannel.invokeMethod<bool>('requestPostNotifications');
       return result ?? false;
     } catch (e) {
       debugPrint('[NotificationBridge] requestPostNotifications 失败: $e');
+      return false;
+    }
+  }
+
+  /// 查询应用是否已在电池优化白名单中
+  ///
+  /// WHY: 国产 ROM（华为 EMUI 等）的电池优化会强行关闭无障碍服务与后台
+  /// 监听 Service，导致自动记账通道失效。设置页据此引导用户加入白名单。
+  ///
+  /// @return true 表示已加入白名单或当前平台不支持查询
+  static Future<bool> isIgnoringBatteryOptimizations() async {
+    if (kIsWeb) return true;
+    try {
+      final result = await _methodChannel
+          .invokeMethod<bool>('isIgnoringBatteryOptimizations');
+      return result ?? true;
+    } catch (e) {
+      debugPrint('[NotificationBridge] isIgnoringBatteryOptimizations 失败: $e');
+      return true;
+    }
+  }
+
+  /// 跳转系统"忽略电池优化"授权对话框
+  ///
+  /// WHY: 直接弹出系统授权对话框，用户一键允许后应用即加入电池优化白名单，
+  /// 无需手动翻找设置项。
+  ///
+  /// @return true 表示成功跳转
+  static Future<bool> requestIgnoreBatteryOptimizations() async {
+    if (kIsWeb) return false;
+    try {
+      final result = await _methodChannel
+          .invokeMethod<bool>('requestIgnoreBatteryOptimizations');
+      return result ?? false;
+    } catch (e) {
+      debugPrint(
+          '[NotificationBridge] requestIgnoreBatteryOptimizations 失败: $e');
+      return false;
+    }
+  }
+
+  /// 跳转国产 ROM 的自启动管理页
+  ///
+  /// WHY: 自启动/关联启动权限是国产 ROM 后台保活的关键，缺失时系统会
+  /// 杀掉无障碍服务与监听 Service。原生侧按厂商逐个尝试设置页 Component，
+  /// 全部失败时回退到应用详情页。
+  ///
+  /// @return true 表示成功跳转到某个设置页
+  static Future<bool> openAutoStartSettings() async {
+    if (kIsWeb) return false;
+    try {
+      final result =
+          await _methodChannel.invokeMethod<bool>('openAutoStartSettings');
+      return result ?? false;
+    } catch (e) {
+      debugPrint('[NotificationBridge] openAutoStartSettings 失败: $e');
       return false;
     }
   }

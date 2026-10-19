@@ -6,6 +6,7 @@ import 'package:decimal/decimal.dart';
 import '../models/account.dart';
 import '../models/category.dart';
 import '../models/pending_transaction.dart';
+import '../models/transaction.dart';
 import '../providers/auto_accounting_provider.dart';
 import '../providers/theme_provider.dart';
 import '../services/account_service.dart';
@@ -463,15 +464,32 @@ class _QuickEntrySheetState extends State<_QuickEntrySheet> {
 
           HapticFeedback.mediumImpact();
           final noteText = _noteController.text.trim();
-          final result =
-              await Provider.of<AutoAccountingProvider>(context, listen: false)
-                  .confirmTransaction(
-            widget.pending.id,
-            category: _selectedCategory,
-            account: _selectedAccount,
-            note: noteText.isEmpty ? null : noteText,
-            amount: _effectiveAmount,
-          );
+          // WHY: confirm 链路涉及 Hive 写库与余额联动，异常时必须给出
+          // 用户提示，禁止静默失败导致"点了确定但没记上账"
+          Transaction? result;
+          try {
+            result = await Provider.of<AutoAccountingProvider>(context,
+                    listen: false)
+                .confirmTransaction(
+              widget.pending.id,
+              category: _selectedCategory,
+              account: _selectedAccount,
+              note: noteText.isEmpty ? null : noteText,
+              amount: _effectiveAmount,
+            );
+          } catch (e) {
+            debugPrint('[QuickEntry] 确认记账异常: $e');
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('记账失败: $e'),
+                  backgroundColor: AppTheme.errorColor,
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            }
+            return;
+          }
 
           if (mounted) {
             if (result != null) {

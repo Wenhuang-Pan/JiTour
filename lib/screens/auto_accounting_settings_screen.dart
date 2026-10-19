@@ -28,6 +28,24 @@ class AutoAccountingSettingsScreen extends StatefulWidget {
 
 class _AutoAccountingSettingsScreenState
     extends State<AutoAccountingSettingsScreen> {
+  /// 是否已加入电池优化白名单；默认 true 避免页面加载时警告闪烁
+  bool _isIgnoringBattery = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshBatteryStatus();
+  }
+
+  /// 刷新电池优化白名单状态
+  ///
+  /// WHY: 用户从系统授权对话框/设置页返回后调用，同步最新状态。
+  Future<void> _refreshBatteryStatus() async {
+    final bool value =
+        await NotificationBridgeService.isIgnoringBatteryOptimizations();
+    if (mounted) setState(() => _isIgnoringBattery = value);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -59,6 +77,15 @@ class _AutoAccountingSettingsScreenState
               _buildSectionTitle(context, '页面识别'),
               const SizedBox(height: AppTheme.spaceSmall),
               _buildAccessibilityCard(context),
+              const SizedBox(height: AppTheme.spaceLarge),
+            ],
+            // WHY: 国产 ROM（华为 EMUI 等）会在后台杀掉无障碍服务与监听
+            // Service，导致自动记账通道被系统关闭。提供电池白名单与自启动
+            // 引导入口，降低服务被系统回收的概率
+            if (!kIsWeb) ...<Widget>[
+              _buildSectionTitle(context, '后台保活'),
+              const SizedBox(height: AppTheme.spaceSmall),
+              _buildKeepAliveCard(context),
               const SizedBox(height: AppTheme.spaceLarge),
             ],
             // WHY: 悬浮窗权限仅 Android 需要，授权后应用在后台检测到支付通知
@@ -314,6 +341,126 @@ class _AutoAccountingSettingsScreenState
                 padding: const EdgeInsets.all(AppTheme.spaceLarge),
                 child: Text(
                   '当微信/支付宝没有推送支付通知时，可在系统无障碍设置中开启「记途支付页面识别」。开启后，支付成功页面出现时自动提取金额和商户并弹出记账。数据仅在本地处理，不会上传服务器。',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppTheme.neutral500,
+                        height: 1.5,
+                      ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  /// 构建后台保活卡片（Section "后台保活"，仅 Android 显示）
+  ///
+  /// WHY: 华为等国产 ROM 的电池优化与后台管理会强行关闭无障碍服务和
+  /// 通知监听 Service（用户感知为"权限自动被关闭"）。本卡片提供两个
+  /// 保活入口：电池优化白名单（系统级授权对话框）与自启动管理页
+  /// （按厂商逐个尝试跳转），并在无障碍服务当前被关闭时给出醒目提示。
+  ///
+  /// @param context 构建上下文
+  /// @return 后台保活引导 Container
+  Widget _buildKeepAliveCard(BuildContext context) {
+    return Consumer<AutoAccountingProvider>(
+      builder: (BuildContext context, AutoAccountingProvider provider,
+          Widget? child) {
+        return Container(
+          decoration: BoxDecoration(
+            color: AppTheme.getCardColor(context),
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+            boxShadow: AppTheme.cardShadow,
+          ),
+          child: Column(
+            children: <Widget>[
+              // 电池优化白名单
+              ListTile(
+                leading: Icon(
+                  Icons.battery_saver_rounded,
+                  color: _isIgnoringBattery
+                      ? AppTheme.successColor
+                      : AppTheme.warningColor,
+                ),
+                title: const Text('电池优化白名单'),
+                subtitle: Text(
+                  _isIgnoringBattery ? '已加入' : '未加入，点击允许忽略电池优化',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: _isIgnoringBattery
+                            ? AppTheme.successColor
+                            : AppTheme.warningColor,
+                      ),
+                ),
+                trailing: _isIgnoringBattery
+                    ? const Icon(Icons.check_circle_rounded,
+                        color: AppTheme.successColor, size: 20)
+                    : const Icon(Icons.chevron_right_rounded,
+                        color: AppTheme.neutral400),
+                onTap: () async {
+                  if (_isIgnoringBattery) return;
+                  // WHY: 异步前捕获 ScaffoldMessenger，避免 await 后使用 BuildContext
+                  final messenger = ScaffoldMessenger.of(context);
+                  final bool ok = await NotificationBridgeService
+                      .requestIgnoreBatteryOptimizations();
+                  if (!mounted) return;
+                  if (!ok) {
+                    messenger.showSnackBar(
+                      const SnackBar(
+                        content: Text('跳转失败，请在系统设置中手动关闭电池优化'),
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  }
+                  // WHY: 用户可能在系统对话框中直接授权，返回后刷新状态
+                  await _refreshBatteryStatus();
+                },
+              ),
+              const Divider(height: 1, indent: 16, endIndent: 16),
+              // 自启动管理
+              ListTile(
+                leading: Icon(
+                  Icons.rocket_launch_rounded,
+                  color: AppTheme.getPrimaryColor(context),
+                ),
+                title: const Text('自启动管理'),
+                subtitle: Text(
+                  '允许记途自启动/关联启动，防止服务被系统关闭',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppTheme.neutral500,
+                      ),
+                ),
+                trailing: const Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppTheme.neutral400,
+                ),
+                onTap: () async {
+                  // WHY: 异步前捕获 ScaffoldMessenger，避免 await 后使用 BuildContext
+                  final messenger = ScaffoldMessenger.of(context);
+                  final bool ok =
+                      await NotificationBridgeService.openAutoStartSettings();
+                  if (!mounted) return;
+                  if (!ok) {
+                    messenger.showSnackBar(
+                      const SnackBar(
+                        content: Text('跳转失败，请在系统设置中手动允许自启动'),
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  }
+                },
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppTheme.spaceLarge,
+                  0,
+                  AppTheme.spaceLarge,
+                  AppTheme.spaceMedium,
+                ),
+                child: Text(
+                  '华为等国产手机会在后台自动关闭无障碍服务，导致自动记账失效。'
+                  '建议完成以上两项设置：将记途加入电池优化白名单，'
+                  '并在自启动管理中允许「自启动」和「关联启动」。',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: AppTheme.neutral500,
                         height: 1.5,

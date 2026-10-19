@@ -42,6 +42,58 @@ class AutoAccountingPlugin : FlutterPlugin, ActivityAware, EventChannel.StreamHa
         private var cachedCategories: List<Map<String, String>> = emptyList()
         private var cachedAccounts: List<Map<String, String>> = emptyList()
 
+        // WHY: 跨通道统一去重——同一笔支付可能同时触发通知监听与无障碍服务，
+        // 两条通道独立触发会造成重复弹窗/重复记账。金额在同一笔支付中是稳定值
+        // （页面文本会随动画/倒计时变化，不可靠），用「包名+金额」15 秒窗口去重。
+        // 窗口取 15 秒而非 60 秒：同笔支付的双通道事件毫秒级到达，15 秒足够去重，
+        // 又能大幅降低误杀 60 秒内两笔同金额不同交易的概率。
+        private const val EVENT_DEDUP_WINDOW_MS = 15_000L
+        private var lastEventKey: String = ""
+        private var lastEventTime: Long = 0L
+
+        /**
+         * 确保 applicationContext 已缓存。
+         *
+         * WHY: 华为等国产 ROM 杀后台后，系统会单独拉起应用进程运行
+         * NotificationListener/Accessibility/Overlay Service（纯 Service 进程，
+         * Flutter 引擎从未 attach，onAttachedToEngine 从未执行），
+         * 此时 appContext/pluginInstance 均为 null，悬浮窗确认后无法拉起
+         * MainActivity，导致记账结果被静默丢弃。各 Service 创建时调用本方法兜底。
+         *
+         * @param context 任意可用 Context，内部取 applicationContext 缓存。
+         */
+        fun ensureAppContext(context: Context) {
+            if (appContext == null) {
+                appContext = context.applicationContext
+            }
+        }
+
+        /**
+         * 跨通道支付事件去重判断。
+         *
+         * WHY: 通知监听与无障碍服务可能同时捕获同一笔支付，
+         * 在事件路由（sendPaymentEvent / 启动 OverlayService）前统一过一道去重。
+         * 金额解析失败（amount <= 0）时不参与去重直接放行，避免误挡后续正常事件。
+         *
+         * @param packageName 事件来源包名。
+         * @param amount 解析出的支付金额。
+         * @return true 表示是新事件应继续处理；false 表示窗口期内重复，应丢弃。
+         */
+        @Synchronized
+        fun shouldProcessEvent(packageName: String, amount: Double): Boolean {
+            // WHY: 金额无效时不具备去重依据，放行交给上层流程自行处理
+            if (amount <= 0.0) return true
+            val now = System.currentTimeMillis()
+            val key = "$packageName:$amount"
+            if (key == lastEventKey && now - lastEventTime < EVENT_DEDUP_WINDOW_MS) {
+                android.util.Log.d("AutoAccounting", "重复事件被去重: $key")
+                return false
+            }
+            lastEventKey = key
+            lastEventTime = now
+            return true
+        }
+
         // WHY: 缓存持久化到 SharedPreferences，进程被杀后悬浮窗仍能渲染分类/账户，
         // 否则用户遇到"暂无数据"无法修改分类
         private const val PREFS_NAME = "jitu_overlay_cache"
@@ -298,6 +350,99 @@ class AutoAccountingPlugin : FlutterPlugin, ActivityAware, EventChannel.StreamHa
         }
 
         /**
+         * 检查本应用是否已在电池优化白名单中（即"忽略电池优化"）。
+         *
+         * WHY: 国产 ROM（华为 EMUI 等）的电池优化会强行关闭无障碍服务与后台
+         * Service，导致自动记账通道失效。加入白名单后可显著降低被杀概率。
+         *
+         * @param context 任意可用 Context。
+         * @return true 表示已加入电池优化白名单。
+         */
+        fun isIgnoringBatteryOptimizations(context: Context): Boolean {
+            // WHY: PowerManager.isIgnoringBatteryOptimizations 为 API 23 (M) 新增，
+            // 低版本设备无电池优化概念，直接视为已豁免，避免 NoSuchMethodError 崩溃
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return true
+            val pm = context.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+            return pm.isIgnoringBatteryOptimizations(context.packageName)
+        }
+
+        /**
+         * 跳转系统"忽略电池优化"授权页，引导用户将本应用加入白名单。
+         *
+         * WHY: 该 Intent 直接弹出系统授权对话框，无需用户手动翻找设置项；
+         * 需要 Manifest 声明 REQUEST_IGNORE_BATTERY_OPTIMIZATIONS 权限。
+         *
+         * @param context 任意可用 Context。
+         * @return true 表示跳转成功。
+         */
+        fun requestIgnoreBatteryOptimizations(context: Context): Boolean {
+            // WHY: ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS 为 API 23 新增，
+            // 低版本设备无需电池优化授权，直接返回 true
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return true
+            return try {
+                val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                    data = Uri.parse("package:" + context.packageName)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(intent)
+                true
+            } catch (e: Exception) {
+                android.util.Log.e("AutoAccounting", "跳转电池优化设置失败: ${e.message}")
+                false
+            }
+        }
+
+        /**
+         * 跳转国产 ROM 的自启动管理页（华为/小米/OPPO/vivo 逐个尝试）。
+         *
+         * WHY: 自启动/关联启动权限是国产 ROM 保活的关键，缺失时系统会在后台
+         * 杀掉无障碍服务与监听 Service。各厂商设置页 Component 不统一且无公开
+         * API，按主流厂商逐个尝试，全部失败时回退到应用详情设置页。
+         *
+         * @param context 任意可用 Context。
+         * @return true 表示成功跳转到某个设置页。
+         */
+        fun openAutoStartSettings(context: Context): Boolean {
+            val intents = listOf(
+                // 华为 EMUI（不同版本 Component 不同，逐一尝试）
+                Intent().setComponent(ComponentName("com.huawei.systemmanager", "com.huawei.systemmanager.startupmgr.ui.StartupNormalAppListActivity")),
+                Intent().setComponent(ComponentName("com.huawei.systemmanager", "com.huawei.systemmanager.appcontrol.activity.StartupAppControlActivity")),
+                Intent().setComponent(ComponentName("com.huawei.systemmanager", "com.huawei.systemmanager.optimize.process.ProtectActivity")),
+                // 小米 MIUI
+                Intent().setComponent(ComponentName("com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity")),
+                // OPPO ColorOS
+                Intent().setComponent(ComponentName("com.coloros.safecenter", "com.coloros.safecenter.permission.startup.StartupAppListActivity")),
+                Intent().setComponent(ComponentName("com.coloros.safecenter", "com.coloros.safecenter.startupapp.StartupAppListActivity")),
+                // vivo OriginOS
+                Intent().setComponent(ComponentName("com.vivo.permissionmanager", "com.vivo.permissionmanager.activity.BgStartUpManagerActivity")),
+                Intent().setComponent(ComponentName("com.iqoo.secure", "com.iqoo.secure.ui.phoneoptimize.BgStartUpManager")),
+                // 荣耀
+                Intent().setComponent(ComponentName("com.hihonor.systemmanager", "com.hihonor.systemmanager.startupmgr.ui.StartupNormalAppListActivity")),
+            )
+            for (intent in intents) {
+                try {
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    context.startActivity(intent)
+                    return true
+                } catch (e: Exception) {
+                    // WHY: 厂商 Component 不存在时尝试下一个，属预期分支无需日志
+                }
+            }
+            // WHY: 所有厂商页均不可用时，回退到应用详情页，用户至少可手动配置
+            return try {
+                val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                    data = Uri.parse("package:" + context.packageName)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(intent)
+                true
+            } catch (e: Exception) {
+                android.util.Log.e("AutoAccounting", "跳转自启动设置失败: ${e.message}")
+                false
+            }
+        }
+
+        /**
          * 处理悬浮窗用户操作结果，回调 Flutter 或拉起 MainActivity。
          * WHY: 当 eventSink 为 null（Flutter 未 attached）时，通过 Intent 拉起 MainActivity
          * 并以 extra 传递数据，MainActivity 启动后由 Flutter 侧读取并处理。
@@ -352,8 +497,19 @@ class AutoAccountingPlugin : FlutterPlugin, ActivityAware, EventChannel.StreamHa
                     try {
                         ctx.startActivity(intent)
                     } catch (e: Exception) {
-                        // WHY: 拉起失败时静默处理，避免悬浮窗 Service 崩溃
+                        // WHY: 拉起失败必须留日志，便于排查记账丢失问题，禁止静默
+                        android.util.Log.e(
+                            "AutoAccounting",
+                            "拉起 MainActivity 失败: ${e.message}"
+                        )
                     }
+                } else {
+                    // WHY: 纯 Service 进程下 ensureAppContext 应已兜底；
+                    // 仍走到这里说明上下文缺失，必须留日志，禁止静默丢弃记账结果
+                    android.util.Log.e(
+                        "AutoAccounting",
+                        "handleOverlayResult 丢弃: 无可用 Context, action=$action, amount=$amount"
+                    )
                 }
             }
         }
@@ -454,6 +610,18 @@ class AutoAccountingPlugin : FlutterPlugin, ActivityAware, EventChannel.StreamHa
                 // WHY: Flutter 推送账户列表到原生侧缓存，供 OverlayService 渲染
                 updateCachedAccounts(toStringMapList(call.arguments))
                 result.success(null)
+            }
+            "isIgnoringBatteryOptimizations" -> {
+                // WHY: 查询电池优化白名单状态，国产 ROM 保活引导用
+                result.success(isIgnoringBatteryOptimizations(context))
+            }
+            "requestIgnoreBatteryOptimizations" -> {
+                // WHY: 跳转系统"忽略电池优化"授权对话框
+                result.success(requestIgnoreBatteryOptimizations(context))
+            }
+            "openAutoStartSettings" -> {
+                // WHY: 跳转国产 ROM 自启动管理页，保活引导用
+                result.success(openAutoStartSettings(context))
             }
             else -> result.notImplemented()
         }

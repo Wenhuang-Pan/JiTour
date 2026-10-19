@@ -201,6 +201,15 @@ class AutoAccountingProvider extends ChangeNotifier {
   ///
   /// @param data Overlay 结果数据，含 action/amount/merchant/category/account/rawText
   Future<void> _handleOverlayResult(Map<String, dynamic> data) async {
+    // WHY: 过期数据丢弃——onNewIntent 滞留的 launchData 可能在下次冷启动时
+    // 被重新读取，延迟执行会误记账。原生侧提取时附带 timestamp（毫秒），
+    // 超过 5 分钟的数据视为过期；无 timestamp 的历史数据按有效处理
+    final int? timestamp = data['timestamp'] as int?;
+    if (timestamp != null &&
+        DateTime.now().millisecondsSinceEpoch - timestamp > 5 * 60 * 1000) {
+      debugPrint('[AutoAccounting] overlay 结果已过期，丢弃: $data');
+      return;
+    }
     final action = data['action'] as String? ?? '';
     final amount = parseDecimal(data['amount']);
     final merchant = data['merchant'] as String? ?? '';
@@ -244,12 +253,26 @@ class AutoAccountingProvider extends ChangeNotifier {
     } else if (action == 'pending') {
       // WHY: 悬浮窗权限未授权时的回退路径：创建待确认交易等待用户手动处理
       // 原生层无法显示悬浮窗，直接拉起 MainActivity，Flutter 启动后创建 pending 记录
+      // WHY: 与 _handleNewPayment 同构的去重兜底——通知与无障碍双通道可能
+      // 各自触发一次 pending 拉起，15 秒内同金额同来源记录已存在时直接丢弃
+      final PaymentSource source = merchant.contains('微信')
+          ? PaymentSource.wechat
+          : PaymentSource.alipay;
+      final bool isDuplicate = PendingTransactionService.getAll().any(
+        (PendingTransaction t) =>
+            t.amount == amount &&
+            t.source == source &&
+            DateTime.now().difference(t.createdAt).inSeconds.abs() < 15,
+      );
+      if (isDuplicate) {
+        debugPrint('[AutoAccounting] 重复 pending 事件被去重: '
+            '$source ¥$amount');
+        return;
+      }
       try {
         final pending = await PendingTransactionService.create(
           amount: amount,
-          source: merchant.contains('微信')
-              ? PaymentSource.wechat
-              : PaymentSource.alipay,
+          source: source,
           rawText: rawText,
           merchant: merchant.isEmpty ? null : merchant,
           isIncome: isIncome,
@@ -288,6 +311,23 @@ class AutoAccountingProvider extends ChangeNotifier {
   /// @return Future 完成处理
   Future<void> _handleNewPayment(ParsedPayment payment) async {
     if (!_isEnabled) return;
+
+    // WHY: 跨通道去重兜底——原生侧已按「包名+金额」15 秒窗口统一去重，
+    // 但进程重启后原生去重表清空，且同一笔支付的通知与无障碍事件可能
+    // 在窗口边界先后到达。此处再查最近 15 秒内是否已有同金额同来源的记录
+    // （含已确认/已忽略），命中即丢弃，杜绝重复弹窗与重复记账。
+    // 时间复杂度：O(n)，n 为历史待确认记录数（通常 < 100）
+    final bool isDuplicate = PendingTransactionService.getAll().any(
+      (PendingTransaction t) =>
+          t.amount == payment.amount &&
+          t.source == payment.source &&
+          DateTime.now().difference(t.createdAt).inSeconds.abs() < 15,
+    );
+    if (isDuplicate) {
+      debugPrint('[AutoAccounting] 重复支付事件被 Dart 侧去重: '
+          '${payment.source} ¥${payment.amount}');
+      return;
+    }
 
     // WHY: 基于商户名推断分类，置信度低时上层 UI 会提示用户手动选择
     InferredCategory inferred =

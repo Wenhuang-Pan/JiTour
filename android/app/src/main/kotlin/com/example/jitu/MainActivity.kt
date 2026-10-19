@@ -66,7 +66,10 @@ class MainActivity : FlutterFragmentActivity() {
             "account" to intent.getStringExtra("overlay_account"),
             "rawText" to (intent.getStringExtra("overlay_rawText") ?: ""),
             // WHY: 收支方向由原生服务识别后透传，缺失默认支出（与历史行为一致）
-            "isIncome" to intent.getBooleanExtra("overlay_isIncome", false)
+            "isIncome" to intent.getBooleanExtra("overlay_isIncome", false),
+            // WHY: 记录数据到达时刻——onNewIntent 滞留的 launchData 可能在下次
+            // 冷启动时被重新读取，Dart 侧据此时间戳丢弃过期数据，防止延迟误记账
+            "timestamp" to System.currentTimeMillis()
         )
     }
 }
