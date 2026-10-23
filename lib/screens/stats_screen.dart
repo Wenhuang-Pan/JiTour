@@ -113,6 +113,10 @@ class _StatsScreenState extends State<StatsScreen> {
             tooltip: '导出报表图片',
             onPressed: _shareStatsImage,
           ),
+          // WHY: 部分设备屏幕右缘存在挖孔/刘海 inset，AppBar 只避让顶部
+          // 不避让横向，导致最右侧按钮被系统遮挡（v3.4.1 用户反馈统计页
+          // 按钮显示不全）；尾部补右侧安全间距，无挖孔设备该值为 0 无副作用
+          SizedBox(width: MediaQuery.of(context).padding.right),
         ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(56),
