@@ -22,15 +22,8 @@ class NotificationBridgeService {
   /// MethodChannel 名称
   static const String _methodChannelName = 'jitu.auto_accounting/methods';
 
-  /// Launch MethodChannel 名称
-  ///
-  /// WHY: 独立通道用于查询 Intent extra 中的 overlay 结果，
-  /// 避免与事件/方法通道混用导致时序问题。
-  static const String _launchChannelName = 'jitu.auto_accounting/launch';
-
   static const EventChannel _eventChannel = EventChannel(_eventChannelName);
   static const MethodChannel _methodChannel = MethodChannel(_methodChannelName);
-  static const MethodChannel _launchChannel = MethodChannel(_launchChannelName);
 
   /// 内部控制器，用于合并原生事件和 mock 事件
   static final StreamController<ParsedPayment> _controller =
@@ -350,34 +343,29 @@ class NotificationBridgeService {
     }
   }
 
-  /// 获取启动数据（来自 Intent extra 的 overlay 结果）
+  /// 读取并清空原生侧补录队列
   ///
-  /// WHY: 当应用被杀，用户在悬浮窗操作后，原生层通过 Intent extra
-  /// 传递数据并启动 MainActivity。Flutter 启动后调用此方法获取数据。
+  /// WHY: headless 引擎落库失败时，悬浮窗确认/pending 数据滞留在原生
+  /// SharedPreferences 补录队列。应用正常启动后调用此方法一次性取走，
+  /// 交由 AutoAccountingProvider 补录，确保用户确认过的记账最终落地。
+  /// 原生侧读取即清空，不会重复处理。
   ///
-  /// @return 启动数据 Map，无数据返回 null
-  static Future<Map<String, dynamic>?> getLaunchData() async {
-    if (kIsWeb) return null;
+  /// @return 队列数据列表（每项含 action/amount/merchant 等），空队列返回空列表。
+  static Future<List<Map<String, dynamic>>> drainPendingOverlayResults() async {
+    if (kIsWeb) return <Map<String, dynamic>>[];
     try {
-      final result = await _launchChannel.invokeMethod('getLaunchData');
-      if (result == null) return null;
-      return Map<String, dynamic>.from(result as Map<dynamic, dynamic>);
+      final dynamic result = await _methodChannel
+          .invokeMethod<dynamic>('drainPendingOverlayResults');
+      if (result is! List) return <Map<String, dynamic>>[];
+      // WHY: platform channel 传回的元素为 Map<Object?, Object?>，
+      // 统一转换为 String key 的 Map，避免后续 as String? 断言失败
+      return result
+          .whereType<Map>()
+          .map((Map e) => Map<String, dynamic>.from(e))
+          .toList();
     } catch (e) {
-      debugPrint('[NotificationBridge] getLaunchData 失败: $e');
-      return null;
-    }
-  }
-
-  /// 清除启动数据
-  ///
-  /// WHY: 处理完 Intent extra 中的 overlay 结果后必须清除，
-  /// 避免下次启动时重复处理。
-  static Future<void> clearLaunchData() async {
-    if (kIsWeb) return;
-    try {
-      await _launchChannel.invokeMethod('clearLaunchData');
-    } catch (e) {
-      debugPrint('[NotificationBridge] clearLaunchData 失败: $e');
+      debugPrint('[NotificationBridge] drainPendingOverlayResults 失败: $e');
+      return <Map<String, dynamic>>[];
     }
   }
 

@@ -48,11 +48,18 @@ void main() {
     test('支出：收款方标签不得误判为收入', () {
       // WHY: 「收款方:XXX」是支出页面的商户名标签，历史上曾因裸匹配
       // 「收款」关键词造成误判收入，此处固化防回归。
-      // 已知局限：「收款方[:：]」模式以行尾 $ 锚定，若商户名后同行
-      // 还有金额文本会被一并带入商户名；真实通知中该标签通常独立成行
       final result = NotificationParserService.parse(
           '消费了20.00元 收款方:瑞幸咖啡', 'com.eg.android.AlipayGphone');
       expect(result!.isIncome, isFalse);
+      expect(result.merchant, '瑞幸咖啡');
+    });
+
+    test('支出：收款方后同行尾随金额不被吞入商户名', () {
+      // WHY: 修复前「收款方[:：]」以行尾 $ 锚定，商户名后同行的金额文本
+      // 会被一并带入商户名（如「瑞幸咖啡 20.00元」），现已修复。
+      final result = NotificationParserService.parse(
+          '收款方:瑞幸咖啡 20.00元', 'com.eg.android.AlipayGphone');
+      expect(result!.amount, Decimal.parse('20.00'));
       expect(result.merchant, '瑞幸咖啡');
     });
 
@@ -72,13 +79,26 @@ void main() {
 
   group('微信解析', () {
     test('支出：付款给XXX 提取金额与商户', () {
-      // WHY: 商户名置于文本末尾（真实微信通知的典型布局），
-      // 规避「付款给」模式以行尾 $ 锚定、同行尾随金额会带入商户名的已知局限
       final result =
           NotificationParserService.parse('¥30.00 付款给楼下超市', 'com.tencent.mm');
       expect(result!.amount, Decimal.parse('30.00'));
       expect(result.merchant, '楼下超市');
       expect(result.isIncome, isFalse);
+    });
+
+    test('支出：付款给后同行尾随金额不被吞入商户名', () {
+      // WHY: 修复前「付款给」以行尾 $ 锚定，商户名后同行的金额会被吞入，
+      // 商户名变成「楼下超市 ¥30.00」，现已修复为前瞻到空白/金额符号/行尾。
+      final result =
+          NotificationParserService.parse('付款给楼下超市 ¥30.00', 'com.tencent.mm');
+      expect(result!.amount, Decimal.parse('30.00'));
+      expect(result.merchant, '楼下超市');
+    });
+
+    test('支出：付款给后直接接金额符号也能截断', () {
+      final result = NotificationParserService.parse(
+          '微信支付付款给楼下超市¥30.00', 'com.tencent.mm');
+      expect(result!.merchant, '楼下超市');
     });
 
     test('收入：收款成功 判定为收入', () {

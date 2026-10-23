@@ -14,8 +14,10 @@ import '../services/account_service.dart';
 import '../services/tag_service.dart';
 import '../services/stats_service.dart';
 import '../services/stats_share_service.dart';
+import '../services/ai_config_service.dart';
 import '../utils/icon_library.dart';
 import '../widgets/comparison_card.dart';
+import 'ai_analysis_screen.dart';
 
 class StatsScreen extends StatefulWidget {
   const StatsScreen({super.key});
@@ -101,6 +103,11 @@ class _StatsScreenState extends State<StatsScreen> {
       appBar: AppBar(
         elevation: 0,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.auto_awesome_rounded),
+            tooltip: 'AI 分析',
+            onPressed: _openAiAnalysis,
+          ),
           IconButton(
             icon: const Icon(Icons.share_rounded),
             tooltip: '导出报表图片',
@@ -330,6 +337,42 @@ class _StatsScreenState extends State<StatsScreen> {
   /// 适合生成长截图；pixelRatio 决定清晰度，但报表很长时面积平方放大，
   /// 需按总像素上限动态收敛，防止超大位图导致 OOM。
   /// Web 平台由条件导出桩返回 false，提示不支持。
+  /// 打开 AI 分析页。
+  ///
+  /// WHY: 未配置 API Key 时引导用户去设置页配置，避免无 Key 发起请求。
+  void _openAiAnalysis() {
+    if (!AiConfigService.isConfigured()) {
+      showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('需要配置 API Key'),
+          content: const Text(
+            '使用 AI 账单分析前，请先在「设置 → AI 助手」中配置智谱 API Key。'
+            'GLM-4-Flash 模型永久免费。',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(dialogContext);
+                Navigator.pushNamed(context, '/settings');
+              },
+              child: const Text('去设置'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const AiAnalysisScreen()),
+    );
+  }
+
   Future<void> _shareStatsImage() async {
     final boundary = _repaintKey.currentContext?.findRenderObject()
         as RenderRepaintBoundary?;

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show MethodChannel;
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
@@ -19,6 +20,7 @@ import 'services/app_lock_service.dart';
 import 'services/update_service.dart';
 import 'services/webdav_backup_service.dart';
 import 'services/auto_backup_service.dart';
+import 'services/overlay_result_service.dart';
 import 'theme/app_theme.dart';
 import 'providers/theme_provider.dart';
 import 'providers/currency_provider.dart';
@@ -96,6 +98,81 @@ void main() async {
   });
 }
 
+/// 悬浮窗 headless 后台落库入口（无 UI，专用入口）
+///
+/// WHY: 应用被杀后，用户在悬浮窗点「确认记账」需要立即落库，但不允许
+/// 唤起 MainActivity 打扰用户。原生 OverlayHeadlessRunner 在 Flutter 未
+/// attached 时通过 FlutterEngineGroup 创建无界面引擎执行本入口。
+/// 本函数不调用 runApp，只初始化数据库后循环消费原生补录队列，
+/// 队列清空后调 headlessDone 让原生销毁引擎。
+///
+/// 安全性说明：仅在主引擎不存在（flutterAttached == false）时创建，
+/// 与 main() 的 Hive 使用互斥，无双引擎并发写冲突；引擎创建失败时数据
+/// 留在队列，由 AutoAccountingProvider.init 启动补录兜底。
+/// 数据目录由原生 drainQueue 响应传入（与主 app 完全一致），headless
+/// 引擎零插件注册，避免全套插件副作用。
+///
+/// @pragma('vm:entry-point') 必须保留——防止 AOT 裁剪掉非 main 的 Dart 入口。
+@pragma('vm:entry-point')
+Future<void> overlayHeadlessMain() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  const channel = MethodChannel('jitu.overlay_headless/entry');
+
+  /// 解析 drainQueue 响应，返回 (dbPath, items)
+  (String?, List<Map<String, dynamic>>) parseBatch(dynamic raw) {
+    if (raw is! Map) return (null, const <Map<String, dynamic>>[]);
+    final map = Map<String, dynamic>.from(raw);
+    final itemsRaw = map['items'];
+    final items = itemsRaw is List
+        ? itemsRaw
+            .whereType<Map>()
+            .map((Map e) => Map<String, dynamic>.from(e))
+            .toList()
+        : const <Map<String, dynamic>>[];
+    return (map['dbPath'] as String?, items);
+  }
+
+  try {
+    // WHY: 首次 drain 同时获取 Hive 数据目录（原生 getDir("app_flutter")，
+    // 与主 app 的 getApplicationDocumentsDirectory 路径一致），Hive.init 后
+    // 数据落点与主 app 完全相同
+    final (dbPath, firstItems) = parseBatch(
+      await channel.invokeMethod<dynamic>('drainQueue'),
+    );
+    if (dbPath == null || dbPath.isEmpty) {
+      debugPrint('[OverlayHeadless] 未获取到数据目录，放弃落库');
+      return;
+    }
+    Hive.init(dbPath);
+    await DatabaseService.init();
+
+    // WHY: 循环消费队列而非一次拉取——处理期间若又有新事件入队，
+    // 下一轮 drain 会一并处理，最后队列空才退出
+    var items = firstItems;
+    while (items.isNotEmpty) {
+      for (final data in items) {
+        try {
+          await OverlayResultService.handle(data);
+        } catch (e) {
+          // WHY: 单条失败不影响批次内其他事件继续落库
+          debugPrint('[OverlayHeadless] 单条落库失败: $e');
+        }
+      }
+      items = parseBatch(await channel.invokeMethod<dynamic>('drainQueue')).$2;
+    }
+  } catch (e) {
+    // WHY: 初始化/通信失败时数据留在原生队列，等下次打开 app 补录兜底
+    debugPrint('[OverlayHeadless] 后台落库失败: $e');
+  } finally {
+    // WHY: 无论成功失败都通知原生销毁引擎，防止泄漏（原生另有 60 秒看门狗兜底）
+    try {
+      await channel.invokeMethod<void>('headlessDone');
+    } catch (_) {
+      // 原生可能已销毁，忽略
+    }
+  }
+}
+
 class JituApp extends StatefulWidget {
   const JituApp({super.key});
 
@@ -112,6 +189,9 @@ class _JituAppState extends State<JituApp> with WidgetsBindingObserver {
 
   /// 待处理的 App Shortcut 类型；锁定时暂存，解锁后再跳转
   String? _pendingShortcutType;
+
+  /// 上次处理「记一笔」快捷方式的时间戳，用于双通道竞态防重
+  DateTime? _lastShortcutHandledAt;
 
   @override
   void initState() {
@@ -152,7 +232,21 @@ class _JituAppState extends State<JituApp> with WidgetsBindingObserver {
   }
 
   /// 打开记账页
+  ///
+  /// WHY: quick_actions 插件（1.0.30）存在双通道竞态——原生 onAttachedToActivity
+  /// 会主动调 onNewIntent(getIntent()) 推送 launchAction 消息，Dart 端 initialize()
+  /// 又会调原生 getLaunchAction 读取同一 intent extra，冷启动经快捷方式进入时
+  /// 两条路径各回调一次导致连续 push 两个记账页（v3.4.1 用户反馈）。
+  /// 此处以 1 秒时间窗去重：窗口内的重复事件直接忽略，同时顺带防手快双击。
   void _openAddTransaction() {
+    final now = DateTime.now();
+    final last = _lastShortcutHandledAt;
+    if (last != null &&
+        now.difference(last) < const Duration(milliseconds: 1000)) {
+      debugPrint('[Shortcut] 1 秒内重复的记一笔事件被忽略');
+      return;
+    }
+    _lastShortcutHandledAt = now;
     _navigatorKey.currentState?.push(
       MaterialPageRoute(builder: (_) => const AddTransactionScreen()),
     );

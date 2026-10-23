@@ -15,8 +15,11 @@ class NotificationParserService {
       RegExp(r'(\d+(?:\.\d{1,2})?)\s*(?:元|￥|¥)');
 
   // WHY: 支付宝商户名提取：「在XXX消费」「收款方:XXX」「向XXX付款」
+  // 「收款方[:：]」模式不能用行尾 $ 锚定：真实通知中商户名后常同行尾随
+  // 金额（如「收款方:瑞幸咖啡 20.00元」），. 会吞掉金额。改为前瞻到下一个
+  // 空白或行尾，确保只取商户名本身。
   static final RegExp _alipayMerchantPattern =
-      RegExp(r'在(.+?)消费|收款方[:：]\s*(.+?)$|向(.+?)付款');
+      RegExp(r'在(.+?)消费|收款方[:：]\s*(.+?)(?=\s|[￥¥]|$)|向(.+?)付款');
 
   // WHY: 微信支付通知样例「微信支付收款1.00元」「当前账户金额:100.00元」
   static final RegExp _wechatAmountPattern =
@@ -64,8 +67,9 @@ class NotificationParserService {
   }
 
   // WHY: 微信商户名提取：「付款给XXX」「收款方:XXX」
+  // 同支付宝，不能用行尾 $ 锚定，否则同行尾随金额会被吞入商户名。
   static final RegExp _wechatMerchantPattern =
-      RegExp(r'付款给(.+?)$|收款方[:：]\s*(.+?)$');
+      RegExp(r'付款给(.+?)(?=\s|[￥¥]|$)|收款方[:：]\s*(.+?)(?=\s|[￥¥]|$)');
 
   /// 解析通知文本
   ///

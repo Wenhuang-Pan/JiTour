@@ -48,8 +48,12 @@ class AutoAccountingPlugin : FlutterPlugin, ActivityAware, EventChannel.StreamHa
         // 窗口取 15 秒而非 60 秒：同笔支付的双通道事件毫秒级到达，15 秒足够去重，
         // 又能大幅降低误杀 60 秒内两笔同金额不同交易的概率。
         private const val EVENT_DEDUP_WINDOW_MS = 15_000L
-        private var lastEventKey: String = ""
-        private var lastEventTime: Long = 0L
+
+        // WHY: 多槽位去重表（key=「包名:金额」→ 首次事件时间戳）——
+        // 旧的单槽位设计（lastEventKey 单变量）在多笔支付交错或双通道并发
+        // 场景下会互相覆盖去重记录，导致同一笔支付被重复弹窗（v3.4.1 修复）。
+        // 通知监听与无障碍服务均在主线程调用，HashMap 无并发风险
+        private val recentEventKeys = HashMap<String, Long>()
 
         /**
          * 确保 applicationContext 已缓存。
@@ -57,8 +61,8 @@ class AutoAccountingPlugin : FlutterPlugin, ActivityAware, EventChannel.StreamHa
          * WHY: 华为等国产 ROM 杀后台后，系统会单独拉起应用进程运行
          * NotificationListener/Accessibility/Overlay Service（纯 Service 进程，
          * Flutter 引擎从未 attach，onAttachedToEngine 从未执行），
-         * 此时 appContext/pluginInstance 均为 null，悬浮窗确认后无法拉起
-         * MainActivity，导致记账结果被静默丢弃。各 Service 创建时调用本方法兜底。
+         * 此时 appContext/pluginInstance 均为 null，悬浮窗确认后无法创建
+         * headless 落库引擎，导致记账结果滞留队列。各 Service 创建时调用本方法兜底。
          *
          * @param context 任意可用 Context，内部取 applicationContext 缓存。
          */
@@ -84,13 +88,16 @@ class AutoAccountingPlugin : FlutterPlugin, ActivityAware, EventChannel.StreamHa
             // WHY: 金额无效时不具备去重依据，放行交给上层流程自行处理
             if (amount <= 0.0) return true
             val now = System.currentTimeMillis()
+            // WHY: 顺手清理过期条目防止 Map 无限增长；事件频率低（支付级别），
+            // O(n) 遍历开销可忽略（n 通常 < 10）
+            recentEventKeys.entries.removeAll { now - it.value >= EVENT_DEDUP_WINDOW_MS }
             val key = "$packageName:$amount"
-            if (key == lastEventKey && now - lastEventTime < EVENT_DEDUP_WINDOW_MS) {
+            val lastTime = recentEventKeys[key]
+            if (lastTime != null && now - lastTime < EVENT_DEDUP_WINDOW_MS) {
                 android.util.Log.d("AutoAccounting", "重复事件被去重: $key")
                 return false
             }
-            lastEventKey = key
-            lastEventTime = now
+            recentEventKeys[key] = now
             return true
         }
 
@@ -99,6 +106,88 @@ class AutoAccountingPlugin : FlutterPlugin, ActivityAware, EventChannel.StreamHa
         private const val PREFS_NAME = "jitu_overlay_cache"
         private const val KEY_CACHED_CATEGORIES = "cached_categories"
         private const val KEY_CACHED_ACCOUNTS = "cached_accounts"
+
+        // WHY: 悬浮窗事件补录队列——Flutter 未 attached 时（应用被杀），悬浮窗的
+        // 确认/待确认事件无法立即写入 Hive，持久化到 SharedPreferences，
+        // 应用下次启动后由 Dart 侧 drainPendingOverlayResults 读取补录。
+        // v3.4.1 用户反馈：确认/忽略都不应拉起 MainActivity 打扰用户
+        private const val KEY_PENDING_OVERLAY_RESULTS = "pending_overlay_results"
+
+        /**
+         * 将悬浮窗事件写入补录队列（追加到已有队列尾部）。
+         *
+         * WHY: 纯 Service 进程无 Dart 执行环境，确认记账的落库必须延迟到
+         * 应用下次启动；SharedPreferences 持久化保证进程被杀后数据不丢。
+         *
+         * @param data 事件数据，含 action/amount/merchant/category/account/rawText/isIncome。
+         */
+        fun enqueuePendingOverlayResult(data: Map<String, Any?>) {
+            val ctx = appContext ?: run {
+                android.util.Log.e(
+                    "AutoAccounting",
+                    "enqueuePendingOverlayResult 丢弃: 无可用 Context, action=${data["action"]}"
+                )
+                return
+            }
+            try {
+                val prefs = ctx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                val existing = prefs.getString(KEY_PENDING_OVERLAY_RESULTS, null)
+                val arr = if (existing != null) JSONArray(existing) else JSONArray()
+                val obj = JSONObject()
+                data.forEach { (k, v) ->
+                    // WHY: JSONObject.put(key, null) 语义是移除 key，null 值直接跳过，
+                    // Dart 侧读取缺失 key 与显式 null 行为一致
+                    if (v != null) obj.put(k, v)
+                }
+                arr.put(obj)
+                prefs.edit().putString(KEY_PENDING_OVERLAY_RESULTS, arr.toString()).apply()
+                android.util.Log.d(
+                    "AutoAccounting",
+                    "悬浮窗事件入队待补录: action=${data["action"]}, amount=${data["amount"]}"
+                )
+            } catch (e: Exception) {
+                // WHY: 队列写入失败必须留日志，禁止静默丢弃用户确认的记账数据
+                android.util.Log.e(
+                    "AutoAccounting",
+                    "悬浮窗事件入队失败: ${e.message}"
+                )
+            }
+        }
+
+        /**
+         * 读取并清空补录队列。
+         *
+         * WHY: 先清空再解析——即使解析失败也不至于重复补录导致重复记账；
+         * 队列数据不含 timestamp，Dart 侧过期检查按「历史数据有效」处理
+         * （用户明确确认过的记账不应因打开 app 晚而被丢弃）。
+         *
+         * @return 队列数据列表（每项为 String/double/bool/null 值的 Map），空队列返回空列表。
+         */
+        fun drainPendingOverlayResults(): List<Map<String, Any?>> {
+            val ctx = appContext ?: return emptyList()
+            val prefs = ctx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val json = prefs.getString(KEY_PENDING_OVERLAY_RESULTS, null) ?: return emptyList()
+            prefs.edit().remove(KEY_PENDING_OVERLAY_RESULTS).apply()
+            return try {
+                val arr = JSONArray(json)
+                (0 until arr.length()).map { i ->
+                    val obj = arr.getJSONObject(i)
+                    val map = mutableMapOf<String, Any?>()
+                    obj.keys().forEach { k ->
+                        map[k] = when {
+                            obj.isNull(k) -> null
+                            obj.get(k) is Boolean -> obj.getBoolean(k)
+                            obj.get(k) is Number -> obj.getDouble(k)
+                            else -> obj.getString(k)
+                        }
+                    }
+                    map
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("AutoAccounting", "解析待补录队列失败: ${e.message}")
+                emptyList()
+            }
+        }
 
         /**
          * 供 NotificationListenerService 调用，跨组件传递通知事件。
@@ -443,17 +532,22 @@ class AutoAccountingPlugin : FlutterPlugin, ActivityAware, EventChannel.StreamHa
         }
 
         /**
-         * 处理悬浮窗用户操作结果，回调 Flutter 或拉起 MainActivity。
-         * WHY: 当 eventSink 为 null（Flutter 未 attached）时，通过 Intent 拉起 MainActivity
-         * 并以 extra 传递数据，MainActivity 启动后由 Flutter 侧读取并处理。
+         * 处理悬浮窗用户操作结果，回调 Flutter、入队后台落库或直接丢弃。
+         * WHY: 分三种路径处理（v3.4.1 起不再唤起 MainActivity，避免打扰用户）——
+         * 1. Flutter attached：通过 EventChannel 推送，Dart 后台完成数据处理；
+         * 2. Flutter 未 attached 且 action=confirm/pending：写入 SharedPreferences
+         *    补录队列，同时创建 headless 引擎立即后台落库（无任何 UI）；
+         *    引擎失败时数据留在队列，下次打开 app 由启动补录兜底；
+         * 3. Flutter 未 attached 且 action=ignore：忽略无需数据写入，原生直接丢弃。
          *
-         * @param action 用户操作类型，"confirm" 或 "ignore"。
+         * @param action 用户操作类型，"confirm"、"pending" 或 "ignore"。
          * @param amount 支付金额。
          * @param merchant 商户名。
          * @param packageName 支付来源包名。
-         * @param category 用户选择的分类名（ignore 时为 null）。
-         * @param account 用户选择的账户名（ignore 时为 null）。
+         * @param category 用户选择的分类名（ignore/pending 时为 null）。
+         * @param account 用户选择的账户名（ignore/pending 时为 null）。
          * @param rawText 原始通知文本。
+         * @param isIncome 收支方向，true 表示收入（退款/收款）。
          */
         fun handleOverlayResult(
             action: String,
@@ -479,36 +573,27 @@ class AutoAccountingPlugin : FlutterPlugin, ActivityAware, EventChannel.StreamHa
             if (sink != null) {
                 // WHY: Flutter attached，直接通过 EventChannel 推送
                 sink.success(data)
+            } else if (action == "ignore") {
+                // WHY: 忽略操作无需任何数据写入，原生侧直接丢弃即可，
+                // 避免用户点"忽略"后被突兀打扰（v3.4.1 用户反馈修复）
+                android.util.Log.d(
+                    "AutoAccounting",
+                    "悬浮窗忽略: Flutter 未 attached，原生直接丢弃, amount=$amount, merchant=$merchant"
+                )
             } else {
-                // WHY: Flutter 未 attached，拉起 MainActivity 并通过 Intent extra 传递数据
+                // WHY: confirm/pending 需要 Dart 写入 Hive，Flutter 未 attached 时
+                // 无法立即落库。先持久化到补录队列（数据不丢），再创建 headless
+                // 引擎立即后台落库，全程不唤起任何窗口（v3.4.1 用户反馈修复）
+                enqueuePendingOverlayResult(data)
                 val ctx = appContext ?: pluginInstance?.context
                 if (ctx != null) {
-                    val intent = Intent(ctx, MainActivity::class.java).apply {
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                        putExtra("overlay_action", action)
-                        putExtra("overlay_amount", amount)
-                        putExtra("overlay_merchant", merchant)
-                        putExtra("overlay_package", packageName)
-                        category?.let { putExtra("overlay_category", it) }
-                        account?.let { putExtra("overlay_account", it) }
-                        putExtra("overlay_rawText", rawText)
-                        putExtra("overlay_isIncome", isIncome)
-                    }
-                    try {
-                        ctx.startActivity(intent)
-                    } catch (e: Exception) {
-                        // WHY: 拉起失败必须留日志，便于排查记账丢失问题，禁止静默
-                        android.util.Log.e(
-                            "AutoAccounting",
-                            "拉起 MainActivity 失败: ${e.message}"
-                        )
-                    }
+                    OverlayHeadlessRunner.ensureEngine(ctx)
                 } else {
-                    // WHY: 纯 Service 进程下 ensureAppContext 应已兜底；
-                    // 仍走到这里说明上下文缺失，必须留日志，禁止静默丢弃记账结果
+                    // WHY: ensureAppContext 应已兜底；仍无 Context 时引擎无法创建，
+                    // 数据保留在队列等待启动补录，必须留日志便于排查
                     android.util.Log.e(
                         "AutoAccounting",
-                        "handleOverlayResult 丢弃: 无可用 Context, action=$action, amount=$amount"
+                        "handleOverlayResult: 无可用 Context，跳过 headless 落库，等待启动补录, action=$action"
                     )
                 }
             }
@@ -622,6 +707,11 @@ class AutoAccountingPlugin : FlutterPlugin, ActivityAware, EventChannel.StreamHa
             "openAutoStartSettings" -> {
                 // WHY: 跳转国产 ROM 自启动管理页，保活引导用
                 result.success(openAutoStartSettings(context))
+            }
+            "drainPendingOverlayResults" -> {
+                // WHY: 应用正常启动后 Dart 读取补录队列兜底（headless 引擎失败时
+                // 数据滞留在队列中）；读取即清空，不会重复处理
+                result.success(drainPendingOverlayResults())
             }
             else -> result.notImplemented()
         }

@@ -8,9 +8,9 @@ import '../services/account_service.dart';
 import '../services/category_service.dart';
 import '../services/database_service.dart';
 import '../services/notification_bridge_service.dart';
+import '../services/overlay_result_service.dart';
 import '../services/pending_transaction_service.dart';
 import '../services/category_inference_service.dart';
-import '../utils/decimal_util.dart';
 
 /// 支付通知自动记账状态管理
 ///
@@ -114,11 +114,15 @@ class AutoAccountingProvider extends ChangeNotifier {
     _initialized = true;
     notifyListeners();
 
-    // WHY: 检查是否有来自 Intent extra 的 overlay 结果（应用被杀后由悬浮窗拉起）
-    final launchData = await NotificationBridgeService.getLaunchData();
-    if (launchData != null) {
-      await _handleOverlayResult(launchData);
-      await NotificationBridgeService.clearLaunchData();
+    // WHY: 启动补录兜底——headless 引擎落库失败时，悬浮窗确认/pending 数据
+    // 滞留在原生 SharedPreferences 补录队列；此处读取并处理，确保用户确认过
+    // 的记账最终落地。原生侧读取即清空，不会重复处理。
+    final drained = await NotificationBridgeService.drainPendingOverlayResults();
+    for (final Map<String, dynamic> data in drained) {
+      await _handleOverlayResult(data);
+    }
+    if (drained.isNotEmpty) {
+      debugPrint('[AutoAccounting] 启动补录完成: ${drained.length} 条');
     }
   }
 
@@ -196,111 +200,19 @@ class AutoAccountingProvider extends ChangeNotifier {
 
   /// 处理原生悬浮窗的结果回调
   ///
-  /// WHY: 当应用在后台被杀，用户在原生悬浮窗完成操作后，
-  /// 原生层通过 EventChannel 或 Intent extra 推送结果，此方法负责处理。
+  /// WHY: 事件可能来自两个渠道——EventChannel 推送（应用在后台但引擎活着）
+  /// 与启动补录队列（headless 引擎失败时的兜底）。落库逻辑统一在
+  /// OverlayResultService（与 headless 引擎共用），本方法只负责调用后
+  /// 刷新 UI 状态。
   ///
   /// @param data Overlay 结果数据，含 action/amount/merchant/category/account/rawText
   Future<void> _handleOverlayResult(Map<String, dynamic> data) async {
-    // WHY: 过期数据丢弃——onNewIntent 滞留的 launchData 可能在下次冷启动时
-    // 被重新读取，延迟执行会误记账。原生侧提取时附带 timestamp（毫秒），
-    // 超过 5 分钟的数据视为过期；无 timestamp 的历史数据按有效处理
-    final int? timestamp = data['timestamp'] as int?;
-    if (timestamp != null &&
-        DateTime.now().millisecondsSinceEpoch - timestamp > 5 * 60 * 1000) {
-      debugPrint('[AutoAccounting] overlay 结果已过期，丢弃: $data');
-      return;
-    }
-    final action = data['action'] as String? ?? '';
-    final amount = parseDecimal(data['amount']);
-    final merchant = data['merchant'] as String? ?? '';
-    final category = data['category'] as String?;
-    final account = data['account'] as String?;
-    final rawText = data['rawText'] as String? ?? '';
-    // WHY: 收支方向由原生侧（通知监听/无障碍服务）识别后透传，
-    // 缺失时按支出处理，与历史版本行为一致
-    final isIncome = data['isIncome'] as bool? ?? false;
+    await OverlayResultService.handle(data);
 
-    debugPrint('[AutoAccounting] 收到 overlay 结果: action=$action, '
-        'amount=$amount, merchant=$merchant, isIncome=$isIncome');
-
-    if (action == 'confirm') {
-      // WHY: 悬浮窗确认后，创建待确认交易并立即转正
-      if (category == null ||
-          category.isEmpty ||
-          account == null ||
-          account.isEmpty) {
-        debugPrint('[AutoAccounting] overlay 确认失败: 分类或账户为空');
-        return;
-      }
-      try {
-        final pending = await PendingTransactionService.create(
-          amount: amount,
-          source: merchant.contains('微信')
-              ? PaymentSource.wechat
-              : PaymentSource.alipay,
-          rawText: rawText,
-          merchant: merchant.isEmpty ? null : merchant,
-          inferredCategory: category,
-          confidence: 0.95,
-          isIncome: isIncome,
-        );
-        await confirmTransaction(pending.id,
-            category: category, account: account);
-        debugPrint('[AutoAccounting] overlay 确认成功');
-      } catch (e) {
-        debugPrint('[AutoAccounting] overlay 确认异常: $e');
-      }
-    } else if (action == 'pending') {
-      // WHY: 悬浮窗权限未授权时的回退路径：创建待确认交易等待用户手动处理
-      // 原生层无法显示悬浮窗，直接拉起 MainActivity，Flutter 启动后创建 pending 记录
-      // WHY: 与 _handleNewPayment 同构的去重兜底——通知与无障碍双通道可能
-      // 各自触发一次 pending 拉起，15 秒内同金额同来源记录已存在时直接丢弃
-      final PaymentSource source = merchant.contains('微信')
-          ? PaymentSource.wechat
-          : PaymentSource.alipay;
-      final bool isDuplicate = PendingTransactionService.getAll().any(
-        (PendingTransaction t) =>
-            t.amount == amount &&
-            t.source == source &&
-            DateTime.now().difference(t.createdAt).inSeconds.abs() < 15,
-      );
-      if (isDuplicate) {
-        debugPrint('[AutoAccounting] 重复 pending 事件被去重: '
-            '$source ¥$amount');
-        return;
-      }
-      try {
-        final pending = await PendingTransactionService.create(
-          amount: amount,
-          source: source,
-          rawText: rawText,
-          merchant: merchant.isEmpty ? null : merchant,
-          isIncome: isIncome,
-        );
-        _pendingList.insert(0, pending);
-        notifyListeners();
-        debugPrint('[AutoAccounting] overlay pending 创建成功: ${pending.id}');
-      } catch (e) {
-        debugPrint('[AutoAccounting] overlay pending 创建异常: $e');
-      }
-    } else if (action == 'ignore') {
-      // WHY: 悬浮窗忽略后，创建待确认交易并标记为 discarded
-      try {
-        final pending = await PendingTransactionService.create(
-          amount: amount,
-          source: merchant.contains('微信')
-              ? PaymentSource.wechat
-              : PaymentSource.alipay,
-          rawText: rawText,
-          merchant: merchant.isEmpty ? null : merchant,
-          isIncome: isIncome,
-        );
-        await discardTransaction(pending.id);
-        debugPrint('[AutoAccounting] overlay 忽略成功');
-      } catch (e) {
-        debugPrint('[AutoAccounting] overlay 忽略异常: $e');
-      }
-    }
+    // WHY: 落库后统一重载待确认列表驱动 UI 刷新（confirm 移除记录、
+    // pending 新增记录均由此覆盖），与逐条 removeWhere/insert 等价且更简单
+    _loadPendingList();
+    notifyListeners();
   }
 
   /// 处理新的支付通知事件

@@ -81,8 +81,9 @@ class PaymentNotificationListener : NotificationListenerService() {
         } else {
             // WHY: Flutter 未 attached 时，根据悬浮窗权限决定路径：
             // - 已授权悬浮窗 → 启动 OverlayService 显示原生悬浮窗
-            // - 未授权悬浮窗 → 直接通过 handleOverlayResult 拉起 MainActivity，
-            //   Flutter 启动后由 AutoAccountingProvider 处理（rawText 传递给 Flutter 解析）
+            // - 未授权悬浮窗 → 以 pending 动作走 handleOverlayResult，写入
+            //   补录队列并创建 headless 引擎后台落库（不唤起任何窗口），
+            //   Flutter 启动后由 AutoAccountingProvider 处理
             val parsedMerchant = extractMerchant(combined)
             // WHY: 收入类通知（如「支付宝成功收款1.00元」）需标记收支方向，
             // 否则原生回退路径会把收入误记为支出
@@ -98,13 +99,13 @@ class PaymentNotificationListener : NotificationListenerService() {
                 }
                 startService(intent)
             } else {
-                // WHY: 未授权悬浮窗，回退方案：直接拉起 MainActivity 交由 Flutter 处理
-                // 以 confirm 动作拉起，但 category/account 为 null，
-                // Flutter 侧 _handleOverlayResult 会因 category 为空跳过确认，
-                // 改为创建一条 PendingTransaction 等待用户手动确认
+                // WHY: 未授权悬浮窗，回退方案：以 pending 动作走补录队列 +
+                // headless 引擎，category/account 为 null，Dart 侧
+                // OverlayResultService 会创建一条 PendingTransaction
+                // 等待用户手动确认，全程不唤起任何窗口
                 android.util.Log.w(
                     "PaymentListener",
-                    "悬浮窗权限未授权，回退到拉起 MainActivity"
+                    "悬浮窗权限未授权，回退到 headless 后台落库"
                 )
                 AutoAccountingPlugin.handleOverlayResult(
                     action = "pending",

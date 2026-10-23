@@ -32,6 +32,8 @@ class DatabaseService {
   static const String _pendingTransactionBoxName = 'pending_transactions';
   static const String _merchantCategoryMapBoxName = 'merchant_category_map';
   static const String _autoAccountingPrefsBoxName = 'auto_accounting_prefs';
+  // WHY: AI 助手配置 box（API Key 等敏感信息，不硬编码）
+  static const String _aiConfigBoxName = 'ai_config';
   static late Box<Transaction> _transactionBox;
   static late Box<Budget> _budgetBox;
   static late Box<Account> _accountBox;
@@ -46,6 +48,8 @@ class DatabaseService {
   static late Box<PendingTransaction> _pendingTransactionBox;
   static late Box<String> _merchantCategoryMapBox;
   static late Box<dynamic> _autoAccountingPrefsBox;
+  // WHY: AI 助手配置（API Key），Box<String> 存储字符串
+  static late Box<String> _aiConfigBox;
 
   static Future<void> init() async {
     if (!Hive.isAdapterRegistered(0)) {
@@ -110,6 +114,8 @@ class DatabaseService {
         await Hive.openBox<String>(_merchantCategoryMapBoxName);
     _autoAccountingPrefsBox =
         await Hive.openBox<dynamic>(_autoAccountingPrefsBoxName);
+    // WHY: 打开 AI 助手配置 box
+    _aiConfigBox = await Hive.openBox<String>(_aiConfigBoxName);
 
     // 初始化分类服务
     await CategoryService.init();
@@ -141,6 +147,8 @@ class DatabaseService {
       _pendingTransactionBox;
   static Box<String> get merchantCategoryMap => _merchantCategoryMapBox;
   static Box<dynamic> get autoAccountingPrefs => _autoAccountingPrefsBox;
+  // WHY: AI 助手配置 getter
+  static Box<String> get aiConfig => _aiConfigBox;
 
   static Future<void> addTransaction(Transaction transaction) async {
     await _transactionBox.put(transaction.id, transaction);

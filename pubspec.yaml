@@ -1,7 +1,7 @@
 name: jitu
 description: 记途 - 记录每一笔，走向财务自由的旅途
 publish_to: 'none'
-version: 3.4.0+15
+version: 3.4.1+16
 
 environment:
   sdk: '>=3.0.0 <4.0.0'

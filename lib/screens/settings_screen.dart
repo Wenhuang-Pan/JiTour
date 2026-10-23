@@ -5,6 +5,7 @@ import '../providers/theme_provider.dart';
 import '../providers/currency_provider.dart';
 import '../providers/reminder_provider.dart';
 import '../providers/auto_accounting_provider.dart';
+import '../services/ai_config_service.dart';
 import '../services/update_service.dart';
 import '../services/database_service.dart';
 import '../theme/app_theme.dart';
@@ -54,6 +55,10 @@ class SettingsScreen extends StatelessWidget {
             _buildSectionTitle(context, '自动记账'),
             const SizedBox(height: AppTheme.spaceSmall),
             _buildAutoAccountingCard(context),
+            const SizedBox(height: AppTheme.spaceLarge),
+            _buildSectionTitle(context, 'AI 助手'),
+            const SizedBox(height: AppTheme.spaceSmall),
+            _buildAiAssistantCard(context),
             const SizedBox(height: AppTheme.spaceLarge),
             // WHY: 应用锁依赖 local_auth 原生插件，Web 平台不支持，隐藏整个安全区块
             if (!kIsWeb) ...[
@@ -787,6 +792,121 @@ class SettingsScreen extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  /// 构建 AI 助手设置卡片
+  ///
+  /// WHY: 点击进入 API Key 配置弹窗，展示当前配置状态。
+  ///
+  /// @param context 构建上下文。
+  /// @return AI 助手卡片 Widget。
+  Widget _buildAiAssistantCard(BuildContext context) {
+    final isConfigured = AiConfigService.isConfigured();
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.getCardColor(context),
+        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+        boxShadow: AppTheme.cardShadow,
+      ),
+      child: _buildReminderItem(
+        context,
+        icon: Icons.auto_awesome_rounded,
+        iconColor: AppTheme.getPrimaryColor(context),
+        title: 'AI 账单分析',
+        subtitle: isConfigured ? '已配置 API Key' : '未配置 · 点击设置',
+        onTap: () => _showAiConfigDialog(context),
+      ),
+    );
+  }
+
+  /// 显示 AI API Key 配置弹窗。
+  ///
+  /// @param context 构建上下文。
+  void _showAiConfigDialog(BuildContext context) {
+    // WHY: 在 async 操作前获取 ScaffoldMessenger，避免跨 async gap 使用 BuildContext
+    final messenger = ScaffoldMessenger.of(context);
+    final controller = TextEditingController(
+      text: AiConfigService.getApiKey() ?? '',
+    );
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('AI 助手配置'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                '请输入智谱开放平台（bigmodel.cn）的 API Key。'
+                'GLM-4-Flash 模型永久免费。',
+                style: TextStyle(fontSize: 13),
+              ),
+              const SizedBox(height: AppTheme.spaceMedium),
+              TextField(
+                controller: controller,
+                decoration: const InputDecoration(
+                  labelText: 'API Key',
+                  border: OutlineInputBorder(),
+                  hintText: '粘贴你的 API Key',
+                ),
+                obscureText: true,
+              ),
+            ],
+          ),
+          actions: [
+            if (AiConfigService.isConfigured())
+              TextButton(
+                onPressed: () async {
+                  await AiConfigService.clearApiKey();
+                  if (dialogContext.mounted) {
+                    Navigator.pop(dialogContext);
+                    messenger.showSnackBar(
+                      const SnackBar(content: Text('API Key 已清除')),
+                    );
+                    if (context.mounted) {
+                      (context as Element).markNeedsBuild();
+                    }
+                  }
+                },
+                child: const Text('清除'),
+              ),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                final key = controller.text.trim();
+                if (key.isEmpty) {
+                  messenger.showSnackBar(
+                    const SnackBar(content: Text('API Key 不能为空')),
+                  );
+                  return;
+                }
+                try {
+                  await AiConfigService.setApiKey(key);
+                  if (dialogContext.mounted) {
+                    Navigator.pop(dialogContext);
+                    messenger.showSnackBar(
+                      const SnackBar(content: Text('API Key 已保存')),
+                    );
+                    if (context.mounted) {
+                      (context as Element).markNeedsBuild();
+                    }
+                  }
+                } catch (e) {
+                  messenger.showSnackBar(
+                    SnackBar(content: Text('保存失败: $e')),
+                  );
+                }
+              },
+              child: const Text('保存'),
+            ),
+          ],
+        );
+      },
     );
   }
 }
