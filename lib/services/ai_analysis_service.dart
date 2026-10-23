@@ -70,7 +70,10 @@ class AiAnalysisService {
       'https://open.bigmodel.cn/api/paas/v4/chat/completions';
 
   /// 使用的模型名称
-  static const String _model = 'glm-4-flash';
+  ///
+  /// WHY: 从 AiConfigService 运行时读取（默认 glm-4.7-flash），
+  /// 智谱免费模型升级时用户改配置即可，无需发版。
+  static String get _model => AiConfigService.getModel();
 
   /// 请求超时时间
   static const Duration _timeout = Duration(seconds: 30);

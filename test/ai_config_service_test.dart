@@ -55,5 +55,26 @@ void main() {
         throwsArgumentError,
       );
     });
+
+    test('未配置时 getModel 返回默认模型', () {
+      expect(AiConfigService.getModel(), AiConfigService.defaultModel);
+    });
+
+    test('setModel 后 getModel 返回相同值', () async {
+      await AiConfigService.setModel('glm-4-flash');
+      expect(AiConfigService.getModel(), 'glm-4-flash');
+    });
+
+    test('setModel 自动 trim 首尾空白', () async {
+      await AiConfigService.setModel('  glm-4.7-flash  ');
+      expect(AiConfigService.getModel(), 'glm-4.7-flash');
+    });
+
+    test('setModel 传空白字符串恢复默认模型', () async {
+      await AiConfigService.setModel('glm-4-flash');
+      expect(AiConfigService.getModel(), 'glm-4-flash');
+      await AiConfigService.setModel('   ');
+      expect(AiConfigService.getModel(), AiConfigService.defaultModel);
+    });
   });
 }

@@ -814,13 +814,18 @@ class SettingsScreen extends StatelessWidget {
         icon: Icons.auto_awesome_rounded,
         iconColor: AppTheme.getPrimaryColor(context),
         title: 'AI 账单分析',
-        subtitle: isConfigured ? '已配置 API Key' : '未配置 · 点击设置',
+        // WHY: 动态显示当前模型名，方便用户确认模型配置是否生效
+        subtitle:
+            isConfigured ? '已配置 · ${AiConfigService.getModel()}' : '未配置 · 点击设置',
         onTap: () => _showAiConfigDialog(context),
       ),
     );
   }
 
-  /// 显示 AI API Key 配置弹窗。
+  /// 显示 AI API Key 与模型名配置弹窗。
+  ///
+  /// WHY: 模型名开放配置——智谱免费模型持续升级（glm-4-flash →
+  /// glm-4.7-flash → …），用户改模型名即可跟进，无需 app 发版。
   ///
   /// @param context 构建上下文。
   void _showAiConfigDialog(BuildContext context) {
@@ -829,31 +834,45 @@ class SettingsScreen extends StatelessWidget {
     final controller = TextEditingController(
       text: AiConfigService.getApiKey() ?? '',
     );
+    final modelController = TextEditingController(
+      text: AiConfigService.getModel(),
+    );
     showDialog<void>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
           title: const Text('AI 助手配置'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                '请输入智谱开放平台（bigmodel.cn）的 API Key。'
-                'GLM-4-Flash 模型永久免费。',
-                style: TextStyle(fontSize: 13),
-              ),
-              const SizedBox(height: AppTheme.spaceMedium),
-              TextField(
-                controller: controller,
-                decoration: const InputDecoration(
-                  labelText: 'API Key',
-                  border: OutlineInputBorder(),
-                  hintText: '粘贴你的 API Key',
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  '请输入智谱开放平台（bigmodel.cn）的 API Key。'
+                  'GLM-Flash 系列模型永久免费。',
+                  style: TextStyle(fontSize: 13),
                 ),
-                obscureText: true,
-              ),
-            ],
+                const SizedBox(height: AppTheme.spaceMedium),
+                TextField(
+                  controller: controller,
+                  decoration: const InputDecoration(
+                    labelText: 'API Key',
+                    border: OutlineInputBorder(),
+                    hintText: '粘贴你的 API Key',
+                  ),
+                  obscureText: true,
+                ),
+                const SizedBox(height: AppTheme.spaceMedium),
+                TextField(
+                  controller: modelController,
+                  decoration: const InputDecoration(
+                    labelText: '模型名',
+                    border: OutlineInputBorder(),
+                    helperText: '免费模型升级时改为最新模型名即可',
+                  ),
+                ),
+              ],
+            ),
           ),
           actions: [
             if (AiConfigService.isConfigured())
@@ -887,10 +906,16 @@ class SettingsScreen extends StatelessWidget {
                 }
                 try {
                   await AiConfigService.setApiKey(key);
+                  // WHY: 模型名留空语义为「恢复默认」，由 setModel 内部处理
+                  await AiConfigService.setModel(modelController.text);
                   if (dialogContext.mounted) {
                     Navigator.pop(dialogContext);
                     messenger.showSnackBar(
-                      const SnackBar(content: Text('API Key 已保存')),
+                      SnackBar(
+                        content: Text(
+                          '已保存，当前模型：${AiConfigService.getModel()}',
+                        ),
+                      ),
                     );
                     if (context.mounted) {
                       (context as Element).markNeedsBuild();
