@@ -66,8 +66,10 @@ class AiAnalysisService {
   AiAnalysisService._();
 
   /// 智谱 API 端点（OpenAI 兼容格式）
-  static const String _apiEndpoint =
-      'https://open.bigmodel.cn/api/paas/v4/chat/completions';
+  ///
+  /// WHY: 端点从配置读取，支持切换到 DeepSeek / 通义 / Kimi / OpenAI
+  /// 等任意 OpenAI 兼容服务商；自定义端点优先。
+  static String get _apiEndpoint => AiConfigService.getBaseUrl();
 
   /// 使用的模型名称
   ///
@@ -97,7 +99,7 @@ class AiAnalysisService {
     if (apiKey == null || apiKey.isEmpty) {
       throw const AiAnalysisException(
         AiAnalysisError.notConfigured,
-        '未配置 API Key，请先在设置中配置智谱 API Key',
+        '未配置 API Key，请先在设置中配置 AI 服务商的 API Key',
       );
     }
 
@@ -227,7 +229,7 @@ class AiAnalysisService {
       if (response.statusCode == 401) {
         throw const AiAnalysisException(
           AiAnalysisError.invalidApiKey,
-          'API Key 无效，请检查智谱 API Key 是否正确',
+          'API Key 无效，请检查当前服务商的 API Key 是否正确',
         );
       }
       if (response.statusCode >= 500) {

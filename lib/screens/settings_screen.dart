@@ -11,6 +11,7 @@ import '../services/database_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/update_checker.dart';
 import '../widgets/app_lock_card.dart';
+import '../widgets/ai_config_dialog.dart';
 import 'reminder_settings_screen.dart';
 import 'auto_accounting_settings_screen.dart';
 import 'recycle_bin_screen.dart';
@@ -814,124 +815,35 @@ class SettingsScreen extends StatelessWidget {
         icon: Icons.auto_awesome_rounded,
         iconColor: AppTheme.getPrimaryColor(context),
         title: 'AI 账单分析',
-        // WHY: 动态显示当前模型名，方便用户确认模型配置是否生效
-        subtitle:
-            isConfigured ? '已配置 · ${AiConfigService.getModel()}' : '未配置 · 点击设置',
+        // WHY: 动态显示当前服务商与模型，方便用户确认配置是否生效
+        subtitle: isConfigured
+            ? '已配置 · ${AiConfigService.getProvider().name} · '
+                '${AiConfigService.getModel()}'
+            : '未配置 · 点击设置',
         onTap: () => _showAiConfigDialog(context),
       ),
     );
   }
 
-  /// 显示 AI API Key 与模型名配置弹窗。
+  /// 显示 AI 服务商配置弹窗。
   ///
-  /// WHY: 模型名开放配置——智谱免费模型持续升级（glm-4-flash →
-  /// glm-4.7-flash → …），用户改模型名即可跟进，无需 app 发版。
+  /// WHY: 配置项（服务商 / Key / 模型 / 端点）统一由 AiConfigDialog 承载，
+  /// 支持切换服务商与搜索模型，后续升级无需改设置页。
   ///
   /// @param context 构建上下文。
-  void _showAiConfigDialog(BuildContext context) {
+  Future<void> _showAiConfigDialog(BuildContext context) async {
     // WHY: 在 async 操作前获取 ScaffoldMessenger，避免跨 async gap 使用 BuildContext
     final messenger = ScaffoldMessenger.of(context);
-    final controller = TextEditingController(
-      text: AiConfigService.getApiKey() ?? '',
+    final bool? saved = await AiConfigDialog.show(context);
+    if (saved != true || !context.mounted) return;
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          '已保存 · ${AiConfigService.getProvider().name} · '
+          '${AiConfigService.getModel()}',
+        ),
+      ),
     );
-    final modelController = TextEditingController(
-      text: AiConfigService.getModel(),
-    );
-    showDialog<void>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('AI 助手配置'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  '请输入智谱开放平台（bigmodel.cn）的 API Key。'
-                  'GLM-Flash 系列模型永久免费。',
-                  style: TextStyle(fontSize: 13),
-                ),
-                const SizedBox(height: AppTheme.spaceMedium),
-                TextField(
-                  controller: controller,
-                  decoration: const InputDecoration(
-                    labelText: 'API Key',
-                    border: OutlineInputBorder(),
-                    hintText: '粘贴你的 API Key',
-                  ),
-                  obscureText: true,
-                ),
-                const SizedBox(height: AppTheme.spaceMedium),
-                TextField(
-                  controller: modelController,
-                  decoration: const InputDecoration(
-                    labelText: '模型名',
-                    border: OutlineInputBorder(),
-                    helperText: '免费模型升级时改为最新模型名即可',
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            if (AiConfigService.isConfigured())
-              TextButton(
-                onPressed: () async {
-                  await AiConfigService.clearApiKey();
-                  if (dialogContext.mounted) {
-                    Navigator.pop(dialogContext);
-                    messenger.showSnackBar(
-                      const SnackBar(content: Text('API Key 已清除')),
-                    );
-                    if (context.mounted) {
-                      (context as Element).markNeedsBuild();
-                    }
-                  }
-                },
-                child: const Text('清除'),
-              ),
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('取消'),
-            ),
-            FilledButton(
-              onPressed: () async {
-                final key = controller.text.trim();
-                if (key.isEmpty) {
-                  messenger.showSnackBar(
-                    const SnackBar(content: Text('API Key 不能为空')),
-                  );
-                  return;
-                }
-                try {
-                  await AiConfigService.setApiKey(key);
-                  // WHY: 模型名留空语义为「恢复默认」，由 setModel 内部处理
-                  await AiConfigService.setModel(modelController.text);
-                  if (dialogContext.mounted) {
-                    Navigator.pop(dialogContext);
-                    messenger.showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          '已保存，当前模型：${AiConfigService.getModel()}',
-                        ),
-                      ),
-                    );
-                    if (context.mounted) {
-                      (context as Element).markNeedsBuild();
-                    }
-                  }
-                } catch (e) {
-                  messenger.showSnackBar(
-                    SnackBar(content: Text('保存失败: $e')),
-                  );
-                }
-              },
-              child: const Text('保存'),
-            ),
-          ],
-        );
-      },
-    );
+    (context as Element).markNeedsBuild();
   }
 }
