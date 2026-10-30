@@ -16,6 +16,13 @@ enum PaymentSource {
   /// 微信支付
   @HiveField(1)
   wechat,
+
+  /// 银行 App 消息提醒（消费/支出/退款等）
+  ///
+  /// WHY: v3.4.2 新增银行消息提醒识别通道，需区分来源以便统计与展示。
+  /// 追加在末尾以保证已有 Hive 数据的枚举序号不变。
+  @HiveField(2)
+  bank,
 }
 
 /// 待确认交易状态枚举
@@ -131,6 +138,8 @@ class PendingTransaction extends HiveObject {
         return '支付宝';
       case PaymentSource.wechat:
         return '微信支付';
+      case PaymentSource.bank:
+        return '银行消息';
     }
   }
 

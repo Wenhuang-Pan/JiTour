@@ -71,6 +71,8 @@ class _PendingTransactionsScreenState extends State<PendingTransactionsScreen> {
         return const Color(0xFF1677FF);
       case PaymentSource.wechat:
         return const Color(0xFF07C160);
+      case PaymentSource.bank:
+        return const Color(0xFF8A8F99);
     }
   }
 

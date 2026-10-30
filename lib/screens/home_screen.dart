@@ -1656,21 +1656,26 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
               final deleted =
                   await DatabaseService.softDeleteTransaction(transaction.id);
               if (!context.mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(deleted ? '已移入回收站' : '删除失败'),
-                  duration: const Duration(seconds: 3),
-                  action: deleted
-                      ? SnackBarAction(
-                          label: '撤销',
-                          onPressed: () {
-                            // 恢复交易并重新计入账户余额
-                            DatabaseService.restoreTransaction(transaction.id);
-                          },
-                        )
-                      : null,
-                ),
-              );
+              // WHY: 连续删除会向 ScaffoldMessenger 排队多条提示，前一条未展示完时
+              // 新提示只入队，表现为底部提示长时间停留不消失；先关闭当前提示再展示
+              final messenger = ScaffoldMessenger.of(context);
+              messenger
+                ..hideCurrentSnackBar()
+                ..showSnackBar(
+                  SnackBar(
+                    content: Text(deleted ? '已移入回收站' : '删除失败'),
+                    duration: const Duration(seconds: 3),
+                    action: deleted
+                        ? SnackBarAction(
+                            label: '撤销',
+                            onPressed: () {
+                              // 恢复交易并重新计入账户余额
+                              DatabaseService.restoreTransaction(transaction.id);
+                            },
+                          )
+                        : null,
+                  ),
+                );
             },
             style: TextButton.styleFrom(
               foregroundColor: AppTheme.errorColor,

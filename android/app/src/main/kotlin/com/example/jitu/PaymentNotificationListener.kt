@@ -12,18 +12,44 @@ class PaymentNotificationListener : NotificationListenerService() {
         private val amountRegex = Regex("(\\d+(?:\\.\\d{1,2})?)\\s*(?:元|￥|¥)")
 
         // 商户正则：匹配 "在XX消费"、"收款方：XX"、"向XX付款"、"付款给XX" 等常见格式
-        private val merchantRegex = Regex("在(.+?)消费|收款方[:：]\\s*(.+?)$|向(.+?)付款|付款给(.+?)$")
+        // WHY: 不能用行尾 $ 锚定，否则同行尾随的金额会被吞进商户名；
+        // 也不能把「于XX支出」当商户，银行文案中该位置多为日期
+        private val merchantRegex = Regex(
+            "在(.+?)消费|收款方[:：]\\s*(.+?)(?=\\s|[￥¥]|$)|向(.+?)付款|" +
+                "付款给(.+?)(?=\\s|[￥¥]|$)"
+        )
     }
 
-    // 只处理这两个包名的通知，避免其他应用通知误触发
+    // 只处理支付类/银行类 App 的通知，避免其他应用通知误触发
     private val targetPackages = setOf(
-        "com.eg.android.AlipayGphone", // 支付宝
-        "com.tencent.mm"               // 微信
+        "com.eg.android.AlipayGphone",        // 支付宝
+        "com.tencent.mm",                     // 微信
+        // WHY: v3.4.2 新增银行消息提醒通道，银行包名无法用前缀统一匹配，
+        // 故以白名单维护常见银行 App（与 Dart 侧 bankPackages 保持一致）
+        "cmb.pb",                             // 招商银行
+        "com.icbc",                           // 工商银行
+        "com.ccb.longjiLife",                 // 建设银行
+        "com.android.bankabc",                // 农业银行
+        "com.chinamworld.bocmbci",            // 中国银行
+        "com.bankcomm.Bankcomm",              // 交通银行
+        "com.yitong.mbank.psbc",              // 邮储银行
+        "com.ecitic.bank.mobile",             // 中信银行
+        "com.cebbank.mobile.cemb",            // 光大银行
+        "com.cmbc.cc.mbank",                  // 民生银行
+        "com.pingan.paces.ccms",              // 平安银行
+        "com.spdbccc.app",                    // 浦发银行
+        "com.cib.xyk",                        // 兴业银行
+        "com.cgbchina.xpt",                   // 广发银行
+        "com.huaxia.mobilebank",              // 华夏银行
+        "com.bankofbeijing.mobilebanking",    // 北京银行
+        "com.unionpay"                        // 云闪付
     )
 
     // 关键词过滤，避免同一 App 的非支付类通知误触发
+    // WHY: 银行通知常用「支出/消费/入账/转入/退款」等表述，需一并覆盖收支两类
     private val paymentKeywords = listOf(
         "支付", "付款", "消费", "转账", "收款", "支出", "扣款",
+        "收入", "转入", "入账", "到账", "退款", "退回",
         "账单", "订单", "元", "¥", "￥"
     )
 

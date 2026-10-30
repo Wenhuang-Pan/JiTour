@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/ai_analysis_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/markdown_view.dart';
 
 /// AI 账单分析页面
 ///
@@ -312,9 +313,11 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen> {
             ],
           ),
           const SizedBox(height: AppTheme.spaceMedium),
-          SelectableText(
-            result,
-            style: TextStyle(
+          // WHY: AI 返回的是 Markdown 文本，需渲染后再展示，
+          // 否则用户会看到 `##`、`**` 等原始标记符号（v3.4.2 用户反馈）
+          MarkdownView(
+            data: result,
+            baseStyle: TextStyle(
               fontSize: 14,
               height: 1.6,
               color: Theme.of(context).colorScheme.onSurface,

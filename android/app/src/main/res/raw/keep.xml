@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  WHY: quick_actions 插件在原生层通过
+  Resources.getIdentifier("ic_shortcut_add", "drawable", packageName) 动态查找图标，
+  属于运行时反射引用。release 构建开启了 isShrinkResources = true，
+  资源收缩器无法静态识别这类引用，会把该 drawable 当作无用资源剔除，
+  导致 release 包长按桌面图标的「记一笔」快捷方式没有图标（v3.4.2 用户反馈）。
+  此处用 tools:keep 显式声明保留，本文件不可删除。
+-->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/ic_shortcut_add" />

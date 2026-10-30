@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import '../models/pending_transaction.dart';
 import '../services/pending_transaction_service.dart';
+import '../services/notification_parser_service.dart';
 import '../utils/decimal_util.dart';
 
 /// 悬浮窗事件落库服务（无 UI 依赖）
@@ -31,6 +32,11 @@ class OverlayResultService {
     // WHY: 收支方向由原生侧（通知监听/无障碍服务）识别后透传，
     // 缺失时按支出处理，与历史版本行为一致
     final isIncome = data['isIncome'] as bool? ?? false;
+    // WHY: 来源由原生侧透传的包名决定，不能靠商户名里是否含「微信」猜测，
+    // 否则银行/其他渠道会被错误归类（v3.4.2 新增银行消息通道）
+    final packageName = data['packageName'] as String? ?? '';
+    final PaymentSource source =
+        NotificationParserService.sourceForPackage(packageName);
 
     debugPrint('[OverlayResult] 处理事件: action=$action, amount=$amount, '
         'merchant=$merchant, isIncome=$isIncome');
@@ -47,9 +53,7 @@ class OverlayResultService {
       try {
         final pending = await PendingTransactionService.create(
           amount: amount,
-          source: merchant.contains('微信')
-              ? PaymentSource.wechat
-              : PaymentSource.alipay,
+          source: source,
           rawText: rawText,
           merchant: merchant.isEmpty ? null : merchant,
           inferredCategory: category,
@@ -69,9 +73,6 @@ class OverlayResultService {
       // WHY: 悬浮窗权限未授权时的回退路径：创建待确认交易等待用户手动处理。
       // 与支付事件流同构的去重兜底——通知与无障碍双通道可能各触发一次
       // pending，15 秒内同金额同来源记录已存在时直接丢弃
-      final PaymentSource source = merchant.contains('微信')
-          ? PaymentSource.wechat
-          : PaymentSource.alipay;
       final bool isDuplicate = PendingTransactionService.getAll().any(
         (PendingTransaction t) =>
             t.amount == amount &&
@@ -100,9 +101,7 @@ class OverlayResultService {
       try {
         final pending = await PendingTransactionService.create(
           amount: amount,
-          source: merchant.contains('微信')
-              ? PaymentSource.wechat
-              : PaymentSource.alipay,
+          source: source,
           rawText: rawText,
           merchant: merchant.isEmpty ? null : merchant,
           isIncome: isIncome,

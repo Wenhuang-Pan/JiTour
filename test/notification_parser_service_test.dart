@@ -162,4 +162,59 @@ void main() {
       expect(NotificationParserService.detectIncome('你在便利店消费了10.00元'), isFalse);
     });
   });
+
+  group('退款识别（v3.4.2 修复）', () {
+    test('不带成功/到账的退款文案仍判定为收入', () {
+      // WHY: v3.4.2 用户反馈退款被识别成支付，退款文案常无「成功/到账」字样
+      expect(NotificationParserService.detectIncome('微信支付退款 ￥12.00'), isTrue);
+      expect(NotificationParserService.detectIncome('原路退回 30.00元'), isTrue);
+    });
+
+    test('退款未完成态不算收入', () {
+      expect(NotificationParserService.detectIncome('申请退款 12.00元'), isFalse);
+      expect(NotificationParserService.detectIncome('退款失败'), isFalse);
+    });
+
+    test('退款通知解析出的收支方向为收入', () {
+      final result =
+          NotificationParserService.parse('微信支付退款 ￥8.80', 'com.tencent.mm');
+      expect(result, isNotNull);
+      expect(result!.amount, Decimal.parse('8.80'));
+      expect(result.isIncome, isTrue);
+    });
+  });
+
+  group('银行消息识别（v3.4.2 新增）', () {
+    test('银行包名走通用解析并提取金额与商户', () {
+      final result = NotificationParserService.parse(
+          '您尾号1234的储蓄卡于10月23日在星巴克消费12.34元', 'cmb.pb');
+      expect(result, isNotNull);
+      expect(result!.source, PaymentSource.bank);
+      expect(result.amount, Decimal.parse('12.34'));
+      expect(result.merchant, '星巴克');
+      expect(result.isIncome, isFalse);
+    });
+
+    test('银行入账通知判定为收入', () {
+      final result = NotificationParserService.parse(
+          '您账户转入工资 8000.00元', 'com.icbc');
+      expect(result, isNotNull);
+      expect(result!.isIncome, isTrue);
+    });
+
+    test('sourceForPackage 正确映射支付来源', () {
+      expect(
+        NotificationParserService.sourceForPackage('com.tencent.mm'),
+        PaymentSource.wechat,
+      );
+      expect(
+        NotificationParserService.sourceForPackage('com.icbc'),
+        PaymentSource.bank,
+      );
+      expect(
+        NotificationParserService.sourceForPackage('com.eg.android.AlipayGphone'),
+        PaymentSource.alipay,
+      );
+    });
+  });
 }

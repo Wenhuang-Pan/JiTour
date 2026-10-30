@@ -228,6 +228,9 @@ class _QuickEntrySheetState extends State<_QuickEntrySheet> {
         return const Color(0xFF1677FF);
       case PaymentSource.wechat:
         return const Color(0xFF07C160);
+      case PaymentSource.bank:
+        // WHY: 银行消息通道无统一品牌色，使用中性灰避免误导为某个支付品牌
+        return const Color(0xFF8A8F99);
     }
   }
 

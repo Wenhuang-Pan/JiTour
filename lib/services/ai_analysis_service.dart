@@ -20,6 +20,9 @@ enum AiAnalysisError {
   /// 服务端错误（5xx）
   serverError,
 
+  /// 触发服务端频率限制（429）
+  rateLimited,
+
   /// 请求超时
   timeout,
 
@@ -197,7 +200,16 @@ class AiAnalysisService {
         '账单数据（已脱敏）：\n$dataJson';
   }
 
-  /// 调用智谱 GLM-4-Flash API。
+  /// 单次请求的最大尝试次数（含首次）。
+  ///
+  /// WHY: 大模型服务在并发或高频调用时会返回 429 / 5xx，直接报错会让用户
+  /// 反复手动重试；指数退避重试可显著提升实际成功率。
+  static const int _maxAttempts = 3;
+
+  /// 重试的基础退避时长（第 n 次重试等待 n * 1.5s）。
+  static const Duration _retryBaseDelay = Duration(milliseconds: 1500);
+
+  /// 调用 AI 接口，对可重试错误做指数退避重试。
   ///
   /// @param apiKey API Key。
   /// @param prompt 完整 Prompt。
@@ -205,6 +217,53 @@ class AiAnalysisService {
   /// @return AI 返回的文本内容。
   /// @throws AiAnalysisException 网络/Key/解析等异常。
   static Future<String> _callApi(
+    String apiKey,
+    String prompt,
+    http.Client client,
+  ) async {
+    // O(n)，n 为最大尝试次数（固定 3），仅在失败路径产生额外等待
+    for (int attempt = 1; attempt <= _maxAttempts; attempt++) {
+      final bool lastAttempt = attempt == _maxAttempts;
+      try {
+        return await _requestOnce(apiKey, prompt, client);
+      } on AiAnalysisException catch (e) {
+        // WHY: 仅频率限制/服务端错误/网络/超时可重试；
+        // Key 无效、参数错误等 4xx 与解析错误重试也不会成功，直接抛出
+        final bool retryable = e.type == AiAnalysisError.rateLimited ||
+            e.type == AiAnalysisError.serverError ||
+            e.type == AiAnalysisError.networkError ||
+            e.type == AiAnalysisError.timeout;
+        if (!retryable || lastAttempt) rethrow;
+        debugPrint(
+          '[AiAnalysis] 第 $attempt 次请求失败（${e.type}），即将退避重试',
+        );
+        await _waitBeforeRetry(attempt);
+      }
+    }
+    // 理论不可达：循环内所有分支均已 return 或 throw
+    throw const AiAnalysisException(
+      AiAnalysisError.networkError,
+      '请求失败，请稍后重试',
+    );
+  }
+
+  /// 按尝试次数线性退避等待。
+  ///
+  /// @param attempt 已失败的尝试次数（从 1 开始）。
+  /// @return 等待完成的 Future。
+  static Future<void> _waitBeforeRetry(int attempt) {
+    // WHY: 首次失败等 1.5s、第二次等 3s，给服务端频率窗口留出恢复时间
+    return Future<void>.delayed(_retryBaseDelay * attempt);
+  }
+
+  /// 执行一次 AI 请求（不含重试）。
+  ///
+  /// @param apiKey API Key。
+  /// @param prompt 完整 Prompt。
+  /// @param client http.Client 实例。
+  /// @return AI 返回的文本内容。
+  /// @throws AiAnalysisException 网络/Key/解析等异常。
+  static Future<String> _requestOnce(
     String apiKey,
     String prompt,
     http.Client client,
@@ -230,6 +289,13 @@ class AiAnalysisService {
         throw const AiAnalysisException(
           AiAnalysisError.invalidApiKey,
           'API Key 无效，请检查当前服务商的 API Key 是否正确',
+        );
+      }
+      if (response.statusCode == 429) {
+        // WHY: 429 是频率限制，属于可重试错误，由外层 _callApi 负责退避重试
+        throw const AiAnalysisException(
+          AiAnalysisError.rateLimited,
+          '请求过于频繁，请稍等片刻再试',
         );
       }
       if (response.statusCode >= 500) {

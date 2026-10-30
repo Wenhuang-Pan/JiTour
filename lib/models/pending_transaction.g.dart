@@ -84,6 +84,8 @@ class PaymentSourceAdapter extends TypeAdapter<PaymentSource> {
         return PaymentSource.alipay;
       case 1:
         return PaymentSource.wechat;
+      case 2:
+        return PaymentSource.bank;
       default:
         return PaymentSource.alipay;
     }
@@ -97,6 +99,9 @@ class PaymentSourceAdapter extends TypeAdapter<PaymentSource> {
         break;
       case PaymentSource.wechat:
         writer.writeByte(1);
+        break;
+      case PaymentSource.bank:
+        writer.writeByte(2);
         break;
     }
   }

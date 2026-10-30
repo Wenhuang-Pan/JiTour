@@ -119,7 +119,11 @@ class _StatsScreenState extends State<StatsScreen> {
           SizedBox(width: MediaQuery.of(context).padding.right),
         ],
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(56),
+          // WHY: AppBar 内部用 Flexible 包裹 toolbar，若 bottom 声明高度小于
+          // 实际内容高度，toolbar 会被压缩，右上角图标随之被裁切（v3.4.2 用户
+          // 反馈「右上角按钮显示不全」）。此处按两行内容实测高度计算：
+          // 上下内边距 16 + 月/年行 24 + 间距 8 + 日期行 36 ≈ 84，取 88 留余量
+          preferredSize: const Size.fromHeight(88),
           child: _buildTimeSelector(context),
         ),
       ),

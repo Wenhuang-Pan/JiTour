@@ -201,7 +201,16 @@ class AutoAccountingPlugin : FlutterPlugin, ActivityAware, EventChannel.StreamHa
         // 故只匹配明确的成功/到账语义短语
         private val incomeKeywords = listOf(
             "成功收款", "收款成功", "收款到账", "转账到账", "已到账",
-            "收到转账", "收到红包", "退款成功", "退款到账"
+            "收到转账", "收到红包", "转入", "入账", "退款成功", "退款到账"
+        )
+
+        // WHY: 退款通知文案不一定带「成功/到账」（如「微信支付退款 ￥12.00」
+        // 「原路退回」），只靠上面的短语会把退款误记成支出（v3.4.2 用户反馈）
+        private val refundKeywords = listOf("退款", "退回", "退费")
+
+        // WHY: 退款申请/退款中等未完成态不能算收入
+        private val refundPendingKeywords = listOf(
+            "退款失败", "申请退款", "退款中", "退款处理中", "待退款", "退款申请"
         )
 
         /**
@@ -211,8 +220,11 @@ class AutoAccountingPlugin : FlutterPlugin, ActivityAware, EventChannel.StreamHa
          * @return true 表示收入（收款/到账/退款），false 表示支出。
          */
         fun detectIncome(text: String): Boolean {
+            // WHY: 未完成的退款流程优先排除，避免把申请退款当成收入
+            if (refundPendingKeywords.any { text.contains(it) }) return false
             // O(k)，k 为关键词数量（常量级）
-            return incomeKeywords.any { text.contains(it) }
+            return incomeKeywords.any { text.contains(it) } ||
+                refundKeywords.any { text.contains(it) }
         }
 
         fun sendPaymentEvent(packageName: String, combined: String, postTime: Long = System.currentTimeMillis()) {
